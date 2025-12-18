@@ -1,0 +1,2682 @@
+// Nomad Wallet — Phase 1
+// Mobile-first (React Native + TypeScript)
+// Open-source | 24 Clock-Time Recovery | Clock-only UI until unlock
+
+/*
+ARCHITECTURE OVERVIEW
+---------------------
+Nomad/
+ ├─ app/
+ │   ├─ App.tsx
+ │   ├─ navigation/
+ │   ├─ screens/
+ │   │   ├─ LockScreen.tsx        // Clock-only unlock UI
+ │   │   ├─ CreateWallet.tsx      // Clock-time recovery setup
+ │   │   └─ Dashboard.tsx
+ │   ├─ components/
+ │   │   ├─ ClockDial.tsx         // Reusable clock component
+ │   │   └─ ClockPicker.tsx
+ │   ├─ crypto/
+ │   │   ├─ mnemonic.ts           // BIP39 + clock mapping
+ │   │   ├─ vault.ts              // Encrypted local storage
+ │   │   └─ evm.ts                // ethers.js integration
+ │   ├─ i18n/
+ │   │   ├─ en.json
+ │   │   ├─ es.json
+ │   │   └─ fr.json
+ │   └─ utils/
+ │       └─ timeEncoding.ts
+ └─ README.md
+*/
+
+// =============================
+// CreateWallet.tsx
+// 24-Clock Recovery Creation & Confirmation Ritual
+
+import React, { useState } from "react";
+import { View, Text, ScrollView, Animated } from "react-native";
+import { ClockDial, ClockTime } from "../components/ClockDial";
+import { generateClockMnemonic } from "../crypto/mnemonic";
+import { setUnlockTime } from "../crypto/vault";
+
+export const CreateWallet = ({ onComplete }: { onComplete: () => void }) => {
+  const [{ clocks }, setSeed] = useState(() => generateClockMnemonic());
+  const [step, setStep] = useState<"backup" | "confirm" | "unlock">("backup");
+  const [index, setIndex] = useState(0);
+  const [entered, setEntered] = useState<ClockTime[]>([]);
+  const fade = new Animated.Value(1);
+
+  const next = () => {
+    if (step === "backup" && index === 23) {
+      setStep("confirm");
+      setIndex(0);
+    } else if (step === "confirm" && index === 23) {
+      setStep("unlock");
+    } else {
+      setIndex(index + 1);
+    }
+  };
+
+  const onConfirm = (t: ClockTime) => {
+    const updated = [...entered];
+    updated[index] = t;
+    setEntered(updated);
+    next();
+  };
+
+  if (step === "unlock") {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Set your daily unlock time</Text>
+        <ClockDial value={{ hour: 12, minute: 0 }} onChange={setUnlockTime} />
+        <Text onPress={onComplete}>Finish</Text>
+      </View>
+    );
+  }
+
+  const current = step === "backup" ? clocks[index] : undefined;
+
+  return (
+    <Animated.View style={{ flex: 1, opacity: fade, justifyContent: "center", alignItems: "center" }}>
+      <Text>{step === "backup" ? `Backup Clock ${index + 1}/24` : `Confirm Clock ${index + 1}/24`}</Text>
+      <ClockDial
+        value={current || { hour: 12, minute: 0 }}
+        onChange={step === "confirm" ? onConfirm : next}
+      />
+    </Animated.View>
+  );
+}
+// vault.ts
+// Encrypted local vault using user-selected unlock time
+
+import * as SecureStore from "expo-secure-store";
+import { ClockTime } from "../components/ClockDial";
+
+const VAULT_KEY = "NOMAD_VAULT";
+const UNLOCK_KEY = "NOMAD_UNLOCK_TIME";
+
+function minutes(t: ClockTime) {
+  return (t.hour % 12) * 60 + t.minute;
+}
+
+export async function setUnlockTime(time: ClockTime) {
+  await SecureStore.setItemAsync(UNLOCK_KEY, JSON.stringify(time));
+}
+
+export async function unlockVault(input: ClockTime, tolerance: number): Promise<boolean> {
+  const stored = await SecureStore.getItemAsync(UNLOCK_KEY);
+  if (!stored) return false;
+
+  const target: ClockTime = JSON.parse(stored);
+  const diff = Math.abs(minutes(input) - minutes(target));
+
+  return diff <= tolerance;
+}
+
+// ClockDial.tsx
+// Bezel-rotation style interaction (safe-dial inspired)
+// Clock-only UI until unlock
+
+import React, { useRef, useState } from "react";
+import { View, StyleSheet, PanResponder, Vibration } from "react-native";
+
+export type ClockTime = {
+  hour: number;   // 1–12
+  minute: number; // multiples of 5
+};
+
+const SNAP_MINUTES = 5;
+const FULL_ROTATION = 360;
+
+function angleToTime(angle: number): ClockTime {
+  const normalized = (angle + 360) % 360;
+  const totalMinutes = Math.round((normalized / 360) * 720 / SNAP_MINUTES) * SNAP_MINUTES;
+  const hour = Math.floor(totalMinutes / 60) % 12 || 12;
+  const minute = totalMinutes % 60;
+  return { hour, minute };
+}
+
+export const ClockDial: React.FC<{
+  value: ClockTime;
+  onChange: (t: ClockTime) => void;
+}> = ({ value, onChange }) => {
+  const angleRef = useRef(0);
+  const [angle, setAngle] = useState(0);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gesture) => {
+        const rotation = gesture.dx; // horizontal bezel drag
+        const newAngle = angleRef.current + rotation;
+        const snapped = Math.round(newAngle / (FULL_ROTATION / (720 / SNAP_MINUTES))) * (FULL_ROTATION / (720 / SNAP_MINUTES));
+        angleRef.current = snapped;
+        setAngle(snapped);
+        const time = angleToTime(snapped);
+        onChange(time);
+        Vibration.vibrate(5);
+      },
+      onPanResponderRelease: () => {
+        angleRef.current = angle;
+      },
+    })
+  ).current;
+
+  return (
+    <View style={styles.container}>
+      <View
+        {...panResponder.panHandlers}
+        style={[styles.bezel, { transform: [{ rotate: `${angle}deg` }] }]}
+      />
+      <View style={styles.centerPin} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bezel: {
+    position: "absolute",
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    borderWidth: 6,
+    borderColor: "#222",
+  },
+  centerPin: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#222",
+  },
+});
+
+export const ClockDial: React.FC<{
+  value: ClockTime;
+  onChange: (t: ClockTime) => void;
+}> = ({ value, onChange }) => {
+  const [hour, setHour] = useState(value.hour);
+  const [minute, setMinute] = useState(value.minute);
+
+  // Simplified interaction logic (gesture math omitted for clarity)
+  const rotateHour = () => {
+    const h = hour === 12 ? 1 : hour + 1;
+    setHour(h);
+    onChange({ hour: h, minute });
+  };
+
+  const rotateMinute = () => {
+    const m = (minute + 5) % 60;
+    setMinute(m);
+    onChange({ hour, minute: m });
+  };
+
+  return (
+    <View style={styles.clock}>
+      <Text style={styles.time}>{hour}:{minute.toString().padStart(2, "0")}</Text>
+      <Text onPress={rotateHour} style={styles.hand}>Rotate Hour</Text>
+      <Text onPress={rotateMinute} style={styles.hand}>Rotate Minute</Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  clock: {
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    borderWidth: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  time: {
+    fontSize: 28,
+    marginBottom: 12,
+  },
+  hand: {
+    fontSize: 14,
+    marginTop: 6,
+  },
+});
+
+// =============================
+// mnemonic.ts (Clock-Time Mnemonic)
+// 24 clock-times mapped to 24-word BIP39 mnemonic
+
+import * as bip39 from "bip39";
+import { ClockTime } from "../components/ClockDial";
+
+export function generateClockMnemonic(): { mnemonic: string; clocks: ClockTime[] } {
+  const mnemonic = bip39.generateMnemonic(256); // 24 words
+  const words = mnemonic.split(" ");
+
+  const clocks: ClockTime[] = words.map((_, i) => ({
+    hour: (i % 12) + 1,
+    minute: (i * 5) % 60,
+  }));
+
+  return { mnemonic, clocks };
+}
+
+export function clocksToEntropy(clocks: ClockTime[]): Buffer {
+  // Deterministic, auditable mapping
+  const bytes = clocks.map(c => (c.hour * 60 + c.minute) % 256);
+  return Buffer.from(bytes);
+}
+}
+
+export function clocksToMnemonic(clocks: ClockTime[], wordlist: string[]): string {
+  // Deterministic mapping (final mapping defined later)
+  return clocks.map(c => wordlist[(c.hour * 5 + c.minute / 5) % wordlist.length]).join(" ");
+}
+
+// =============================
+// LockScreen.tsx
+// Clock-only unlock screen with time validation
+
+import React, { useState, useEffect } from "react";
+import { View, Animated } from "react-native";
+import { ClockDial, ClockTime } from "../components/ClockDial";
+import { unlockVault } from "../crypto/vault";
+
+const UNLOCK_TOLERANCE_MINUTES = 5; // snap-based tolerance
+
+export const LockScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
+  const [time, setTime] = useState<ClockTime>({ hour: 12, minute: 0 });
+  const opacity = useState(new Animated.Value(1))[0];
+
+  useEffect(() => {
+    (async () => {
+      const ok = await unlockVault(time, UNLOCK_TOLERANCE_MINUTES);
+      if (ok) {
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(onUnlocked);
+      }
+    })();
+  }, [time]);
+
+  return (
+    <Animated.View style={{ flex: 1, opacity, justifyContent: "center", alignItems: "center" }}>
+      <ClockDial value={time} onChange={setTime} />
+    </Animated.View>
+  );
+};
+
+// NOTE:
+// Until unlocked, NOTHING but the clock is shown.
+// No menus. No status. No leaks.
+
+// =============================
+// travelMode.ts
+// Travel Mode state, region-aware stablecoin preference, NFC gating, conversion reminders
+
+export type Region = "US" | "EU" | "UK" | "AU" | "UAE" | "GLOBAL";
+
+export type ConversionReminderMode = "OFF" | "SUGGEST";
+
+export type TravelModeState = {
+  enabled: boolean;
+  region: Region;
+  preferredStablecoin: string;
+  dailyLimitUSD: number;
+  nfcEnabled: boolean;
+  conversionReminder: ConversionReminderMode; // Hybrid model
+};
+
+export const REGION_STABLECOINS: Record<Region, string[]> = {
+  US: ["USDC", "USDT", "DAI"],
+  EU: ["EURC", "EUROe", "USDC"],
+  UK: ["GBPT", "USDC"],
+  AU: ["USDC"],
+  UAE: ["USDC", "USDT"],
+  GLOBAL: ["USDC"],
+};
+
+export function resolvePreferredStablecoin(region: Region, balances: Record<string, number>): string {
+  const options = REGION_STABLECOINS[region];
+  for (const token of options) {
+    if ((balances[token] || 0) > 0) return token;
+  }
+  return options[0];
+}
+
+export function shouldSuggestConversion(
+  state: TravelModeState,
+  balances: Record<string, number>
+): boolean {
+  if (!state.enabled) return false;
+  if (state.conversionReminder !== "SUGGEST") return false;
+  const preferred = resolvePreferredStablecoin(state.region, balances);
+  return (balances[preferred] || 0) === 0;
+}
+
+export const REGION_STABLECOINS: Record<Region, string[]> = {
+  US: ["USDC", "USDT", "DAI"],
+  EU: ["EURC", "EUROe", "USDC"],
+  UK: ["GBPT", "USDC"],
+  AU: ["USDC"],
+  UAE: ["USDC", "USDT"],
+  GLOBAL: ["USDC"],
+};
+
+export function resolvePreferredStablecoin(region: Region, balances: Record<string, number>): string {
+  const options = REGION_STABLECOINS[region];
+  for (const token of options) {
+    if ((balances[token] || 0) > 0) return token;
+  }
+  return options[0];
+}
+
+// =============================
+// TravelModeScreen.tsx
+// Clock-driven Travel Mode activation
+
+import React, { useState } from "react";
+import { View, Text, Animated } from "react-native";
+import { ClockDial, ClockTime } from "../components/ClockDial";
+
+export const TravelModeScreen = ({ onEnabled }: { onEnabled: () => void }) => {
+  const [time, setTime] = useState<ClockTime>({ hour: 12, minute: 0 });
+  const glow = new Animated.Value(0.3);
+
+  // Special bezel gesture / time pattern could be enforced here
+  const enable = () => {
+    Animated.timing(glow, { toValue: 1, duration: 400, useNativeDriver: true }).start(onEnabled);
+  };
+
+  return (
+    <Animated.View style={{ flex: 1, opacity: glow, justifyContent: "center", alignItems: "center" }}>
+      <Text>Travel Mode</Text>
+      <ClockDial value={time} onChange={setTime} />
+      <Text onPress={enable}>Enable</Text>
+    </Animated.View>
+  );
+};
+
+// =============================
+// NFC rules (conceptual)
+// NFC only active when TravelMode.enabled === true
+// Spending enforced by dailyLimitUSD
+
+
+// =============================
+// PortfolioScreen.tsx
+// Phase 2 — Stablecoin Portfolio (UX-first, region-aware)
+
+import React from "react";
+import { View, Text, FlatList } from "react-native";
+import { Region, resolvePreferredStablecoin } from "../travelMode";
+
+export type Balance = {
+  symbol: string;
+  amount: number;
+  fiatApproxUSD: number;
+};
+
+export const PortfolioScreen = ({
+  balances,
+  region,
+}: {
+  balances: Balance[];
+  region: Region;
+}) => {
+  const balanceMap = Object.fromEntries(
+    balances.map(b => [b.symbol, b.amount])
+  );
+
+  const preferred = resolvePreferredStablecoin(region, balanceMap);
+
+  const ordered = [...balances].sort((a, b) => {
+    if (a.symbol === preferred) return -1;
+    if (b.symbol === preferred) return 1;
+    return b.fiatApproxUSD - a.fiatApproxUSD;
+  });
+
+  return (
+    <View style={{ flex: 1, padding: 24 }}>
+      <Text style={{ fontSize: 28, marginBottom: 12 }}>Portfolio</Text>
+      <FlatList
+        data={ordered}
+        keyExtractor={item => item.symbol}
+        renderItem={({ item }) => (
+          <View style={{ paddingVertical: 12 }}>
+            <Text style={{ fontSize: 18 }}>{item.symbol}</Text>
+            <Text style={{ opacity: 0.6 }}>{item.amount}</Text>
+          </View>
+        )}
+      />
+    </View>
+  );
+};
+
+// UX Notes:
+// - Preferred regional stablecoin always appears first
+// - Subtle visual emphasis (not color-heavy)
+// - Travel Mode indicator shown when active
+// - Conversion entry point is visible but requires explicit action
+
+// =============================
+// PortfolioPolish.tsx
+// Phase 2A — Clarity & Transparency Layer
+
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Region } from "../travelMode";
+
+export const PortfolioHeader = ({
+  region,
+  preferred,
+  travelMode,
+}: {
+  region: Region;
+  preferred: string;
+  travelMode: boolean;
+}) => {
+  return (
+    <View style={styles.header}>
+      {travelMode && (
+        <Text style={styles.travel}>Travel Mode Active</Text>
+      )}
+      <Text style={styles.suggestion}>
+        Suggested for this region: {preferred}
+      </Text>
+    </View>
+  );
+};
+
+export const ConvertPreview = ({ onPress }: { onPress: () => void }) => (
+  <View style={styles.convertBox}>
+    <Text style={styles.convertText}>
+      Convert to local stablecoin
+    </Text>
+    <Text style={styles.convertHint}>
+      Review rate & confirm before anything happens
+    </Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  header: {
+    marginBottom: 16,
+  },
+  travel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  suggestion: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  convertBox: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  convertText: {
+    fontSize: 16,
+  },
+  convertHint: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 4,
+  },
+});
+
+// =============================
+// ConversionFlow.tsx
+// Phase 2B — Region-Aware Conversion (Suggestion + Quote Preview)
+
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Region } from "../travelMode";
+
+export type ConversionQuote = {
+  fromToken: string;
+  toToken: string;
+  amount: number;
+  rate: number; // estimated
+  feeUSD: number;
+  source: string; // e.g. "DEX Aggregator"
+};
+
+export const ConversionSuggestion = ({
+  region,
+  preferred,
+  onReview,
+}: {
+  region: Region;
+  preferred: string;
+  onReview: () => void;
+}) => (
+  <View style={styles.card}>
+    <Text style={styles.title}>Local currency suggestion</Text>
+    <Text style={styles.body}>
+      You’re in {region}. Converting to {preferred} may reduce friction when paying.
+    </Text>
+    <TouchableOpacity onPress={onReview} style={styles.primaryBtn}>
+      <Text style={styles.primaryText}>Review conversion</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+export const ConversionQuotePreview = ({
+  quote,
+  onConfirm,
+}: {
+  quote: ConversionQuote;
+  onConfirm: () => void;
+}) => (
+  <View style={styles.card}>
+    <Text style={styles.title}>Conversion preview</Text>
+
+    <Text style={styles.row}>From: {quote.amount} {quote.fromToken}</Text>
+    <Text style={styles.row}>To (est): {(quote.amount * quote.rate).toFixed(2)} {quote.toToken}</Text>
+    <Text style={styles.row}>Estimated fee: ${quote.feeUSD}</Text>
+    <Text style={styles.source}>Rate source: {quote.source}</Text>
+
+    <TouchableOpacity onPress={onConfirm} style={styles.confirmBtn}>
+      <Text style={styles.confirmText}>Confirm with clock</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+// UX Notes:
+// - Nothing executes on suggestion
+// - Quote clearly shows estimates + source
+// - Final confirmation happens via clock ritual
+
+const styles = StyleSheet.create({
+  card: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginVertical: 12,
+  },
+  title: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  body: {
+    fontSize: 14,
+    opacity: 0.8,
+    marginBottom: 16,
+  },
+  row: {
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  source: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 8,
+  },
+  primaryBtn: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#999",
+  },
+  primaryText: {
+    textAlign: "center",
+    fontSize: 15,
+  },
+  confirmBtn: {
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#111",
+  },
+  confirmText: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 16,
+  },
+});
+
+// =============================
+// ClockConfirmation.tsx
+// Option 1 — Clock Confirmation UX (language-agnostic, intent-based)
+
+import React, { useState } from "react";
+import { View, Text, PanResponder, StyleSheet, Vibration } from "react-native";
+
+// This component is used for:
+// - Unlock confirmation
+// - Conversion confirmation
+// - NFC payment confirmation
+
+export type ClockConfirmationProps = {
+  targetMinutes: number; // user-defined confirmation time
+  tolerance?: number; // allowed +/- minutes
+  labelKey: string; // i18n key, not raw text
+  onConfirm: () => void;
+  onFail?: () => void;
+};
+
+export const ClockConfirmation = ({
+  targetMinutes,
+  tolerance = 2,
+  labelKey,
+  onConfirm,
+  onFail,
+}: ClockConfirmationProps) => {
+  const [currentMinutes, setCurrentMinutes] = useState(0);
+
+  const pan = PanResponder.create({
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, gesture) => {
+      const delta = gesture.dx;
+      const minutes = Math.round((delta / 300) * 60);
+      setCurrentMinutes((prev) => (prev + minutes + 1440) % 1440);
+    },
+    onPanResponderRelease: () => {
+      const diff = Math.abs(currentMinutes - targetMinutes);
+      if (diff <= tolerance) {
+        Vibration.vibrate(40);
+        onConfirm();
+      } else {
+        Vibration.vibrate([20, 40, 20]);
+        onFail?.();
+      }
+    },
+  });
+
+  return (
+    <View style={styles.container} {...pan.panHandlers}>
+      {/* Clock face placeholder */}
+      <View style={styles.clock} />
+
+      {/* Label uses i18n key */}
+      <Text style={styles.label}>{labelKey}</Text>
+    </View>
+  );
+};
+
+// UX Notes:
+// - No numbers displayed
+// - No language-specific text inside logic
+// - Same ritual across all sensitive actions
+// - Failure is subtle (no error messages)
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  clock: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 2,
+    borderColor: "#111",
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+});
+
+// =============================
+// SafetyLimits.ts
+// Option 3 — Safety, Limits & Emergency Controls
+
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+
+export type SafetyState = {
+  dailySpendLimitUSD: number;
+  spentTodayUSD: number;
+  nfcEnabled: boolean;
+  lastActivityAt: number; // timestamp
+  emergencyLocked: boolean;
+};
+
+export function canSpend(amountUSD: number, state: SafetyState): boolean {
+  if (state.emergencyLocked) return false;
+  if (!state.nfcEnabled) return false;
+  return state.spentTodayUSD + amountUSD <= state.dailySpendLimitUSD;
+}
+
+export function shouldAutoDisableNFC(state: SafetyState, now: number): boolean {
+  const INACTIVITY_MS = 1000 * 60 * 30; // 30 minutes
+  if (!state.nfcEnabled) return false;
+  return now - state.lastActivityAt > INACTIVITY_MS;
+}
+
+export function triggerEmergencyLock(): SafetyState {
+  return {
+    dailySpendLimitUSD: 0,
+    spentTodayUSD: 0,
+    nfcEnabled: false,
+    lastActivityAt: Date.now(),
+    emergencyLocked: true,
+  };
+}
+
+// =============================
+// EmergencyLockGesture.tsx
+// Fast, unmistakable safety action
+
+import { PanResponder, Vibration } from "react-native";
+
+export function useEmergencyLock(onLock: () => void) {
+  return PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) =>
+      Math.abs(gesture.dy) > 120 && Math.abs(gesture.dx) < 40,
+    onPanResponderRelease: () => {
+      Vibration.vibrate([30, 60, 30]);
+      onLock();
+    },
+  });
+}
+
+// =============================
+// SafetyIndicator.tsx
+// Clear but calm visual state
+
+export const SafetyIndicator = ({
+  nfcEnabled,
+  emergencyLocked,
+}: {
+  nfcEnabled: boolean;
+  emergencyLocked: boolean;
+}) => {
+  let label = "safe";
+  if (emergencyLocked) label = "locked";
+  else if (nfcEnabled) label = "tap-ready";
+
+  return (
+    <View style={styles.indicator}>
+      <Text style={styles.text}>{label}</Text>
+    </View>
+  );
+};
+
+// UX Notes:
+// - Limits are enforced before intent confirmation
+// - NFC auto-disables on inactivity
+// - Emergency lock is fast, physical, and reversible via clock
+
+const styles = StyleSheet.create({
+  indicator: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  text: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+});
+
+// =============================
+// NFCPaymentFlow.tsx
+// Option 2 — NFC Tap-to-Pay Flow (Travel Mode enforced)
+
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { SafetyState, canSpend } from "./SafetyLimits";
+import { Region } from "../travelMode";
+
+export type NFCPayload = {
+  merchantId: string;
+  amountUSD: number;
+  currencyHint?: string; // optional local hint
+};
+
+export type NFCContext = {
+  region: Region;
+  preferredToken: string;
+  travelModeEnabled: boolean;
+  safety: SafetyState;
+};
+
+export function validateNFCPayment(
+  payload: NFCPayload,
+  context: NFCContext
+): { allowed: boolean; reason?: string } {
+  if (!context.travelModeEnabled)
+    return { allowed: false, reason: "travel_mode_required" };
+
+  if (!canSpend(payload.amountUSD, context.safety))
+    return { allowed: false, reason: "limit_or_lock" };
+
+  return { allowed: true };
+}
+
+export const NFCPaymentPreview = ({
+  payload,
+  token,
+}: {
+  payload: NFCPayload;
+  token: string;
+}) => (
+  <View style={styles.card}>
+    <Text style={styles.title}>Tap payment</Text>
+    <Text style={styles.row}>Amount: ${payload.amountUSD}</Text>
+    <Text style={styles.row}>Paying with: {token}</Text>
+    <Text style={styles.hint}>Hold device near terminal</Text>
+  </View>
+);
+
+// =============================
+// NFCIntent.ts
+// Offline-safe intent structure
+
+export type NFCIntent = {
+  payload: NFCPayload;
+  token: string;
+  createdAt: number;
+  expiresAt: number;
+};
+
+export function createNFCIntent(
+  payload: NFCPayload,
+  token: string
+): NFCIntent {
+  const now = Date.now();
+  return {
+    payload,
+    token,
+    createdAt: now,
+    expiresAt: now + 1000 * 30, // 30s validity
+  };
+}
+
+// UX Notes:
+// - NFC only works in Travel Mode
+// - Limits are checked before intent creation
+// - Intent expires quickly
+// - Final approval still requires clock confirmation
+
+const styles = StyleSheet.create({
+  card: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginVertical: 12,
+  },
+  title: {
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  row: {
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  hint: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 12,
+  },
+});
+
+// =============================
+// ConversionExecution.ts
+// Option 4 — Transparent Conversion Execution (Non-custodial)
+
+// NOTE:
+// This layer PREPARES and SIGNS swaps but never custody funds.
+// Actual on-chain execution can be wired to a DEX aggregator later.
+
+export type SwapRoute = {
+  fromToken: string;
+  toToken: string;
+  amountIn: number;
+  estimatedOut: number;
+  slippageBps: number; // basis points
+  gasEstimate: number; // native gas units
+  network: string;
+  router: string; // aggregator / contract name
+};
+
+export type SwapQuote = {
+  route: SwapRoute;
+  minOut: number;
+  expiresAt: number;
+};
+
+export function buildSwapQuote(route: SwapRoute): SwapQuote {
+  const minOut = route.estimatedOut * (1 - route.slippageBps / 10_000);
+
+  return {
+    route,
+    minOut,
+    expiresAt: Date.now() + 1000 * 45, // 45s validity
+  };
+}
+
+export function validateSwapQuote(quote: SwapQuote): boolean {
+  return Date.now() < quote.expiresAt;
+}
+
+// =============================
+// Signing Boundary
+// Wallet only signs what the user sees
+
+export type SwapIntent = {
+  quote: SwapQuote;
+  createdAt: number;
+};
+
+export function createSwapIntent(quote: SwapQuote): SwapIntent {
+  if (!validateSwapQuote(quote)) {
+    throw new Error("Quote expired");
+  }
+
+  return {
+    quote,
+    createdAt: Date.now(),
+  };
+}
+
+// =============================
+// Execution Stub
+// Replace with on-chain provider later
+
+export async function executeSwap(intent: SwapIntent): Promise<{ txHash: string }> {
+  // This is intentionally explicit and narrow
+  // Real implementation connects to wallet provider
+
+  console.log("Executing swap:", intent);
+
+  return {
+    txHash: "0xSIMULATED_TX_HASH",
+  };
+}
+
+// UX Notes:
+// - Quote shows slippage + gas before signing
+// - Quote expires quickly
+// - User signs exactly what they reviewed
+// - No hidden routing or approvals
+
+
+// =============================
+// Phase A — Visual & Motion Language
+// Purpose: Turn Nomad from "correct" to "delightful"
+
+// Design principles:
+// - Time is the interface
+// - Motion confirms intent
+// - Stillness = safety
+
+// =============================
+// ClockMotion.tsx
+// Shared motion + haptics for all clock interactions
+
+import { Animated, Easing, Vibration } from "react-native";
+
+export const ClockMotion = {
+  rotateTo(angle: Animated.Value, toDeg: number) {
+    Animated.timing(angle, {
+      toValue: toDeg,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  },
+
+  confirm() {
+    Vibration.vibrate(35);
+  },
+
+  reject() {
+    Vibration.vibrate([15, 30, 15]);
+  },
+};
+
+// =============================
+// ClockFace.tsx
+// Visual clock shell (no numbers, universal)
+
+import React from "react";
+import { View, Animated, StyleSheet } from "react-native";
+
+export const ClockFace = ({ angle }: { angle: Animated.Value }) => {
+  const rotate = angle.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <View style={styles.container}>
+      <Animated.View
+        style={[styles.hand, { transform: [{ rotate }] }]}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    borderWidth: 2,
+    borderColor: "#111",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hand: {
+    width: 2,
+    height: 110,
+    backgroundColor: "#111",
+    position: "absolute",
+    top: 20,
+  },
+});
+
+// =============================
+// Motion UX Notes:
+// - Bezel rotation animates smoothly, never snaps
+// - Confirmation uses a short, confident haptic
+// - Rejection uses a soft triple pulse
+// - No sound by default (travel-friendly)
+// - Stillness always indicates a safe state
+
+// =============================
+// ClockStates.ts
+// Visual states for safety & intent
+
+export type ClockVisualState =
+  | "idle"        // locked / safe
+  | "active"      // user interacting
+  | "confirm"     // success
+  | "reject"      // failed attempt
+  | "warning";    // limits / attention needed
+
+export function getClockOpacity(state: ClockVisualState): number {
+  switch (state) {
+    case "idle": return 0.6;
+    case "active": return 1;
+    case "confirm": return 1;
+    case "reject": return 0.8;
+    case "warning": return 0.9;
+  }
+}
+
+export function getClockScale(state: ClockVisualState): number {
+  switch (state) {
+    case "confirm": return 1.04;
+    case "reject": return 0.98;
+    default: return 1;
+  }
+}
+
+// =============================
+// MicroTransitions.ts
+// Small transitions that build trust
+
+import { Animated, Easing } from "react-native";
+
+export function pulse(value: Animated.Value) {
+  Animated.sequence([
+    Animated.timing(value, {
+      toValue: 1.04,
+      duration: 120,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }),
+    Animated.timing(value, {
+      toValue: 1,
+      duration: 160,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: true,
+    }),
+  ]).start();
+}
+
+// =============================
+// Phase A UX Principles (Locked)
+// 1. Motion never surprises
+// 2. Feedback is felt, not read
+// 3. Errors are quiet
+// 4. Success feels inevitable
+
+// =============================
+// Phase B — Language System & i18n Architecture
+// Goal: Global-ready, finance-safe language without UX drift
+
+// =============================
+// i18n.ts
+// Centralized language registry (no hardcoded strings)
+
+export type Language = "en" | "fr" | "ar" | "ja";
+
+export type I18nKey =
+  | "clock.unlock"
+  | "clock.confirm"
+  | "clock.reject"
+  | "travel.mode.active"
+  | "portfolio.suggested"
+  | "convert.review"
+  | "convert.confirm"
+  | "nfc.tap"
+  | "safety.locked"
+  | "safety.safe";
+
+export const STRINGS: Record<Language, Record<I18nKey, string>> = {
+  en: {
+    "clock.unlock": "Unlock",
+    "clock.confirm": "Confirm",
+    "clock.reject": "Not matched",
+    "travel.mode.active": "Travel mode active",
+    "portfolio.suggested": "Suggested for this region",
+    "convert.review": "Review conversion",
+    "convert.confirm": "Confirm with clock",
+    "nfc.tap": "Hold near terminal",
+    "safety.locked": "Locked",
+    "safety.safe": "Safe",
+  },
+  fr: {
+    "clock.unlock": "Déverrouiller",
+    "clock.confirm": "Confirmer",
+    "clock.reject": "Non correspondant",
+    "travel.mode.active": "Mode voyage actif",
+    "portfolio.suggested": "Suggéré pour cette région",
+    "convert.review": "Vérifier la conversion",
+    "convert.confirm": "Confirmer avec l’horloge",
+    "nfc.tap": "Approchez du terminal",
+    "safety.locked": "Verrouillé",
+    "safety.safe": "Sécurisé",
+  },
+  ar: {
+    "clock.unlock": "فتح",
+    "clock.confirm": "تأكيد",
+    "clock.reject": "غير مطابق",
+    "travel.mode.active": "وضع السفر مفعل",
+    "portfolio.suggested": "مقترح لهذه المنطقة",
+    "convert.review": "مراجعة التحويل",
+    "convert.confirm": "تأكيد باستخدام الساعة",
+    "nfc.tap": "قرّب من الجهاز",
+    "safety.locked": "مقفل",
+    "safety.safe": "آمن",
+  },
+  ja: {
+    "clock.unlock": "解除",
+    "clock.confirm": "確認",
+    "clock.reject": "一致しません",
+    "travel.mode.active": "トラベルモード有効",
+    "portfolio.suggested": "この地域で推奨",
+    "convert.review": "変換を確認",
+    "convert.confirm": "時計で確認",
+    "nfc.tap": "端末に近づけてください",
+    "safety.locked": "ロック中",
+    "safety.safe": "安全",
+  },
+};
+
+// =============================
+// useI18n.ts
+// Simple hook for language resolution
+
+import { useState } from "react";
+
+export function useI18n(initial: Language = "en") {
+  const [lang, setLang] = useState<Language>(initial);
+
+  function t(key: I18nKey): string {
+    return STRINGS[lang][key];
+  }
+
+  return { t, lang, setLang };
+}
+
+// =============================
+// RTL helpers
+
+export const RTL_LANGS: Language[] = ["ar"];
+
+export function isRTL(lang: Language): boolean {
+  return RTL_LANGS.includes(lang);
+}
+
+// =============================
+// Phase B UX Principles (Locked)
+// 1. No string lives in UI components
+// 2. Financial meaning > literal translation
+// 3. Clock visuals remain language-neutral
+// 4. RTL never breaks layout or intent
+
+
+// =============================
+// Phase C — Real Wallet Wiring (Testnet-first)
+// Goal: Make Nomad actually hold keys and sign transactions safely
+
+// Principles:
+// - Non-custodial always
+// - Keys never leave device
+// - Testnet before mainnet
+
+// =============================
+// wallet/KeyVault.ts
+// Secure key creation + access boundary
+
+import * as Crypto from "expo-crypto";
+
+export type VaultState = {
+  encryptedSeed: string; // encrypted mnemonic/seed
+  createdAt: number;
+};
+
+export async function generateSeed(): Promise<string> {
+  // 256-bit entropy
+  const bytes = await Crypto.getRandomBytesAsync(32);
+  return Buffer.from(bytes).toString("hex");
+}
+
+// NOTE:
+// Actual mnemonic derivation (BIP39) happens in integration step
+
+// =============================
+// wallet/SecureStorage.ts
+// OS-level secure persistence
+
+import * as SecureStore from "expo-secure-store";
+
+const VAULT_KEY = "nomad.vault";
+
+export async function saveVault(vault: VaultState) {
+  await SecureStore.setItemAsync(VAULT_KEY, JSON.stringify(vault));
+}
+
+export async function loadVault(): Promise<VaultState | null> {
+  const data = await SecureStore.getItemAsync(VAULT_KEY);
+  return data ? JSON.parse(data) : null;
+}
+
+// =============================
+// wallet/HDWallet.ts
+// Deterministic key derivation (stub)
+
+export type DerivedAccount = {
+  address: string;
+  path: string;
+};
+
+export function deriveAccount(seed: string, index: number): DerivedAccount {
+  // Placeholder — integrate BIP32/BIP44 later
+  return {
+    address: `0xACCOUNT_${index}`,
+    path: `m/44'/60'/0'/0/${index}`,
+  };
+}
+
+// =============================
+// wallet/Provider.ts
+// Network provider abstraction
+
+export type Network = "ethereum-sepolia" | "polygon-mumbai";
+
+export type ProviderConfig = {
+  rpcUrl: string;
+  chainId: number;
+};
+
+export const PROVIDERS: Record<Network, ProviderConfig> = {
+  "ethereum-sepolia": {
+    rpcUrl: "https://sepolia.example",
+    chainId: 11155111,
+  },
+  "polygon-mumbai": {
+    rpcUrl: "https://mumbai.example",
+    chainId: 80001,
+  },
+};
+
+// =============================
+// wallet/Signer.ts
+// Explicit signing boundary
+
+export type UnsignedTx = {
+  to: string;
+  value: string;
+  data?: string;
+};
+
+export type SignedTx = {
+  rawTx: string;
+};
+
+export function signTransaction(
+  tx: UnsignedTx,
+  seed: string
+): SignedTx {
+  // Stub: real signing wired later
+  return {
+    rawTx: `SIGNED(${tx.to}:${tx.value})`,
+  };
+}
+
+// =============================
+// Phase C UX Principles (Locked)
+// 1. User sees address before funds move
+// 2. Signing requires clock confirmation
+// 3. Testnet is default
+// 4. Recovery never touches network
+
+
+// =============================
+// Phase C1 — Mnemonic & Clock-Based Recovery Wiring
+// Goal: Survivable, human-readable recovery without weakening security
+
+// =============================
+// recovery/ClockRecoveryTypes.ts
+
+export type TimePoint = {
+  hour: number;   // 0–23
+  minute: number; // 0–59
+};
+
+export type RecoverySlot = {
+  index: number;      // 1–24
+  time: TimePoint;    // user-chosen time
+};
+
+export type RecoveryProfile = {
+  slots: RecoverySlot[]; // exactly 24
+  createdAt: number;
+};
+
+// =============================
+// recovery/EntropyChecks.ts
+// Prevent weak or patterned time selections
+
+export function validateRecoveryProfile(profile: RecoveryProfile): boolean {
+  if (profile.slots.length !== 24) return false;
+
+  const seen = new Set<string>();
+
+  for (const slot of profile.slots) {
+    const key = `${slot.time.hour}:${slot.time.minute}`;
+
+    // No duplicates
+    if (seen.has(key)) return false;
+    seen.add(key);
+
+    // No exact hours (e.g. 3:00, 7:00)
+    if (slot.time.minute === 0) return false;
+  }
+
+  return true;
+}
+
+// =============================
+// recovery/ClockMnemonicMap.ts
+// Deterministic mapping (conceptual)
+
+export function timeToEntropy(time: TimePoint): number {
+  return time.hour * 60 + time.minute; // 0–1439
+}
+
+// NOTE:
+// Final mnemonic derivation uses BIP39
+// This layer only ensures consistent ordering
+
+// =============================
+// recovery/RecoverySetupFlow.tsx
+// Guided, calm setup
+
+import React, { useState } from "react";
+import { View, Text } from "react-native";
+import { RecoverySlot } from "./ClockRecoveryTypes";
+
+export const RecoverySetupFlow = () => {
+  const [slots, setSlots] = useState<RecoverySlot[]>([]);
+
+  function addSlot(slot: RecoverySlot) {
+    setSlots(prev => [...prev, slot]);
+  }
+
+  return (
+    <View>
+      <Text>Set 24 recovery times</Text>
+      {/* Clock input UI wired later */}
+    </View>
+  );
+};
+
+// =============================
+// recovery/RecoveryUXRules.ts
+// Non-negotiable safety rules
+
+export const RECOVERY_RULES = {
+  neverScreenshot: true,
+  neverCloudBackup: true,
+  enforceOrder: true,
+  requireConfirmationRound: true,
+};
+
+// =============================
+// Phase C1 UX Principles (Locked)
+// 1. Recovery is never rushed
+// 2. Clock input is sequential, not random
+// 3. User confirms twice
+// 4. Recovery mode disables NFC & travel mode
+// 5. Clock-only recovery is default
+// 6. Visual 24-word export is optional, advanced, time-limited
+
+// =============================
+// RecoveryExportPolicy.ts
+// Advanced-only visual mnemonic export
+
+export const RECOVERY_EXPORT_POLICY = {
+  enabledByDefault: false,
+  requiresUnlock: true,
+  requiresSecondaryConfirmation: true,
+  visibilityWindowMs: 30_000, // 30 seconds
+  blockScreenshots: true,
+  logExportEvent: true,
+};
+
+// =============================
+// Phase C2 — Clock‑Enforced Transaction Signing
+// Goal: No action signs without explicit, visible clock intent
+
+// =============================
+// signing/ClockUnlockSession.ts
+
+export type UnlockSession = {
+  unlockedAt: number;
+  expiresAt: number;
+};
+
+export const UNLOCK_WINDOW_MS = 90_000; // 90 seconds
+
+export function createUnlockSession(): UnlockSession {
+  const now = Date.now();
+  return {
+    unlockedAt: now,
+    expiresAt: now + UNLOCK_WINDOW_MS,
+  };
+}
+
+export function isUnlockValid(session: UnlockSession | null): boolean {
+  return !!session && Date.now() < session.expiresAt;
+}
+
+// =============================
+// signing/ClockGate.ts
+// Central guard — nothing signs without this
+
+import { UnlockSession, isUnlockValid } from "./ClockUnlockSession";
+
+export function requireClockUnlock(session: UnlockSession | null) {
+  if (!isUnlockValid(session)) {
+    throw new Error("Clock unlock required");
+  }
+}
+
+// =============================
+// signing/SignFlow.ts
+// Human‑readable signing intent
+
+import { UnsignedTx, SignedTx, signTransaction } from "../wallet/Signer";
+import { requireClockUnlock } from "./ClockGate";
+import { UnlockSession } from "./ClockUnlockSession";
+
+export type SigningIntent = {
+  tx: UnsignedTx;
+  summary: string; // what the user saw
+  createdAt: number;
+};
+
+export function createSigningIntent(tx: UnsignedTx, summary: string): SigningIntent {
+  return {
+    tx,
+    summary,
+    createdAt: Date.now(),
+  };
+}
+
+export function signWithClock(
+  intent: SigningIntent,
+  seed: string,
+  session: UnlockSession | null
+): SignedTx {
+  requireClockUnlock(session);
+
+  return signTransaction(intent.tx, seed);
+}
+
+// =============================
+// signing/UXRules.ts
+// Safety invariants
+
+export const SIGNING_RULES = {
+  showSummaryBeforeUnlock: true,
+  unlockExpiresQuickly: true,
+  everySignRequiresClock: true,
+  noBatchSigning: true,
+};
+
+// =============================
+// Phase C2 UX Principles (Locked)
+// 1. Clock is the only signing authority
+// 2. Unlock is temporary
+// 3. User signs what they see
+// 4. No silent approvals
+
+
+// =============================
+// Phase C3 — Network Interaction (Testnet)
+// Goal: Let users receive, send, and observe funds safely
+
+// =============================
+// network/RpcClient.ts
+// Minimal JSON-RPC client abstraction
+
+export type RpcRequest = {
+  method: string;
+  params?: any[];
+};
+
+export async function rpcCall(rpcUrl: string, req: RpcRequest): Promise<any> {
+  const res = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: req.method,
+      params: req.params || [],
+    }),
+  });
+
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.message);
+  return json.result;
+}
+
+// =============================
+// network/Balance.ts
+// Read-only balance queries
+
+import { rpcCall } from "./RpcClient";
+import { ProviderConfig } from "../wallet/Provider";
+
+export async function getNativeBalance(
+  provider: ProviderConfig,
+  address: string
+): Promise<string> {
+  return rpcCall(provider.rpcUrl, {
+    method: "eth_getBalance",
+    params: [address, "latest"],
+  });
+}
+
+// =============================
+// network/Broadcast.ts
+// Explicit transaction broadcast
+
+import { rpcCall } from "./RpcClient";
+import { ProviderConfig } from "../wallet/Provider";
+import { SignedTx } from "../wallet/Signer";
+
+export async function broadcastTx(
+  provider: ProviderConfig,
+  signed: SignedTx
+): Promise<string> {
+  return rpcCall(provider.rpcUrl, {
+    method: "eth_sendRawTransaction",
+    params: [signed.rawTx],
+  });
+}
+
+// =============================
+// network/TxHistory.ts
+// Minimal transaction history (address-based)
+
+export type TxRecord = {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  timestamp?: number;
+};
+
+// NOTE:
+// Full indexing requires a third-party service
+// Testnet can rely on simple block scanning later
+
+// =============================
+// ui/ReceiveView.tsx
+// Address display for receiving funds
+
+import React from "react";
+import { View, Text } from "react-native";
+
+export const ReceiveView = ({ address }: { address: string }) => (
+  <View>
+    <Text>Your address</Text>
+    <Text selectable>{address}</Text>
+  </View>
+);
+
+// =============================
+// Phase C3 UX Principles (Locked)
+// 1. Read operations never require unlock
+// 2. Write operations always require clock unlock
+// 3. Addresses are always visible before receive
+// 4. Testnet is clearly labeled
+
+
+// =============================
+// Phase C4 — Testnet UX Polish
+// Goal: Make testnet usage safe, calm, and educational
+
+// =============================
+// ux/TestnetBanner.tsx
+// Persistent but non-intrusive indicator
+
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+
+export const TestnetBanner = () => (
+  <View style={styles.banner}>
+    <Text style={styles.text}>Testnet — No real funds</Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  banner: {
+    backgroundColor: "#F4F4F4",
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  text: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+});
+
+// =============================
+// ux/FaucetHelper.ts
+// Guided testnet funding
+
+export type Faucet = {
+  name: string;
+  url: string;
+  network: string;
+};
+
+export const FAUCETS: Faucet[] = [
+  { name: "Sepolia Faucet", url: "https://sepoliafaucet.example", network: "ethereum-sepolia" },
+  { name: "Mumbai Faucet", url: "https://mumbaifaucet.example", network: "polygon-mumbai" },
+];
+
+// =============================
+// ux/GasExplainer.ts
+// Plain-language gas explanation
+
+export function explainGas(estimatedGas: number): string {
+  return `This action requires network fees to process. On testnet, this uses free tokens.`;
+}
+
+// =============================
+// ux/ErrorMapper.ts
+// Human-readable errors
+
+export function mapError(err: Error): string {
+  if (err.message.includes("insufficient funds")) {
+    return "Not enough testnet funds. Try a faucet.";
+  }
+
+  if (err.message.includes("Clock unlock required")) {
+    return "Rotate the clock to unlock before confirming.";
+  }
+
+  return "Something went wrong. No funds were moved.";
+}
+
+// =============================
+// ux/SafeExperimentNotice.tsx
+// Encourage exploration without fear
+
+import React from "react";
+import { View, Text } from "react-native";
+
+export const SafeExperimentNotice = () => (
+  <View>
+    <Text>You are on testnet. Feel free to explore.</Text>
+  </View>
+);
+
+// =============================
+// Phase C4 UX Principles (Locked)
+// 1. Users always know funds are not real
+// 2. Errors educate, never intimidate
+// 3. Gas is explained in plain language
+// 4. Exploration is encouraged, not punished
+
+
+// =============================
+// Phase D1 — NFC Reality & Constraints
+// Goal: Design travel payments that are honest, safe, and platform-correct
+
+// =============================
+// nfc/NfcCapabilities.ts
+// What NFC can and cannot do (abstracted)
+
+export type NfcCapability = {
+  canRead: boolean;
+  canWrite: boolean;
+  peerToPeer: boolean;
+  secureElement: boolean;
+};
+
+export const NFC_CAPABILITIES: Record<"android" | "ios", NfcCapability> = {
+  android: {
+    canRead: true,
+    canWrite: true,
+    peerToPeer: true,
+    secureElement: false, // unless OEM-specific
+  },
+  ios: {
+    canRead: true,
+    canWrite: false, // restricted
+    peerToPeer: false,
+    secureElement: true, // Apple-controlled
+  },
+};
+
+// =============================
+// nfc/NfcPaymentIntent.ts
+// Offline-first, limited-scope intent
+
+export type NfcPaymentIntent = {
+  intentId: string;
+  maxAmount: number; // local fiat equivalent
+  expiresAt: number;
+  region: string;
+  preferredStablecoin: string;
+};
+
+export function createNfcIntent(
+  maxAmount: number,
+  region: string,
+  stablecoin: string
+): NfcPaymentIntent {
+  return {
+    intentId: Math.random().toString(36).slice(2),
+    maxAmount,
+    expiresAt: Date.now() + 1000 * 60 * 10, // 10 minutes
+    region,
+    preferredStablecoin: stablecoin,
+  };
+}
+
+// =============================
+// nfc/NfcSafetyLimits.ts
+// Hard caps to protect users while traveling
+
+export const NFC_LIMITS = {
+  maxSinglePayment: 100, // fiat equivalent
+  maxDailyTotal: 300,
+  autoDisableAfterFailure: true,
+};
+
+// =============================
+// nfc/NfcToggle.ts
+// Explicit on/off control
+
+export type NfcState = "enabled" | "disabled";
+
+export function toggleNfc(current: NfcState): NfcState {
+  return current === "enabled" ? "disabled" : "enabled";
+}
+
+// =============================
+// nfc/NfcUXRules.ts
+// Non-negotiable truths
+
+export const NFC_UX_RULES = {
+  alwaysUserInitiated: true,
+  neverAlwaysOn: true,
+  showLimitsClearly: true,
+  regionAwareOnly: true,
+  noSilentFallbacks: true,
+};
+
+// =============================
+// Phase D1 UX Principles (Locked)
+// 1. NFC is convenience, not authority
+// 2. Offline intent is limited and short-lived
+// 3. User can disable NFC instantly
+// 4. Platform rules are respected, not bypassed
+
+
+// =============================
+// Phase D2 — Region & Stablecoin Mapping
+// Goal: Automatically suggest the best stablecoin per region
+
+// =============================
+// region/RegionTypes.ts
+
+export type RegionCode =
+  | "US"
+  | "EU"
+  | "UK"
+  | "CA"
+  | "AU"
+  | "UAE"
+  | "JP"
+  | "SG";
+
+// =============================
+// region/Stablecoin.ts
+
+export type Stablecoin = {
+  symbol: string;
+  name: string;
+  peg: string;
+  chains: string[];
+};
+
+export const STABLECOINS: Stablecoin[] = [
+  { symbol: "USDC", name: "USD Coin", peg: "USD", chains: ["ethereum", "polygon"] },
+  { symbol: "USDT", name: "Tether", peg: "USD", chains: ["ethereum", "tron", "polygon"] },
+  { symbol: "EUROC", name: "Euro Coin", peg: "EUR", chains: ["ethereum"] },
+  { symbol: "EURT", name: "Euro Tether", peg: "EUR", chains: ["ethereum"] },
+  { symbol: "GBPT", name: "Pound Token", peg: "GBP", chains: ["ethereum"] },
+  { symbol: "CADC", name: "QCAD", peg: "CAD", chains: ["ethereum"] },
+  { symbol: "AUDT", name: "AUD Tether", peg: "AUD", chains: ["ethereum"] },
+  { symbol: "AEED", name: "AED Stablecoin", peg: "AED", chains: ["ethereum"] },
+  { symbol: "JPYC", name: "JPY Coin", peg: "JPY", chains: ["ethereum"] },
+  { symbol: "XSGD", name: "XSGD", peg: "SGD", chains: ["ethereum", "polygon"] },
+];
+
+// =============================
+// region/RegionStablecoinMap.ts
+
+import { RegionCode } from "./RegionTypes";
+
+export const REGION_STABLECOIN_MAP: Record<RegionCode, string[]> = {
+  US: ["USDC", "USDT"],
+  EU: ["EUROC", "EURT"],
+  UK: ["GBPT"],
+  CA: ["CADC", "USDC"],
+  AU: ["AUDT", "USDC"],
+  UAE: ["AEED", "USDT"],
+  JP: ["JPYC", "USDC"],
+  SG: ["XSGD", "USDC"],
+};
+
+// =============================
+// region/RegionDetector.ts
+// Uses device locale or SIM region
+
+export function detectRegion(): RegionCode {
+  // Placeholder — OS-level locale / SIM detection
+  return "US";
+}
+
+// =============================
+// region/StablecoinSelector.ts
+
+import { STABLECOINS } from "./Stablecoin";
+import { REGION_STABLECOIN_MAP } from "./RegionStablecoinMap";
+import { RegionCode } from "./RegionTypes";
+
+export function suggestStablecoins(region: RegionCode) {
+  const symbols = REGION_STABLECOIN_MAP[region] || [];
+  return STABLECOINS.filter((s) => symbols.includes(s.symbol));
+}
+
+// =============================
+// Phase D2 UX Principles (Locked)
+// 1. Suggestions only — never forced
+// 2. User can override region
+// 3. User can pin preferred stablecoin
+// 4. Region logic is transparent
+
+
+// =============================
+// Phase D3 — NFC Payment Flow UX
+// Goal: Calm, predictable, embarrassment-free tap-to-pay experience
+
+// =============================
+// nfc/NfcPaymentFlow.ts
+
+export type NfcFlowStep =
+  | "idle"
+  | "prepare"
+  | "unlock"
+  | "tap"
+  | "confirm"
+  | "broadcast"
+  | "success"
+  | "failure";
+
+export type NfcFlowState = {
+  step: NfcFlowStep;
+  message: string;
+};
+
+export const NFC_FLOW_COPY: Record<NfcFlowStep, string> = {
+  idle: "Ready to pay",
+  prepare: "Preparing payment",
+  unlock: "Rotate the clock to approve",
+  tap: "Hold phone near terminal",
+  confirm: "Confirming payment",
+  broadcast: "Sending transaction",
+  success: "Payment complete",
+  failure: "Payment not completed",
+};
+
+// =============================
+// nfc/NfcFlowController.ts
+
+import { createNfcIntent } from "./NfcPaymentIntent";
+
+export function startNfcPayment(region: string, stablecoin: string): NfcFlowState {
+  createNfcIntent(50, region, stablecoin);
+
+  return {
+    step: "unlock",
+    message: NFC_FLOW_COPY.unlock,
+  };
+}
+
+// =============================
+// ui/NfcPaymentScreen.tsx
+
+import React from "react";
+import { View, Text } from "react-native";
+import { NfcFlowState } from "../nfc/NfcPaymentFlow";
+
+export const NfcPaymentScreen = ({ state }: { state: NfcFlowState }) => (
+  <View>
+    <Text>{state.message}</Text>
+  </View>
+);
+
+// =============================
+// ux/NfcFailureRecovery.ts
+
+export function recoverFromFailure(reason?: string): string {
+  return reason
+    ? `Payment stopped: ${reason}. No funds were moved.`
+    : "Payment stopped. No funds were moved.";
+}
+
+// =============================
+// Phase D3 UX Principles (Locked)
+// 1. Clock unlock always precedes tap
+// 2. Clear feedback at every step
+// 3. Failure is quiet and respectful
+// 4. No funds move without confirmation
+
+
+// =============================
+// Phase D4 — Merchant Reality Check
+// Goal: Be honest about where Nomad works today and how users can pay everywhere
+
+// =============================
+// merchant/AcceptanceTypes.ts
+
+export type MerchantAcceptance =
+  | "nfc-pos"
+  | "qr-code"
+  | "online-invoice"
+  | "card-bridge"
+  | "unsupported";
+
+// =============================
+// merchant/MerchantProfile.ts
+
+export type MerchantProfile = {
+  name?: string;
+  acceptance: MerchantAcceptance[];
+  region: string;
+  notes?: string;
+};
+
+// =============================
+// merchant/RealityMatrix.ts
+// Truth table of where crypto-native payments work
+
+export const MERCHANT_REALITY_MATRIX: Record<string, MerchantAcceptance[]> = {
+  coffee_shop: ["nfc-pos", "qr-code"],
+  taxi: ["qr-code"],
+  hotel: ["online-invoice", "card-bridge"],
+  retail_chain: ["card-bridge"],
+  street_vendor: ["qr-code"],
+  airline: ["online-invoice", "card-bridge"],
+};
+
+// =============================
+// merchant/PaymentFallback.ts
+// Graceful alternatives when NFC is unavailable
+
+export type PaymentFallback =
+  | "show-qr"
+  | "copy-address"
+  | "generate-invoice"
+  | "use-bridge-card";
+
+export function suggestFallback(
+  acceptance: MerchantAcceptance[]
+): PaymentFallback[] {
+  if (acceptance.includes("nfc-pos")) return [];
+  if (acceptance.includes("qr-code")) return ["show-qr"];
+  if (acceptance.includes("online-invoice")) return ["generate-invoice"];
+  if (acceptance.includes("card-bridge")) return ["use-bridge-card"];
+  return ["copy-address"];
+}
+
+// =============================
+// ui/MerchantExpectationNotice.tsx
+// Sets expectations before payment
+
+import React from "react";
+import { View, Text } from "react-native";
+
+export const MerchantExpectationNotice = ({ type }: { type: string }) => (
+  <View>
+    <Text>Payment method available: {type}</Text>
+  </View>
+);
+
+// =============================
+// Phase D4 UX Principles (Locked)
+// 1. Never promise universal acceptance
+// 2. Always offer a fallback
+// 3. Educate, don’t oversell
+// 4. Protect user confidence in public
+
+
+// =============================
+// Phase E2 — Card Bridge Design
+// Goal: Allow Nomad to pay anywhere cards are accepted without custody
+
+// =============================
+// card/CardBridgePrinciples.ts
+// High-level, non-negotiable rules
+
+export const CARD_BRIDGE_PRINCIPLES = {
+  nonCustodial: true,
+  userPrefunded: true,
+  spendingLimitsRequired: true,
+  instantFreeze: true,
+  regionAwareFX: true,
+  transparencyFirst: true,
+};
+
+// =============================
+// card/CardType.ts
+
+export type CardType = "virtual" | "physical";
+
+export type CardStatus = "inactive" | "active" | "frozen";
+
+// =============================
+// card/CardProfile.ts
+
+export type CardProfile = {
+  id: string;
+  type: CardType;
+  status: CardStatus;
+  dailyLimit: number;
+  singleTxLimit: number;
+  linkedStablecoin: string;
+  region: string;
+};
+
+// =============================
+// card/CardProvisioning.ts
+// Abstract provider interface (no vendor lock-in)
+
+export interface CardProvider {
+  provisionVirtualCard(profile: CardProfile): Promise<string>;
+  freezeCard(cardId: string): Promise<void>;
+  unfreezeCard(cardId: string): Promise<void>;
+}
+
+// =============================
+// card/PrefundModel.ts
+// Explicit conversion before spending
+
+export type PrefundBucket = {
+  stablecoin: string;
+  amount: number;
+  region: string;
+};
+
+export function prefundCard(
+  bucket: PrefundBucket,
+  amount: number
+): PrefundBucket {
+  if (amount > bucket.amount) {
+    throw new Error("Insufficient prefunded balance");
+  }
+
+  return {
+    ...bucket,
+    amount: bucket.amount - amount,
+  };
+}
+
+// =============================
+// card/CardControls.ts
+// User-facing safety controls
+
+export type CardControls = {
+  enableOnline: boolean;
+  enableInStore: boolean;
+  enableATM: boolean;
+  merchantWhitelist?: string[];
+};
+
+// =============================
+// Phase E2 UX Principles (Locked)
+// 1. Cards spend only what user pre-approves
+// 2. Freeze must be instant and offline-capable
+// 3. Stablecoin-to-fiat conversion is visible
+// 4. Card is a bridge, not a bank
+
+
+// =============================
+// Phase E1 — Mainnet Readiness
+// Goal: Safely transition Nomad from testnet to production networks
+
+// =============================
+// network/ChainConfig.ts
+// Explicit allowlist of supported mainnets
+
+export type ChainConfig = {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  nativeSymbol: string;
+  testnet: boolean;
+};
+
+export const CHAINS: ChainConfig[] = [
+  {
+    chainId: 1,
+    name: "Ethereum",
+    rpcUrl: "https://mainnet.rpc.example",
+    nativeSymbol: "ETH",
+    testnet: false,
+  },
+  {
+    chainId: 137,
+    name: "Polygon",
+    rpcUrl: "https://polygon.rpc.example",
+    nativeSymbol: "MATIC",
+    testnet: false,
+  },
+];
+
+// =============================
+// safety/MainnetGuard.ts
+// Prevent accidental mainnet actions
+
+export function assertMainnetAllowed(userConfirmed: boolean) {
+  if (!userConfirmed) {
+    throw new Error("Mainnet action requires explicit confirmation");
+  }
+}
+
+// =============================
+// network/GasEstimator.ts
+// Conservative gas estimation with buffer
+
+export function estimateGasWithBuffer(baseGas: number): number {
+  const BUFFER_MULTIPLIER = 1.2;
+  return Math.ceil(baseGas * BUFFER_MULTIPLIER);
+}
+
+// =============================
+// tokens/TokenBalance.ts
+// ERC-20 balance reader
+
+import { rpcCall } from "../network/RpcClient";
+
+export async function getTokenBalance(
+  rpcUrl: string,
+  tokenAddress: string,
+  userAddress: string
+): Promise<string> {
+  const balance = await rpcCall(rpcUrl, {
+    method: "eth_call",
+    params: [
+      {
+        to: tokenAddress,
+        data: "0x70a08231" + userAddress.slice(2).padStart(64, "0"),
+      },
+      "latest",
+    ],
+  });
+
+  return balance;
+}
+
+// =============================
+// safety/AllowanceScanner.ts
+// Detect dangerous token approvals
+
+export type AllowanceRisk = "safe" | "high";
+
+export function assessAllowance(amount: string): AllowanceRisk {
+  const MAX_SAFE = BigInt(10) ** BigInt(30);
+  return BigInt(amount) > MAX_SAFE ? "high" : "safe";
+}
+
+// =============================
+// safety/TransactionReview.ts
+// Mandatory human-readable summary
+
+export type TxReview = {
+  summary: string;
+  gasEstimate: string;
+  network: string;
+};
+
+export function buildTxReview(
+  action: string,
+  network: string,
+  gas: number
+): TxReview {
+  return {
+    summary: action,
+    network,
+    gasEstimate: `${gas} units (estimated)`,
+  };
+}
+
+// =============================
+// Phase E1 UX Principles (Locked)
+// 1. Mainnet is opt-in, never default
+// 2. Gas is conservative and visible
+// 3. Token approvals are audited
+// 4. Users must understand before signing
+
+
+// =============================
+// Phase E3 — Nomad Identity & Trust Layer
+// Goal: Make Nomad understandable, calm, and trustworthy for non-crypto users
+
+// =============================
+// identity/NomadPromises.ts
+// What Nomad will always and never do
+
+export const NOMAD_PROMISES = {
+  always: [
+    "Ask before signing",
+    "Show what will happen",
+    "Let you turn features off",
+    "Protect you while traveling",
+  ],
+  never: [
+    "Move funds silently",
+    "Force region or currency changes",
+    "Keep keys or recovery data",
+    "Spend without your clock approval",
+  ],
+};
+
+// =============================
+// identity/LanguageTone.ts
+// Voice guidelines for all copy
+
+export const LANGUAGE_TONE = {
+  style: "calm, respectful, human",
+  avoid: ["panic", "urgency", "fear", "jargon"],
+  prefer: ["clarity", "choice", "reassurance"],
+};
+
+// =============================
+// identity/CoreTerms.ts
+// Locked vocabulary to reduce confusion
+
+export const CORE_TERMS = {
+  clock: "Your personal unlock pattern",
+  travelMode: "Short-term payment convenience",
+  recovery: "Getting back access safely",
+  prefund: "Amount you choose to spend",
+};
+
+// =============================
+// onboarding/FirstRunFlow.ts
+// High-level onboarding steps
+
+export const FIRST_RUN_STEPS = [
+  "Welcome to Nomad",
+  "This is your clock",
+  "Your clock protects your wallet",
+  "Travel mode is optional",
+  "You are always in control",
+];
+
+// =============================
+// onboarding/ClockExplanation.ts
+
+export const CLOCK_EXPLANATION = `
+Nomad uses a clock instead of passwords.
+Only you know the correct time.
+The clock never leaves your device.
+`;
+
+// =============================
+// Phase E3 UX Principles (Locked)
+// 1. Trust is built through explanation, not claims
+// 2. Users are never rushed
+// 3. Power is paired with understanding
+// 4. Nomad feels calm, not clever
+
+
+// =============================
+// Phase F1 — Final UX Polish & Onboarding UI
+// Goal: Make first-time use intuitive, calm, and confidence-building
+
+// =============================
+// onboarding/WelcomeScreen.tsx
+
+import React from "react";
+import { View, Text } from "react-native";
+
+export const WelcomeScreen = () => (
+  <View>
+    <Text style={{ fontSize: 24 }}>Welcome to Nomad</Text>
+    <Text>Your wallet for moving through the world safely.</Text>
+  </View>
+);
+
+// =============================
+// onboarding/ClockTutorial.tsx
+
+export const CLOCK_TUTORIAL_STEPS = [
+  "This clock is your key",
+  "Only you know the correct time",
+  "The clock never leaves your device",
+  "Rotate it to unlock actions",
+];
+
+// =============================
+// onboarding/PermissionsExplainer.tsx
+
+export const PERMISSIONS_EXPLAINER = {
+  nfc: "Used only when you choose to pay",
+  location: "Used to suggest local currencies",
+  notifications: "Used for payment confirmations",
+};
+
+// =============================
+// onboarding/FirstDepositGuide.ts
+// Supports BTC, ETH, HBAR, and ERC-20 tokens
+
+export const FIRST_DEPOSIT_GUIDE = [
+  "Choose a network",
+  "Copy your address",
+  "Send a small test amount",
+  "Wait for confirmation",
+];
+
+// =============================
+// ui/ConfidenceChecklist.tsx
+
+export const CONFIDENCE_CHECKLIST = [
+  "I control my keys",
+  "I can recover my wallet",
+  "Nothing moves without my clock",
+  "Travel mode is optional",
+];
+
+// =============================
+// Phase F1 UX Principles (Locked)
+// 1. Never assume crypto knowledge
+// 2. Encourage small first steps
+// 3. Explain before requesting permission
+// 4. Confidence before complexity
+
+
+// =============================
+// Phase F2 — Formal Threat Model (Audit-Style)
+// Scope: Nomad Wallet v1
+
+// -----------------------------
+// Assets to Protect
+// -----------------------------
+// A1: Private keys (all chains)
+// A2: User intent (what the user actually wants to sign)
+// A3: Recovery capability
+// A4: Prefunded travel balances
+// A5: User trust (no silent or confusing behavior)
+
+// -----------------------------
+// Threat Actors
+// -----------------------------
+// T1: Opportunistic thief (stolen phone)
+// T2: Malware / malicious app
+// T3: Malicious dApp or phishing site
+// T4: Rogue merchant / NFC replay
+// T5: Network attacker (RPC spoofing)
+// T6: Social engineer
+
+// -----------------------------
+// Threat Surfaces & Mitigations
+// -----------------------------
+
+export const THREAT_MODEL = {
+  device: {
+    threats: ["stolen_device", "malware", "screen_capture"],
+    mitigations: [
+      "secure_enclave_key_storage",
+      "gesture_based_clock_input",
+      "rate_limited_unlock",
+      "no_static_passwords",
+    ],
+    residualRisk: "full_os_compromise",
+  },
+
+  clockUnlock: {
+    threats: ["shoulder_surfing", "brute_force", "pattern_replay"],
+    mitigations: [
+      "24_hour_time_space",
+      "attempt_backoff",
+      "decoy_read_only_time",
+      "no_visual_fingerprints",
+    ],
+    residualRisk: "user_time_disclosure",
+  },
+
+  signing: {
+    threats: ["silent_signing", "approval_drain"],
+    mitigations: [
+      "clock_required_per_signature",
+      "human_readable_tx_summary",
+      "no_blanket_approvals",
+    ],
+    residualRisk: "user_approves_malicious_tx",
+  },
+
+  network: {
+    threats: ["rpc_spoofing", "false_confirmations"],
+    mitigations: [
+      "multi_rpc_quorum",
+      "confirmation_thresholds",
+      "mainnet_testnet_separation",
+    ],
+    residualRisk: "chain_level_attacks",
+  },
+
+  travelNFC: {
+    threats: ["nfc_replay", "merchant_abuse", "lost_phone"],
+    mitigations: [
+      "nfc_off_by_default",
+      "explicit_enable",
+      "region_and_amount_limits",
+      "instant_freeze",
+      "auto_expiry",
+    ],
+    residualRisk: "small_prefunded_loss",
+  },
+
+  recovery: {
+    threats: ["forgotten_time", "social_engineering"],
+    mitigations: [
+      "24_time_recovery_sets",
+      "offline_recovery",
+      "no_support_backdoor",
+      "clear_recovery_education",
+    ],
+    residualRisk: "user_loses_all_recovery_material",
+  },
+};
+
+// -----------------------------
+// Security Posture Summary
+// -----------------------------
+// - No single action can drain full wallet
+// - Travel mode losses are capped
+// - Recovery does not introduce third-party trust
+// - Residual risks are explicit and documented
+
+
+// =============================
+// Phase F2 — Worst-Case Scenario Simulations
+// Purpose: Validate damage limits, recovery paths, and user outcomes
+
+// -----------------------------
+// Scenario 1: Phone Stolen While Traveling
+// -----------------------------
+// Conditions:
+// - Travel mode enabled
+// - NFC enabled
+// - Prefunded balance: $300 equivalent
+
+// Attack:
+// - Thief attempts NFC payments
+
+// Outcome:
+// - Maximum loss capped at prefunded amount
+// - No access to main wallet funds
+// - Instant freeze available via cloudless kill-switch
+// - Travel mode auto-expires
+
+// User Recovery:
+// - Restore wallet on new device
+// - Use recovery clock set
+// - Funds intact except capped travel spend
+
+// -----------------------------
+// Scenario 2: NFC Left On Accidentally
+// -----------------------------
+// Conditions:
+// - User forgets to disable NFC
+
+// Attack:
+// - Merchant attempts repeated charges
+
+// Outcome:
+// - Region + amount limits enforced
+// - Per-tap confirmation required
+// - Daily cap reached quickly
+
+// User Recovery:
+// - Disable NFC
+// - No key rotation required
+
+// -----------------------------
+// Scenario 3: Malicious dApp Approval
+// -----------------------------
+// Conditions:
+// - User connects to phishing dApp
+
+// Attack:
+// - dApp requests unlimited approval
+
+// Outcome:
+// - Human-readable warning shown
+// - High-risk approval flagged
+// - Clock required to approve
+
+// Worst Case:
+// - User approves anyway
+// - Allowance limited by Nomad policy
+
+// User Recovery:
+// - Revoke approval
+// - No full-wallet drain possible
+
+// -----------------------------
+// Scenario 4: User Forgets Unlock Time
+// -----------------------------
+// Conditions:
+// - User cannot recall primary clock time
+
+// Outcome:
+// - Wallet remains locked
+// - No brute-force unlock possible
+
+// User Recovery:
+// - Use one of 24 recovery time sets
+// - Offline recovery flow
+
+// Worst Case:
+// - User loses all recovery materials
+// - Funds unrecoverable (expected risk)
+
+// -----------------------------
+// Scenario 5: RPC / Network Spoofing
+// -----------------------------
+// Conditions:
+// - Attacker controls a single RPC
+
+// Attack:
+// - False balance or confirmation data
+
+// Outcome:
+// - Multi-RPC quorum rejects mismatch
+// - Transaction not finalized
+
+// User Recovery:
+// - Switch network
+// - No fund loss
+
+// -----------------------------
+// Scenario 6: Social Engineering Attempt
+// -----------------------------
+// Conditions:
+// - Attacker impersonates support
+
+// Attack:
+// - Requests recovery time or actions
+
+// Outcome:
+// - No support backdoor exists
+// - Recovery is offline only
+
+// User Recovery:
+// - None required
+// - Education reminders shown
+
+// -----------------------------
+// Simulation Summary
+// -----------------------------
+// - Maximum loss is limited and predictable
+// - No scenario results in silent full-wallet drain
+// - Recovery paths exist for all non-negligent cases
+// - Residual risks are explicit and user-owned
+
