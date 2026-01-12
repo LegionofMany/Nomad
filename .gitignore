@@ -1,0 +1,43 @@
+# Ignore workspace-specific IDE/editor settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+env/
+venv/
+.venv/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Editor temporary files
+*.bak
+*.swp
+
+# Local workspace files (not to be pushed)
+execution blueprint.md
