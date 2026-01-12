@@ -1,6 +1,5 @@
 /**
- * wallet-core `types.ts`
- * Shared TypeScript types used across the wallet-core package.
+ * wallet-core `types.ts` (moved into repo `src/wallet-core`)
  */
 
 export type Mnemonic = string;
