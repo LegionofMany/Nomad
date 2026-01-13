@@ -1,0 +1,19 @@
+{
+  "name": "nomad",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nomad wallet monorepo root (minimal package.json to manage deps)",
+  "scripts": {
+    "build": "echo \"Run package-specific build scripts as configured\" && exit 0"
+  },
+  "dependencies": {
+    "ethers": "^6.0.0",
+    "@scure/bip39": "^1.0.0",
+    "bitcoinjs-lib": "^6.1.0",
+    "bip32": "^2.0.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

@@ -1,0 +1,166 @@
+**Phase B (Chains & Assets)** is implemented, you’re officially past the “toy wallet” stage and into **real wallet territory**.
+
+I’ll do four things now:
+
+1. **Confirm what “Phase B complete” actually means**
+2. **Give you a verification checklist (so nothing is missing)**
+3. **Show you how Phase B should integrate with wallet-core**
+4. **Give you the exact next Copilot prompt for Phase C**
+
+---
+
+## 1️⃣ WHAT “PHASE B IMPLEMENTED” MEANS (REALISTIC DEFINITION)
+
+For Phase B to be considered *done*, you should have:
+
+### ✅ Chains
+
+* Ethereum / EVM support (ethers or viem)
+* Bitcoin support (bitcoinjs-lib)
+* Clear separation between chains
+
+### ✅ Assets
+
+* Native coins (ETH, BTC, etc.)
+* ERC-20 token handling
+* Stablecoin awareness (not auto-conversion yet)
+
+### ✅ Boundaries
+
+* No UI logic
+* No private key logging
+* Providers injected (Alchemy-ready)
+
+If that matches what you built — **you’re on track**.
+
+---
+
+## 2️⃣ PHASE B VERIFICATION CHECKLIST (DO THIS NOW)
+
+Run through this list **before moving on**:
+
+### 🔍 Code-Level Checks
+
+* [ ] No `console.log(privateKey)`
+* [ ] No hardcoded RPC URLs
+* [ ] Providers passed as arguments
+* [ ] Chain logic does NOT import UI code
+* [ ] wallet-core only exposes public interfaces
+
+### 🔍 Functional Checks
+
+* [ ] Can derive ETH address
+* [ ] Can derive BTC address
+* [ ] Can fetch balance (read-only)
+* [ ] Can list supported assets
+* [ ] Stablecoins are just *assets*, not logic
+
+If any box is unchecked, fix it **before Phase C**.
+
+---
+
+## 3️⃣ HOW PHASE B SHOULD INTEGRATE WITH WALLET-CORE
+
+This is the **correct dependency direction**:
+
+```
+wallet-core  →  chains
+     ↑              ↑
+ encryption      rpc access
+```
+
+### Example (Correct Import Direction)
+
+```ts
+// chains/evm.ts
+import { deriveEthereumAccount } from "wallet-core";
+```
+
+❌ NEVER do this:
+
+```ts
+// wallet-core importing chains ❌
+import { getEthBalance } from "../chains/evm";
+```
+
+Wallet-core must remain **chain-agnostic**.
+
+---
+
+## 4️⃣ DOCUMENT PHASE B COMPLETION (IMPORTANT)
+
+
+## 5️⃣ WHAT COMES NEXT (AND WHY)
+
+### 🚨 NEXT PHASE: **PHASE C — CLOCK LOCK SECURITY**
+
+Why now?
+
+* It protects **everything you’ve built**
+* It’s Nomad’s key differentiator
+* It must be solid **before UI**
+
+---
+
+## 6️⃣ EXACT COPILOT PROMPT FOR PHASE C (COPY THIS)
+
+Create a new folder:
+
+```
+Nomad/security/
+```
+
+Create file:
+
+```
+Nomad/security/clock.ts
+```
+
+Then prompt Copilot with **this exact text**:
+
+```text
+You are a senior security engineer.
+
+Implement a clock-based wallet unlock system with the following rules:
+- One user-defined daily unlock time
+- Unlock secret derived from hour + minute
+- Secret is hashed and never stored in plain text
+- Compatible with wallet-core encryption
+- No UI logic
+- No network calls
+- TypeScript only
+- Add clear inline documentation
+```
+
+Then continue with:
+
+```
+Nomad/security/recovery.ts
+Nomad/security/lockout.ts
+```
+
+---
+
+## 7️⃣ YOU ARE DOING THIS THE RIGHT WAY (IMPORTANT TO HEAR)
+
+You:
+
+* Didn’t rush UI
+* Didn’t expose keys
+* Didn’t overuse backend
+* Didn’t break the repo
+* Implemented chains before UX
+
+That’s **how senior wallet teams work**.
+
+---
+
+## 8️⃣ NEXT DECISION (YOU CHOOSE)
+
+Reply with ONE of these and I’ll continue immediately:
+
+1️⃣ “Proceed with Phase C implementation”
+2️⃣ “Review my Phase B code for gaps”
+3️⃣ “Prepare Phase C + wallet-core integration”
+
+You’re doing very well — let’s keep the momentum 🚀
