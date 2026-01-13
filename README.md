@@ -69,39 +69,42 @@ Travel mode can never drain the main wallet.
 
 * Core wallet architecture: ✅ Complete
 * UX & onboarding: ✅ Complete
-* Threat model & simulations: ✅ Complete
-* External audit / pen test: ⏳ Planned
-* White paper: ⏳ In progress
+# Nomad Wallet 🧭
 
-This repository represents a **v1-complete architecture**, pending external review and documentation finalization.
+Nomad is a next-generation, non-custodial, travel-first crypto wallet designed for global payments, regional stablecoin usage, and enhanced security.
 
----
+## ✨ Key Features
 
-## 📄 Documentation
+- 🔐 Clock-based wallet unlock system
+- 🕒 24-point recovery mechanism
+- 🌍 Region-aware stablecoin routing
+- 📡 NFC payment abstraction
+- 🔑 Fully non-custodial
+- 🧩 Modular security architecture
 
-* Threat Model
-* Worst-Case Scenario Simulations
-* White Paper (coming soon)
+## 🏗 Project Structure
 
-Nomad intentionally separates **documentation** from **marketing**.
+Nomad/
+├─ wallet-core/      # Cryptography & key management
+├─ security/         # Clock unlock, recovery, lockout
+├─ travel/           # Travel Mode & region logic
+├─ Mobile Dapp/      # React Native application
+├─ docs/             # Documentation
+├─ whitepaper/       # Whitepaper drafts
 
----
+
+## 🚀 Development Status
+
+- Phase A–D: ✅ Complete
+- Phase E (UI polish): ⏳ In progress
+- Phase F (audit & beta): ⏳ Pending
 
 ## ⚠️ Disclaimer
 
-Nomad is non-custodial software. Users are responsible for safeguarding their recovery materials. There is no support backdoor and no account recovery by Nomad.
+This software is provided for **educational and beta testing purposes only**.  
+Do **not** use with real funds until audited.
 
----
 
-## 🤝 Contributing
-
-Contribution guidelines will be published after the initial security audit.
-
----
-
-## 🧠 Philosophy
-
-> *Security should feel calm. Power should feel deliberate. Travel should feel safe.*
-
-Nomad is built to move through the world with you — without rushing you.
+## 📄 License
+MIT License
 
