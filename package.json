@@ -4,13 +4,15 @@
   "private": true,
   "description": "Nomad wallet monorepo root (minimal package.json to manage deps)",
   "scripts": {
-    "build": "echo \"Run package-specific build scripts as configured\" && exit 0"
+    "build": "tsc -p tsconfig.json",
+    "test:integration": "npm run build && node ./tmp_integration_test.js"
   },
   "dependencies": {
     "ethers": "^6.0.0",
     "@scure/bip39": "^1.0.0",
     "bitcoinjs-lib": "^6.1.0",
-    "bip32": "^2.0.6"
+    "bip32": "^2.0.6",
+    "wallet-core": "file:./wallet-core"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

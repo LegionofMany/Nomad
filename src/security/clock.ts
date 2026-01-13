@@ -20,6 +20,15 @@ export interface DailyUnlockConfig {
   hour: number; // 0-23
   minute: number; // 0-59
   toleranceMinutes?: number; // +/- minutes allowed around target time (default 5)
+  /**
+   * Optional device-specific local salt. This should be a stable string that
+   * is unique to the device (or user device instance). It is included in the
+   * derived payload to bind the unlock secret to this local environment.
+   * The salt itself should not be treated as a secret (but should not be
+   * globally shared). If omitted, derivation still works but is not bound
+   * to a device instance.
+   */
+  localSalt?: string;
 }
 
 function pad2(n: number) {
@@ -27,7 +36,9 @@ function pad2(n: number) {
 }
 
 function dateToYMD(d: Date): string {
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+  // Use local date components to reflect the user's daily boundary in their
+  // local timezone. This avoids surprising behavior around UTC midnight.
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 /**
@@ -35,10 +46,15 @@ function dateToYMD(d: Date): string {
  * +/- tolerance.
  */
 export function isWithinDailyUnlock(cfg: DailyUnlockConfig, date = new Date()): boolean {
+  // Validate config ranges
+  if (cfg.hour < 0 || cfg.hour > 23) throw new Error("DailyUnlockConfig.hour must be 0-23");
+  if (cfg.minute < 0 || cfg.minute > 59) throw new Error("DailyUnlockConfig.minute must be 0-59");
+
   const tol = cfg.toleranceMinutes ?? 5;
   const targetMinutes = cfg.hour * 60 + cfg.minute;
-  const nowUtc = new Date(date);
-  const nowMinutes = nowUtc.getUTCHours() * 60 + nowUtc.getUTCMinutes();
+  // Use local time to match user expectation for daily unlock time
+  const nowLocal = new Date(date);
+  const nowMinutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
   return Math.abs(nowMinutes - targetMinutes) <= tol;
 }
 
@@ -47,10 +63,31 @@ export function isWithinDailyUnlock(cfg: DailyUnlockConfig, date = new Date()): 
  * `DailyUnlockConfig` using HMAC-SHA256(masterSecret, date|HH:MM).
  * This secret can be passed as `unlockSecret` to `wallet-core` encryption.
  */
+/**
+ * Derive a deterministic unlock secret from a `masterSecret`, the configured
+ * daily time, and an optional `localSalt`.
+ *
+ * Design/Threat notes:
+ * - We never return the master secret; only a one-way HMAC-SHA256 hex digest
+ *   derived from it. The HMAC key is `masterSecret` and the message includes
+ *   the date and configured time + local salt. This binds the secret to the
+ *   specific day/time and optionally to the local device.
+ * - Using HMAC (instead of raw hashing of concatenated values) ensures the
+ *   secret cannot be trivially reversed to expose the payload values.
+ * - The caller is responsible for protecting `masterSecret` (e.g., storing
+ *   it encrypted or deriving it from a passphrase). This module performs
+ *   pure deterministic derivation and does not persist any secrets.
+ * - The output is suitable as `unlockSecret` for `wallet-core` encryption
+ *   (it is a hex string which can be supplied to `scrypt` as a password).
+ */
 export function deriveDailyUnlockSecret(masterSecret: string, cfg: DailyUnlockConfig, date = new Date()): string {
+  if (!masterSecret || typeof masterSecret !== "string") throw new Error("masterSecret must be a non-empty string");
+  // Use local date components
   const d = dateToYMD(date);
   const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}`;
-  const payload = `${d}|${time}`;
+  const saltPart = cfg.localSalt ? `|${cfg.localSalt}` : "";
+  const payload = `${d}|${time}${saltPart}`;
+  // Use HMAC-SHA256 with masterSecret as key for deterministic, one-way output
   const h = createHmac("sha256", Buffer.from(masterSecret, "utf8")).update(payload).digest("hex");
   return h;
 }

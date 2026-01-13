@@ -43,3 +43,12 @@ coverage/
 execution blueprint.md
 execution process.md
 prompt.md
+# Execution-related artifacts and variants
+# Matches files containing both 'execution' and 'process' (with or without spaces)
+*execution*process*
+# Matches files starting with 'execution process' (space-included)
+execution\ process*
+# Matches execution blueprint variants
+execution\ blueprint*
+# Matches any file starting with 'execution' (conservative)
+execution*
