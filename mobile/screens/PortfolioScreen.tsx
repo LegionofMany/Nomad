@@ -1,3 +1,11 @@
+/**
+ * Mobile (Expo) screen
+ *
+ * Expo-ready. Keep this file at `mobile/screens/PortfolioScreen.tsx` when
+ * moving the UI into an Expo app. Do not change UI logic — only update
+ * relative imports if you move the file inside a different folder.
+ */
+
 import React from "react";
 import { View, Text, FlatList } from "react-native";
 import { Region, resolvePreferredStablecoin } from "../travelMode";

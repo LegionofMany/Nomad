@@ -1,3 +1,11 @@
+/**
+ * Mobile (Expo) screen
+ *
+ * Expo-ready. Keep this file at `mobile/screens/TravelModeScreen.tsx` when
+ * moving the UI into an Expo app. Do not change UI logic — only update
+ * relative imports if you move the file inside a different folder.
+ */
+
 import React, { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import ClockDial, { ClockTime } from "../components/ClockDial";

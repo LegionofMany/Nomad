@@ -1,3 +1,12 @@
+/**
+ * Mobile (Expo) UI component
+ *
+ * This file is written to be Expo-compatible. When moving into an Expo
+ * `mobile/` app, keep the file at `mobile/components/ClockDial.tsx` and
+ * preserve relative imports (e.g. `../theme`). No runtime logic changes
+ * have been made here — only this note to clarify intent.
+ */
+
 import React, { useRef, useState } from "react";
 import { View, StyleSheet, PanResponder, Vibration } from "react-native";
 import { useTheme } from "../theme";

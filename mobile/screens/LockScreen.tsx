@@ -1,3 +1,11 @@
+/**
+ * Mobile (Expo) screen
+ *
+ * Expo-ready. Keep this file at `mobile/screens/LockScreen.tsx` when
+ * moving the UI into an Expo app. Do not change UI logic — only update
+ * relative imports if you move the file inside a different folder.
+ */
+
 import React, { useState } from "react";
 import { View, Text } from "react-native";
 import ClockDial, { ClockTime } from "../components/ClockDial";
@@ -12,8 +20,8 @@ export const LockScreen = ({ onUnlocked }: { onUnlocked: () => void }) => {
   return (
     <View
       accessible
-      accessibilityRole="screen"
       accessibilityLabel="Lock screen"
+      accessibilityHint="Unlock the app"
       style={{ flex: 1, backgroundColor: colors.background, padding: 20, justifyContent: "center", alignItems: "center" }}
     >
       <Text style={{ fontSize: 18, fontWeight: "600", color: colors.text, marginBottom: 12 }}>Unlock</Text>

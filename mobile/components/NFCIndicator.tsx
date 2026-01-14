@@ -1,3 +1,10 @@
+/**
+ * Mobile (Expo) UI component
+ *
+ * Expo-ready. Keep this file at `mobile/components/NFCIndicator.tsx` when
+ * moving the UI into an Expo app. No logic changes applied.
+ */
+
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme";
