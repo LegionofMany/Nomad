@@ -88,7 +88,7 @@ Nomad/
 ├─ wallet-core/      # Cryptography & key management
 ├─ security/         # Clock unlock, recovery, lockout
 ├─ travel/           # Travel Mode & region logic
-├─ Mobile Dapp/      # React Native application
+├─ mobile/           # Expo (React Native) application
 ├─ docs/             # Documentation
 ├─ whitepaper/       # Whitepaper drafts
 

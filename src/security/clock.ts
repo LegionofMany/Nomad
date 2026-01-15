@@ -14,7 +14,44 @@
  * - All cryptographic operations use HMAC-SHA256 (Node `crypto`) deterministically.
  */
 
-import { createHmac } from "crypto";
+function getNodeCrypto(): null | { createHmac: any } {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const c = require("crypto");
+    return { createHmac: c.createHmac };
+  } catch {
+    return null;
+  }
+}
+
+function hasWebCrypto(): boolean {
+  return !!(
+    typeof globalThis !== "undefined" &&
+    (globalThis as any).crypto &&
+    (globalThis as any).crypto.subtle &&
+    typeof (globalThis as any).crypto.subtle.importKey === "function"
+  );
+}
+
+function utf8Bytes(s: string): Uint8Array {
+  if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(s);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const B: any = (globalThis as any).Buffer;
+  if (typeof B !== "undefined") return new Uint8Array(B.from(s, "utf8"));
+  throw new Error("No UTF-8 encoder available");
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const start = bytes.byteOffset;
+  const end = bytes.byteOffset + bytes.byteLength;
+  return bytes.buffer.slice(start, end) as ArrayBuffer;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
+  return out;
+}
 
 export interface DailyUnlockConfig {
   hour: number; // 0-23
@@ -87,9 +124,59 @@ export function deriveDailyUnlockSecret(masterSecret: string, cfg: DailyUnlockCo
   const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}`;
   const saltPart = cfg.localSalt ? `|${cfg.localSalt}` : "";
   const payload = `${d}|${time}${saltPart}`;
-  // Use HMAC-SHA256 with masterSecret as key for deterministic, one-way output
-  const h = createHmac("sha256", Buffer.from(masterSecret, "utf8")).update(payload).digest("hex");
+  // Node-only sync derivation.
+  const c = getNodeCrypto();
+  if (!c) {
+    throw new Error("deriveDailyUnlockSecret() requires Node crypto. Use deriveDailyUnlockSecretAsync() in web/mobile runtimes.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const B: any = (globalThis as any).Buffer;
+  const h = c.createHmac("sha256", B.from(masterSecret, "utf8")).update(payload).digest("hex");
   return h;
+}
+
+/**
+ * Portable async derivation for web/mobile using WebCrypto HMAC-SHA256.
+ */
+export async function deriveDailyUnlockSecretAsync(masterSecret: string, cfg: DailyUnlockConfig, date = new Date()): Promise<string> {
+  if (!masterSecret || typeof masterSecret !== "string") throw new Error("masterSecret must be a non-empty string");
+
+  const d = dateToYMD(date);
+  const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}`;
+  const saltPart = cfg.localSalt ? `|${cfg.localSalt}` : "";
+  const payload = `${d}|${time}${saltPart}`;
+
+  if (hasWebCrypto()) {
+    const subtle = (globalThis as any).crypto.subtle as SubtleCrypto;
+    const key = await subtle.importKey(
+      "raw",
+      toArrayBuffer(utf8Bytes(masterSecret)),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const sig = new Uint8Array(await subtle.sign("HMAC", key, toArrayBuffer(utf8Bytes(payload))));
+    return bytesToHex(sig);
+  }
+
+  // Fallback to Node crypto when available.
+  const c = getNodeCrypto();
+  if (c) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const B: any = (globalThis as any).Buffer;
+    return c.createHmac("sha256", B.from(masterSecret, "utf8")).update(payload).digest("hex");
+  }
+
+  throw new Error("No crypto runtime available for deriveDailyUnlockSecretAsync");
+}
+
+/**
+ * Portable async convenience that mirrors getActiveUnlockSecret.
+ */
+export async function getActiveUnlockSecretAsync(masterSecret: string, cfg: DailyUnlockConfig, date = new Date()): Promise<string | null> {
+  if (!isWithinDailyUnlock(cfg, date)) return null;
+  return deriveDailyUnlockSecretAsync(masterSecret, cfg, date);
 }
 
 /**

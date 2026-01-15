@@ -5,4 +5,5 @@
 
 export * from "./seed";
 export * from "./derive";
+export * from "./deriveEvm";
 export * from "./encrypt";

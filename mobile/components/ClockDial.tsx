@@ -8,13 +8,11 @@
  */
 
 import React, { useRef, useState } from "react";
-import { View, StyleSheet, PanResponder, Vibration } from "react-native";
+import { View, StyleSheet, PanResponder, Vibration, Platform } from "react-native";
 import { useTheme } from "../theme";
 
-export type ClockTime = {
-  hour: number;   // 1–12
-  minute: number; // multiples of 5
-};
+import type { ClockTime } from "../types";
+export type { ClockTime };
 
 const SNAP_MINUTES = 5;
 const FULL_ROTATION = 360;
@@ -34,39 +32,48 @@ export const ClockDial: React.FC<{
 }> = ({ onChange }) => {
   const colors = useTheme();
   const angleRef = useRef(0);
+  const dragBaseAngleRef = useRef(0);
   const [angle, setAngle] = useState(0);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        dragBaseAngleRef.current = angleRef.current;
+      },
       onPanResponderMove: (_, gesture) => {
         const rotation = gesture.dx; // horizontal bezel drag
-        const newAngle = angleRef.current + rotation;
+        const newAngle = dragBaseAngleRef.current + rotation;
         const step = FULL_ROTATION / (720 / SNAP_MINUTES);
         const snapped = Math.round(newAngle / step) * step;
         angleRef.current = snapped;
         setAngle(snapped);
         onChange(angleToTime(snapped));
-        Vibration.vibrate(5);
+        if (Platform.OS !== "web") Vibration.vibrate(5);
       },
-      onPanResponderRelease: () => {
-        angleRef.current = angle;
-      },
+      onPanResponderRelease: () => {},
+      onPanResponderTerminate: () => {},
     })
   ).current;
 
   return (
     <View
+      {...panResponder.panHandlers}
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel="Clock dial"
       style={styles.container}
     >
       <View
-        {...panResponder.panHandlers}
         style={[styles.bezel, { borderColor: colors.border, transform: [{ rotate: `${angle}deg` }] }]}
       />
-      <View style={[styles.centerPin, { backgroundColor: colors.text }]} />
+      <View
+        style={[
+          styles.centerPin,
+          { backgroundColor: colors.text },
+          Platform.OS === "web" ? ({ pointerEvents: "none" } as any) : null,
+        ]}
+      />
     </View>
   );
 };

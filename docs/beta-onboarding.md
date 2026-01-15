@@ -2,6 +2,13 @@
 
 ## Phase One · Closed Beta
 
+## TL;DR (Quick Start)
+
+* Start with **no funds** or a **very small amount** (only if you’re comfortable).
+* Expect bugs and friction — this is the point of beta.
+* Focus testing on: **Clock Unlock**, **Travel Mode switching**, **NFC toggling (if enabled)**, and **recovery flows**.
+* Share feedback via GitHub issues and/or the beta feedback form.
+
 Welcome to the Nomad Phase One closed beta.
 
 This document explains **how to use Nomad safely**, **what to expect**, and **how to participate responsibly**. Please read this fully before depositing funds.
@@ -45,7 +52,8 @@ Only proceed if you understand and accept this responsibility.
 
 For the beta:
 
-* Start with a **small amount**
+* If you prefer: **use no real funds** and test UI/flows only
+* If you do use funds: start with a **very small amount**
 * Perform a test transaction first
 * Do not store life-changing funds
 * Treat this as real crypto, not test tokens

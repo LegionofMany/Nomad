@@ -14,5 +14,5 @@ export function getThemeColors(scheme: "light" | "dark" | null) {
 
 export function useTheme() {
   const scheme = useColorScheme();
-  return getThemeColors(scheme);
+  return getThemeColors(scheme ?? null);
 }

@@ -10,31 +10,78 @@
 
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ClockUnlockScreen from './screens/ClockUnlockScreen';
+import LockScreen from './screens/LockScreen';
+import PortfolioScreen from './screens/PortfolioScreen';
+import TravelModeScreen from './screens/TravelModeScreen';
+
+import { AppStateProvider, useAppState } from './state/appState';
 
 type RootStackParamList = {
   ClockUnlock: undefined;
+  Lock: undefined;
+  Portfolio: undefined;
+  TravelMode: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+function desiredRouteForStatus(status: string): keyof RootStackParamList {
+  if (status === "unlocked") return "Portfolio";
+  if (status === "locked") return "ClockUnlock";
+  // no_wallet / recovery
+  return "Lock";
+}
+
+function NavigationGate() {
+  const { walletStatus } = useAppState();
+
+  React.useEffect(() => {
+    if (!navigationRef.isReady()) return;
+    const desired = desiredRouteForStatus(walletStatus);
+    const current = navigationRef.getCurrentRoute()?.name as keyof RootStackParamList | undefined;
+    if (current === desired) return;
+
+    navigationRef.reset({
+      index: 0,
+      routes: [{ name: desired }],
+    });
+  }, [walletStatus]);
+
+  return null;
+}
+
+function AppNavigator() {
+  const { walletStatus } = useAppState();
+
+  return (
+    <Stack.Navigator initialRouteName={desiredRouteForStatus(walletStatus)}>
+      <Stack.Screen name="Lock" component={LockScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ClockUnlock" component={ClockUnlockScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Portfolio" component={PortfolioScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="TravelMode" component={TravelModeScreen} options={{ headerShown: false }} />
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   return (
-    <NavigationContainer>
-      <SafeAreaView style={{ flex: 1 }}>
-        <Stack.Navigator initialRouteName="ClockUnlock">
-          <Stack.Screen
-            name="ClockUnlock"
-            component={ClockUnlockScreen}
-            options={{ headerShown: false }}
-          />
-        </Stack.Navigator>
-        <StatusBar style="auto" />
-      </SafeAreaView>
-    </NavigationContainer>
+    <AppStateProvider>
+      <SafeAreaProvider>
+        <NavigationContainer ref={navigationRef}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <NavigationGate />
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </SafeAreaView>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </AppStateProvider>
   );
 }

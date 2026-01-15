@@ -1,5 +1,5 @@
 /**
- * Mobile Dapp boundary note
+ * Mobile app boundary note
  *
  * `travel/` is the source of truth for Travel Mode business logic.
  * This file exists as a *mobile-facing adapter* to keep the React Native UI
