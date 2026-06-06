@@ -15,6 +15,7 @@ import protocols.voltaire.nomad.travel.NfcPaymentGateway
 import protocols.voltaire.nomad.travel.TravelModeManager
 import protocols.voltaire.nomad.travel.TravelPaymentCoordinator
 import protocols.voltaire.nomad.travel.TravelPaymentPolicy
+import protocols.voltaire.nomad.travel.TravelPaymentScenario
 import protocols.voltaire.nomad.travel.TravelPocketManager
 import protocols.voltaire.nomad.ui.NomadHomeController
 import protocols.voltaire.nomad.wallet.DevelopmentWalletEngine
@@ -38,6 +39,12 @@ class NomadServiceContainer {
         travelModeManager = travelModeManager,
         paymentPolicy = travelPaymentPolicy,
         pocketManager = travelPocketManager
+    )
+    val travelPaymentScenario: TravelPaymentScenario = TravelPaymentScenario(
+        travelModeManager = travelModeManager,
+        travelPocketManager = travelPocketManager,
+        nfcPaymentGateway = nfcPaymentGateway,
+        travelPaymentCoordinator = travelPaymentCoordinator
     )
     val walletEngine: WalletEngine = DevelopmentWalletEngine()
     val blockpagesSafetyClient: BlockpagesSafetyClient = DevelopmentBlockpagesSafetyClient()
