@@ -4,6 +4,7 @@ import android.app.Activity
 import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
+import protocols.voltaire.nomad.di.NomadServiceContainer
 
 /**
  * Nomad Android development entry screen.
@@ -12,6 +13,8 @@ import android.widget.TextView
  * Gradle build is fully activated with audited dependencies.
  */
 class MainActivity : Activity() {
+    private val services = NomadServiceContainer()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -35,6 +38,8 @@ class MainActivity : Activity() {
                 appendLine()
                 appendLine("Current phase: development wiring")
                 appendLine("Production wallet engine: pending audit")
+                appendLine()
+                append(services.developmentSafetyReport.toDisplayText())
             }
         }
 
