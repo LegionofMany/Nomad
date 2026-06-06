@@ -7,6 +7,9 @@ import protocols.voltaire.nomad.security.ClockUnlockManager
 import protocols.voltaire.nomad.security.DevelopmentOwnerConfirmationGateway
 import protocols.voltaire.nomad.security.InMemorySecureStorageGateway
 import protocols.voltaire.nomad.security.OwnerConfirmationGateway
+import protocols.voltaire.nomad.security.ReleaseSafetyConfiguration
+import protocols.voltaire.nomad.security.ReleaseSafetyGate
+import protocols.voltaire.nomad.security.ReleaseSafetyResult
 import protocols.voltaire.nomad.security.SecureStorageGateway
 import protocols.voltaire.nomad.travel.BasicTravelModeManager
 import protocols.voltaire.nomad.travel.BasicTravelPaymentCoordinator
@@ -52,6 +55,28 @@ class NomadServiceContainer {
     )
     val walletEngine: WalletEngine = DevelopmentWalletEngine()
     val blockpagesSafetyClient: BlockpagesSafetyClient = DevelopmentBlockpagesSafetyClient()
+    val releaseSafetyGate: ReleaseSafetyGate = ReleaseSafetyGate()
+    val developmentReleaseSafetyResult: ReleaseSafetyResult = releaseSafetyGate.evaluate(
+        ReleaseSafetyConfiguration(
+            realFundsRequested = true,
+            activeServiceNames = listOf(
+                "InMemorySecureStorageGateway",
+                "BasicClockUnlockManager",
+                "DevelopmentOwnerConfirmationGateway",
+                "BasicTravelModeManager",
+                "BasicTravelPaymentPolicy",
+                "BasicTravelPocketManager",
+                "DevelopmentNfcPaymentGateway",
+                "BasicTravelPaymentCoordinator",
+                "DevelopmentWalletEngine",
+                "DevelopmentBlockpagesSafetyClient"
+            ),
+            secureStorageProductionSafe = secureStorage.isProductionSafe(),
+            ownerConfirmationAutoConfirmEnabled = true,
+            nfcCanBypassOwnerConfirmation = false,
+            travelPocketCanAccessMainWalletDirectly = false
+        )
+    )
 
     val homeController: NomadHomeController = NomadHomeController(
         walletEngine = walletEngine,
