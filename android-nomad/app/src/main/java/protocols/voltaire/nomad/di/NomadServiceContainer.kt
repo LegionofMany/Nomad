@@ -5,12 +5,14 @@ import protocols.voltaire.nomad.blockpages.DevelopmentBlockpagesSafetyClient
 import protocols.voltaire.nomad.security.BasicClockUnlockManager
 import protocols.voltaire.nomad.security.ClockUnlockManager
 import protocols.voltaire.nomad.security.DevelopmentOwnerConfirmationGateway
+import protocols.voltaire.nomad.security.DevelopmentSafetyReport
 import protocols.voltaire.nomad.security.InMemorySecureStorageGateway
 import protocols.voltaire.nomad.security.OwnerConfirmationGateway
 import protocols.voltaire.nomad.security.ReleaseSafetyConfiguration
 import protocols.voltaire.nomad.security.ReleaseSafetyGate
 import protocols.voltaire.nomad.security.ReleaseSafetyResult
 import protocols.voltaire.nomad.security.SecureStorageGateway
+import protocols.voltaire.nomad.security.toDevelopmentSafetyReport
 import protocols.voltaire.nomad.travel.BasicTravelModeManager
 import protocols.voltaire.nomad.travel.BasicTravelPaymentCoordinator
 import protocols.voltaire.nomad.travel.BasicTravelPaymentPolicy
@@ -77,6 +79,7 @@ class NomadServiceContainer {
             travelPocketCanAccessMainWalletDirectly = false
         )
     )
+    val developmentSafetyReport: DevelopmentSafetyReport = developmentReleaseSafetyResult.toDevelopmentSafetyReport()
 
     val homeController: NomadHomeController = NomadHomeController(
         walletEngine = walletEngine,
