@@ -47,7 +47,8 @@ class NomadServiceContainer {
         travelModeManager = travelModeManager,
         travelPocketManager = travelPocketManager,
         nfcPaymentGateway = nfcPaymentGateway,
-        travelPaymentCoordinator = travelPaymentCoordinator
+        travelPaymentCoordinator = travelPaymentCoordinator,
+        ownerConfirmationGateway = ownerConfirmationGateway
     )
     val walletEngine: WalletEngine = DevelopmentWalletEngine()
     val blockpagesSafetyClient: BlockpagesSafetyClient = DevelopmentBlockpagesSafetyClient()
