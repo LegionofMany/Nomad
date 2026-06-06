@@ -1,0 +1,5 @@
+// Nomad Android root build placeholder.
+// Add Android Gradle Plugin and Kotlin plugin versions when native build is activated.
+
+plugins {
+}
