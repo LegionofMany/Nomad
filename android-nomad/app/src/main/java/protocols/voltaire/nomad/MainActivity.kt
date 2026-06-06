@@ -4,6 +4,7 @@ import android.app.Activity
 import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
+import protocols.voltaire.nomad.beta.BetaMode
 import protocols.voltaire.nomad.di.NomadServiceContainer
 
 /**
@@ -36,8 +37,10 @@ class MainActivity : Activity() {
                 appendLine("Foundation: Samourai-inspired wallet architecture")
                 appendLine("Upgrade layer: Clock Unlock, Travel Mode, Blockpages411 safety")
                 appendLine()
-                appendLine("Current phase: development wiring")
+                appendLine("Current phase: closed beta / test mode wiring")
                 appendLine("Production wallet engine: pending audit")
+                appendLine()
+                appendLine(BetaMode.statusText())
                 appendLine()
                 append(services.developmentSafetyReport.toDisplayText())
             }
