@@ -1,6 +1,7 @@
 package protocols.voltaire.nomad.travel
 
-import java.time.Instant
+import protocols.voltaire.nomad.security.OwnerConfirmationGateway
+import protocols.voltaire.nomad.security.OwnerConfirmationRequest
 
 /**
  * Development scenario runner for the Nomad Travel Mode payment flow.
@@ -11,14 +12,15 @@ import java.time.Instant
  * 3. Enable NFC requests
  * 4. Parse NFC payload into TravelPaymentIntent
  * 5. Review through coordinator
- * 6. Require owner approval
- * 7. Debit Travel Pocket only after approval
+ * 6. Request explicit owner confirmation
+ * 7. Debit Travel Pocket only after accepted owner confirmation
  */
 class TravelPaymentScenario(
     private val travelModeManager: TravelModeManager,
     private val travelPocketManager: TravelPocketManager,
     private val nfcPaymentGateway: NfcPaymentGateway,
-    private val travelPaymentCoordinator: TravelPaymentCoordinator
+    private val travelPaymentCoordinator: TravelPaymentCoordinator,
+    private val ownerConfirmationGateway: OwnerConfirmationGateway
 ) {
     suspend fun runDevelopmentScenario(): TravelPaymentScenarioResult {
         val travelState = travelModeManager.enableTravelMode(
@@ -59,19 +61,29 @@ class TravelPaymentScenario(
 
         val review = travelPaymentCoordinator.reviewPayment(intent)
 
-        val approvalResult = if (review.canProceedToOwnerConfirmation) {
+        val confirmationResult = if (review.canProceedToOwnerConfirmation) {
+            ownerConfirmationGateway.requestConfirmation(
+                OwnerConfirmationRequest(
+                    reviewId = review.reviewId,
+                    title = review.intentReview.title,
+                    summary = review.intentReview.summary,
+                    requiredMethod = review.approvalDecision.requiredConfirmation,
+                    warnings = review.intentReview.warnings
+                )
+            )
+        } else {
+            null
+        }
+
+        val approvalResult = if (confirmationResult?.accepted == true && confirmationResult.confirmation != null) {
             travelPaymentCoordinator.recordOwnerApproval(
                 reviewId = review.reviewId,
-                confirmation = OwnerConfirmation(
-                    method = OwnerConfirmationMethod.CLOCK_UNLOCK,
-                    confirmed = true,
-                    confirmedAtIso = Instant.now().toString()
-                )
+                confirmation = confirmationResult.confirmation
             )
         } else {
             CoordinatedTravelPaymentResult(
                 accepted = false,
-                message = "Scenario could not proceed to owner confirmation."
+                message = confirmationResult?.message ?: "Scenario could not proceed to owner confirmation."
             )
         }
 
@@ -80,6 +92,7 @@ class TravelPaymentScenario(
             pocketFunded = pocketFunding.accepted,
             nfcEnabled = nfcState.enabledForTravel,
             reviewAllowed = review.canProceedToOwnerConfirmation,
+            ownerConfirmationRequested = confirmationResult != null,
             ownerApprovalAccepted = approvalResult.accepted,
             message = approvalResult.message,
             remainingPocket = approvalResult.pocket
@@ -92,6 +105,7 @@ data class TravelPaymentScenarioResult(
     val pocketFunded: Boolean,
     val nfcEnabled: Boolean,
     val reviewAllowed: Boolean,
+    val ownerConfirmationRequested: Boolean,
     val ownerApprovalAccepted: Boolean,
     val message: String,
     val remainingPocket: TravelPocket?
