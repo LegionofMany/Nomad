@@ -4,7 +4,9 @@ import protocols.voltaire.nomad.blockpages.BlockpagesSafetyClient
 import protocols.voltaire.nomad.blockpages.DevelopmentBlockpagesSafetyClient
 import protocols.voltaire.nomad.security.BasicClockUnlockManager
 import protocols.voltaire.nomad.security.ClockUnlockManager
+import protocols.voltaire.nomad.security.DevelopmentOwnerConfirmationGateway
 import protocols.voltaire.nomad.security.InMemorySecureStorageGateway
+import protocols.voltaire.nomad.security.OwnerConfirmationGateway
 import protocols.voltaire.nomad.security.SecureStorageGateway
 import protocols.voltaire.nomad.travel.BasicTravelModeManager
 import protocols.voltaire.nomad.travel.BasicTravelPaymentCoordinator
@@ -31,6 +33,7 @@ import protocols.voltaire.nomad.wallet.WalletEngine
 class NomadServiceContainer {
     val secureStorage: SecureStorageGateway = InMemorySecureStorageGateway()
     val clockUnlockManager: ClockUnlockManager = BasicClockUnlockManager(secureStorage)
+    val ownerConfirmationGateway: OwnerConfirmationGateway = DevelopmentOwnerConfirmationGateway()
     val travelModeManager: TravelModeManager = BasicTravelModeManager()
     val travelPaymentPolicy: TravelPaymentPolicy = BasicTravelPaymentPolicy()
     val travelPocketManager: TravelPocketManager = BasicTravelPocketManager()
