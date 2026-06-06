@@ -10,6 +10,8 @@ import protocols.voltaire.nomad.travel.BasicTravelModeManager
 import protocols.voltaire.nomad.travel.BasicTravelPaymentCoordinator
 import protocols.voltaire.nomad.travel.BasicTravelPaymentPolicy
 import protocols.voltaire.nomad.travel.BasicTravelPocketManager
+import protocols.voltaire.nomad.travel.DevelopmentNfcPaymentGateway
+import protocols.voltaire.nomad.travel.NfcPaymentGateway
 import protocols.voltaire.nomad.travel.TravelModeManager
 import protocols.voltaire.nomad.travel.TravelPaymentCoordinator
 import protocols.voltaire.nomad.travel.TravelPaymentPolicy
@@ -31,6 +33,7 @@ class NomadServiceContainer {
     val travelModeManager: TravelModeManager = BasicTravelModeManager()
     val travelPaymentPolicy: TravelPaymentPolicy = BasicTravelPaymentPolicy()
     val travelPocketManager: TravelPocketManager = BasicTravelPocketManager()
+    val nfcPaymentGateway: NfcPaymentGateway = DevelopmentNfcPaymentGateway()
     val travelPaymentCoordinator: TravelPaymentCoordinator = BasicTravelPaymentCoordinator(
         travelModeManager = travelModeManager,
         paymentPolicy = travelPaymentPolicy,
