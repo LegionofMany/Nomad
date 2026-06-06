@@ -4,11 +4,14 @@ import android.app.Activity
 import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
-import protocols.voltaire.nomad.di.NomadServiceContainer
 
+/**
+ * Nomad Android development entry screen.
+ *
+ * This screen intentionally avoids async wallet calls until the native Android
+ * Gradle build is fully activated with audited dependencies.
+ */
 class MainActivity : Activity() {
-    private val services = NomadServiceContainer()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -24,32 +27,19 @@ class MainActivity : Activity() {
 
         val status = TextView(this).apply {
             textSize = 16f
-            text = "Loading Nomad development services..."
             setPadding(0, 24, 0, 0)
+            text = buildString {
+                appendLine("Android-native Nomad scaffold")
+                appendLine("Foundation: Samourai-inspired wallet architecture")
+                appendLine("Upgrade layer: Clock Unlock, Travel Mode, Blockpages411 safety")
+                appendLine()
+                appendLine("Current phase: development wiring")
+                appendLine("Production wallet engine: pending audit")
+            }
         }
 
         layout.addView(title)
         layout.addView(status)
         setContentView(layout)
-
-        Thread {
-            val home = kotlinx.coroutines.runBlocking {
-                services.homeController.loadHome()
-            }
-
-            runOnUiThread {
-                status.text = buildString {
-                    appendLine("Wallet status: ${home.walletStatus}")
-                    appendLine("Travel Mode: ${if (home.travelModeState.enabled) "Enabled" else "Disabled"}")
-                    appendLine("Safety: ${home.safetySummary.title}")
-                    appendLine(home.safetySummary.message)
-                    appendLine()
-                    appendLine("Quick actions:")
-                    home.quickActions.forEach { action ->
-                        appendLine("- ${action.label}: ${if (action.enabled) "enabled" else "disabled"}")
-                    }
-                }
-            }
-        }.start()
     }
 }
