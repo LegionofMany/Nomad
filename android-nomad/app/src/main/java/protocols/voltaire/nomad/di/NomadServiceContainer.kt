@@ -25,6 +25,7 @@ import protocols.voltaire.nomad.travel.TravelPaymentPolicy
 import protocols.voltaire.nomad.travel.TravelPaymentScenario
 import protocols.voltaire.nomad.travel.TravelPocketManager
 import protocols.voltaire.nomad.ui.NomadHomeController
+import protocols.voltaire.nomad.ui.OwnerConfirmationReviewController
 import protocols.voltaire.nomad.ui.WalletDashboardController
 import protocols.voltaire.nomad.wallet.DevelopmentReceiveAddressCoordinator
 import protocols.voltaire.nomad.wallet.DevelopmentTransferReviewCoordinator
@@ -71,6 +72,7 @@ class NomadServiceContainer {
         walletStateProvider = { demoWalletState },
         transferReviewCoordinator = transferReviewCoordinator
     )
+    val ownerConfirmationReviewController: OwnerConfirmationReviewController = OwnerConfirmationReviewController()
     val blockpagesSafetyClient: BlockpagesSafetyClient = DevelopmentBlockpagesSafetyClient()
     val releaseSafetyGate: ReleaseSafetyGate = ReleaseSafetyGate()
     val developmentReleaseSafetyResult: ReleaseSafetyResult = releaseSafetyGate.evaluate(
@@ -89,6 +91,7 @@ class NomadServiceContainer {
                 "DevelopmentReceiveAddressCoordinator",
                 "DevelopmentTransferReviewCoordinator",
                 "SendReviewScenario",
+                "OwnerConfirmationReviewController",
                 "DevelopmentBlockpagesSafetyClient"
             ),
             secureStorageProductionSafe = secureStorage.isProductionSafe(),
