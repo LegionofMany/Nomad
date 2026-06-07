@@ -21,6 +21,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val dashboard = services.walletDashboardController.build()
+        val sendReview = services.sendReviewScenario.prepareDemoNfcTransfer()
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -54,6 +55,16 @@ class MainActivity : Activity() {
                 appendLine("- ${dashboard.receiveAddress.address}")
                 appendLine("- Index: ${dashboard.receiveAddress.addressIndex}")
                 dashboard.receiveAddress.warning?.let { appendLine("- Warning: $it") }
+                appendLine()
+                appendLine("Demo send review")
+                appendLine("- Source: ${sendReview.request.source}")
+                appendLine("- Destination: ${sendReview.request.destination}")
+                appendLine("- Amount: ${sendReview.request.amount} ${sendReview.request.assetSymbol}")
+                appendLine("- Network: ${sendReview.request.network.displayName}")
+                appendLine("- Fee estimate: ${sendReview.estimatedFee}")
+                appendLine("- Owner confirmation required: ${sendReview.requiresOwnerConfirmation}")
+                appendLine("- Warnings:")
+                sendReview.warnings.forEach { warning -> appendLine("  - $warning") }
                 appendLine()
                 appendLine("Quick actions")
                 dashboard.quickActions.forEach { action ->
