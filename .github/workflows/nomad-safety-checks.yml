@@ -1,0 +1,54 @@
+name: Nomad Safety Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  repository-safety:
+    name: Repository Safety Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required safety documents exist
+        run: |
+          test -f README.md
+          test -f SECURITY.md
+          test -f docs/security/PRODUCTION_BLOCKERS.md
+          test -f docs/security/THREAT_MODEL.md
+          test -f docs/security/RELEASE_AUDIT_CHECKLIST.md
+          test -f docs/architecture/WALLET_FLOW.md
+          test -f docs/architecture/CLOCK_AUTHORITY_FLOW.md
+          test -f docs/architecture/TRAVEL_POCKET_FLOW.md
+
+      - name: Verify real funds remain disabled in documentation
+        run: |
+          grep -R "Real funds allowed: NO" README.md docs || true
+          grep -R "not yet approved for real funds" README.md
+          grep -R "No Nomad build may be used with real funds" docs/security/PRODUCTION_BLOCKERS.md
+
+      - name: Verify production blockers are documented
+        run: |
+          grep -R "Production Wallet Engine\|ProductionWalletEngine" docs/security docs/architecture README.md
+          grep -R "AndroidKeystoreSecureStorageGateway" docs/security docs README.md
+          grep -R "ProductionOwnerConfirmationGateway" docs/security docs README.md
+          grep -R "ProductionTravelPocketManager" docs/security docs README.md
+
+      - name: Verify development implementations are explicitly treated as blockers
+        run: |
+          grep -R "DevelopmentWalletEngine" README.md docs/security docs/architecture
+          grep -R "InMemorySecureStorageGateway" README.md docs/security docs
+          grep -R "DevelopmentNfcPaymentGateway" README.md docs/security docs
+          grep -R "DevelopmentBlockpagesSafetyClient" README.md docs/security docs
+          grep -R "BasicTravelPocketManager" README.md docs/security docs
+
+      - name: Generate safety summary
+        run: |
+          echo "Nomad safety documentation checks completed."
+          echo "This workflow does not certify production readiness."
+          echo "Real funds remain blocked until P0 issues are resolved, tests pass, release signing is complete, and external audit is complete."
