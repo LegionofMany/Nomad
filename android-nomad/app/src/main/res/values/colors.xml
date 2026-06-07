@@ -1,0 +1,5 @@
+<resources>
+    <color name="nomad_background">#0B1020</color>
+    <color name="nomad_primary">#00E5FF</color>
+    <color name="nomad_accent">#00FF88</color>
+</resources>
