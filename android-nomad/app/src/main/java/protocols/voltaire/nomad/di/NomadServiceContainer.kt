@@ -4,7 +4,6 @@ import protocols.voltaire.nomad.blockpages.BlockpagesSafetyClient
 import protocols.voltaire.nomad.blockpages.DevelopmentBlockpagesSafetyClient
 import protocols.voltaire.nomad.security.BasicClockUnlockManager
 import protocols.voltaire.nomad.security.ClockUnlockManager
-import protocols.voltaire.nomad.security.DevelopmentOwnerConfirmationGateway
 import protocols.voltaire.nomad.security.DevelopmentSafetyReport
 import protocols.voltaire.nomad.security.InMemorySecureStorageGateway
 import protocols.voltaire.nomad.security.NomadTimeClockValidator
@@ -13,6 +12,7 @@ import protocols.voltaire.nomad.security.ReleaseSafetyConfiguration
 import protocols.voltaire.nomad.security.ReleaseSafetyGate
 import protocols.voltaire.nomad.security.ReleaseSafetyResult
 import protocols.voltaire.nomad.security.SecureStorageGateway
+import protocols.voltaire.nomad.security.StrictOwnerConfirmationGateway
 import protocols.voltaire.nomad.security.toDevelopmentSafetyReport
 import protocols.voltaire.nomad.travel.BasicTravelModeManager
 import protocols.voltaire.nomad.travel.BasicTravelPaymentCoordinator
@@ -50,7 +50,7 @@ class NomadServiceContainer {
     val secureStorage: SecureStorageGateway = InMemorySecureStorageGateway()
     val clockUnlockManager: ClockUnlockManager = BasicClockUnlockManager(secureStorage)
     val timeClockValidator: NomadTimeClockValidator = NomadTimeClockValidator()
-    val ownerConfirmationGateway: OwnerConfirmationGateway = DevelopmentOwnerConfirmationGateway()
+    val ownerConfirmationGateway: OwnerConfirmationGateway = StrictOwnerConfirmationGateway(timeClockValidator)
     val travelModeManager: TravelModeManager = BasicTravelModeManager()
     val travelPaymentPolicy: TravelPaymentPolicy = BasicTravelPaymentPolicy()
     val travelPocketManager: TravelPocketManager = BasicTravelPocketManager()
@@ -88,7 +88,7 @@ class NomadServiceContainer {
                 "InMemorySecureStorageGateway",
                 "BasicClockUnlockManager",
                 "NomadTimeClockValidator",
-                "DevelopmentOwnerConfirmationGateway",
+                "StrictOwnerConfirmationGateway",
                 "BasicTravelModeManager",
                 "BasicTravelPaymentPolicy",
                 "BasicTravelPocketManager",
@@ -104,7 +104,7 @@ class NomadServiceContainer {
                 "DevelopmentBlockpagesSafetyClient"
             ),
             secureStorageProductionSafe = secureStorage.isProductionSafe(),
-            ownerConfirmationAutoConfirmEnabled = true,
+            ownerConfirmationAutoConfirmEnabled = false,
             nfcCanBypassOwnerConfirmation = false,
             travelPocketCanAccessMainWalletDirectly = false
         )
