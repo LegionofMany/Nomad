@@ -7,6 +7,7 @@ import protocols.voltaire.nomad.security.ClockUnlockManager
 import protocols.voltaire.nomad.security.DevelopmentOwnerConfirmationGateway
 import protocols.voltaire.nomad.security.DevelopmentSafetyReport
 import protocols.voltaire.nomad.security.InMemorySecureStorageGateway
+import protocols.voltaire.nomad.security.NomadTimeClockValidator
 import protocols.voltaire.nomad.security.OwnerConfirmationGateway
 import protocols.voltaire.nomad.security.ReleaseSafetyConfiguration
 import protocols.voltaire.nomad.security.ReleaseSafetyGate
@@ -48,6 +49,7 @@ import protocols.voltaire.nomad.wallet.WalletState
 class NomadServiceContainer {
     val secureStorage: SecureStorageGateway = InMemorySecureStorageGateway()
     val clockUnlockManager: ClockUnlockManager = BasicClockUnlockManager(secureStorage)
+    val timeClockValidator: NomadTimeClockValidator = NomadTimeClockValidator()
     val ownerConfirmationGateway: OwnerConfirmationGateway = DevelopmentOwnerConfirmationGateway()
     val travelModeManager: TravelModeManager = BasicTravelModeManager()
     val travelPaymentPolicy: TravelPaymentPolicy = BasicTravelPaymentPolicy()
@@ -85,6 +87,7 @@ class NomadServiceContainer {
             activeServiceNames = listOf(
                 "InMemorySecureStorageGateway",
                 "BasicClockUnlockManager",
+                "NomadTimeClockValidator",
                 "DevelopmentOwnerConfirmationGateway",
                 "BasicTravelModeManager",
                 "BasicTravelPaymentPolicy",
