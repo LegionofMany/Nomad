@@ -1,5 +1,8 @@
 package protocols.voltaire.nomad.travel
 
+import protocols.voltaire.nomad.security.ClockTimePosition
+import protocols.voltaire.nomad.security.NomadTimeClockKey
+import protocols.voltaire.nomad.security.NomadTimeClockPurpose
 import protocols.voltaire.nomad.security.OwnerConfirmationGateway
 import protocols.voltaire.nomad.security.OwnerConfirmationRequest
 
@@ -12,7 +15,7 @@ import protocols.voltaire.nomad.security.OwnerConfirmationRequest
  * 3. Enable NFC requests
  * 4. Parse NFC payload into TravelPaymentIntent
  * 5. Review through coordinator
- * 6. Request explicit owner confirmation
+ * 6. Request explicit owner confirmation with time clock authority
  * 7. Debit Travel Pocket only after accepted owner confirmation
  */
 class TravelPaymentScenario(
@@ -61,6 +64,11 @@ class TravelPaymentScenario(
 
         val review = travelPaymentCoordinator.reviewPayment(intent)
 
+        val paymentApprovalKey = NomadTimeClockKey(
+            purpose = NomadTimeClockPurpose.APPROVE_REVIEWED_PAYMENT,
+            positions = listOf(ClockTimePosition(hour = 10, minute = 10))
+        )
+
         val confirmationResult = if (review.canProceedToOwnerConfirmation) {
             ownerConfirmationGateway.requestConfirmation(
                 OwnerConfirmationRequest(
@@ -68,7 +76,8 @@ class TravelPaymentScenario(
                     title = review.intentReview.title,
                     summary = review.intentReview.summary,
                     requiredMethod = review.approvalDecision.requiredConfirmation,
-                    warnings = review.intentReview.warnings
+                    warnings = review.intentReview.warnings,
+                    timeClockKey = paymentApprovalKey
                 )
             )
         } else {
