@@ -24,6 +24,7 @@ import protocols.voltaire.nomad.travel.TravelPaymentCoordinator
 import protocols.voltaire.nomad.travel.TravelPaymentPolicy
 import protocols.voltaire.nomad.travel.TravelPaymentScenario
 import protocols.voltaire.nomad.travel.TravelPocketManager
+import protocols.voltaire.nomad.travel.TravelPosCoordinator
 import protocols.voltaire.nomad.ui.NomadHomeController
 import protocols.voltaire.nomad.ui.OwnerConfirmationReviewController
 import protocols.voltaire.nomad.ui.WalletDashboardController
@@ -64,6 +65,9 @@ class NomadServiceContainer {
         travelPaymentCoordinator = travelPaymentCoordinator,
         ownerConfirmationGateway = ownerConfirmationGateway
     )
+    val travelPosCoordinator: TravelPosCoordinator = TravelPosCoordinator(
+        travelPaymentCoordinator = travelPaymentCoordinator
+    )
     val walletEngine: WalletEngine = DevelopmentWalletEngine()
     val demoWalletState: WalletState = DevelopmentWalletStateFactory.create()
     val receiveAddressCoordinator: ReceiveAddressCoordinator = DevelopmentReceiveAddressCoordinator { demoWalletState }
@@ -87,6 +91,8 @@ class NomadServiceContainer {
                 "BasicTravelPocketManager",
                 "DevelopmentNfcPaymentGateway",
                 "BasicTravelPaymentCoordinator",
+                "TravelPaymentScenario",
+                "TravelPosCoordinator",
                 "DevelopmentWalletEngine",
                 "DevelopmentReceiveAddressCoordinator",
                 "DevelopmentTransferReviewCoordinator",
