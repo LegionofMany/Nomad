@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
 import protocols.voltaire.nomad.beta.BetaMode
+import protocols.voltaire.nomad.beta.CapabilityFlags
 import protocols.voltaire.nomad.di.NomadServiceContainer
 
 /**
@@ -41,6 +42,8 @@ class MainActivity : Activity() {
                 appendLine("Production wallet engine: pending audit")
                 appendLine()
                 appendLine(BetaMode.statusText())
+                appendLine()
+                appendLine(CapabilityFlags.statusText())
                 appendLine()
                 append(services.developmentSafetyReport.toDisplayText())
             }
