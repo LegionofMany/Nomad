@@ -31,6 +31,7 @@ import protocols.voltaire.nomad.wallet.DevelopmentTransferReviewCoordinator
 import protocols.voltaire.nomad.wallet.DevelopmentWalletEngine
 import protocols.voltaire.nomad.wallet.DevelopmentWalletStateFactory
 import protocols.voltaire.nomad.wallet.ReceiveAddressCoordinator
+import protocols.voltaire.nomad.wallet.SendReviewScenario
 import protocols.voltaire.nomad.wallet.TransferReviewCoordinator
 import protocols.voltaire.nomad.wallet.WalletEngine
 import protocols.voltaire.nomad.wallet.WalletState
@@ -66,6 +67,10 @@ class NomadServiceContainer {
     val demoWalletState: WalletState = DevelopmentWalletStateFactory.create()
     val receiveAddressCoordinator: ReceiveAddressCoordinator = DevelopmentReceiveAddressCoordinator { demoWalletState }
     val transferReviewCoordinator: TransferReviewCoordinator = DevelopmentTransferReviewCoordinator()
+    val sendReviewScenario: SendReviewScenario = SendReviewScenario(
+        walletStateProvider = { demoWalletState },
+        transferReviewCoordinator = transferReviewCoordinator
+    )
     val blockpagesSafetyClient: BlockpagesSafetyClient = DevelopmentBlockpagesSafetyClient()
     val releaseSafetyGate: ReleaseSafetyGate = ReleaseSafetyGate()
     val developmentReleaseSafetyResult: ReleaseSafetyResult = releaseSafetyGate.evaluate(
@@ -83,6 +88,7 @@ class NomadServiceContainer {
                 "DevelopmentWalletEngine",
                 "DevelopmentReceiveAddressCoordinator",
                 "DevelopmentTransferReviewCoordinator",
+                "SendReviewScenario",
                 "DevelopmentBlockpagesSafetyClient"
             ),
             secureStorageProductionSafe = secureStorage.isProductionSafe(),
