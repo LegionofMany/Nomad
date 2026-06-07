@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nomad Wallet | Closed Beta</title>
+  <meta name="description" content="Nomad Wallet closed beta status page for Voltaire Protocols.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050b12;
+      --panel: #0b1724;
+      --text: #eafbff;
+      --muted: #94aebd;
+      --blue: #00b7ff;
+      --green: #00ffb2;
+      --warn: #ffd166;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top left, rgba(0,183,255,.22), transparent 32%), var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 56px 20px; }
+    .badge { display: inline-block; border: 1px solid var(--green); color: var(--green); padding: 8px 12px; border-radius: 999px; font-size: 14px; }
+    h1 { font-size: clamp(40px, 7vw, 82px); line-height: .95; margin: 24px 0 16px; }
+    h2 { color: var(--green); margin-top: 36px; }
+    p { color: var(--muted); max-width: 760px; }
+    .hero { padding: 32px; border: 1px solid rgba(0,183,255,.35); border-radius: 28px; background: rgba(11,23,36,.82); box-shadow: 0 0 60px rgba(0,183,255,.12); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 24px; }
+    .card { background: rgba(11,23,36,.9); border: 1px solid rgba(148,174,189,.18); border-radius: 20px; padding: 20px; }
+    .card strong { color: var(--text); }
+    .warning { border-color: rgba(255,209,102,.65); }
+    .warning strong { color: var(--warn); }
+    ul { padding-left: 20px; color: var(--muted); }
+    code { color: var(--green); }
+    footer { margin-top: 44px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <span class="badge">Closed Beta / Test Mode</span>
+      <h1>Nomad Wallet</h1>
+      <p>Travel-first wallet safety for Voltaire Protocols. Nomad is being built around explicit owner consent, capped Travel Pocket spending, NFC request safety, and Blockpages411 safety messaging.</p>
+      <p><strong>Real funds are disabled.</strong> Use test data only during closed beta.</p>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <strong>Enabled for beta</strong>
+        <ul>
+          <li>Demo wallet flow</li>
+          <li>Clock unlock demo</li>
+          <li>Travel Mode setup</li>
+          <li>Travel Pocket simulation</li>
+          <li>NFC request simulation</li>
+          <li>Owner confirmation simulation</li>
+        </ul>
+      </div>
+      <div class="card warning">
+        <strong>Still locked</strong>
+        <ul>
+          <li>Real stablecoin settlement</li>
+          <li>Production private-key custody</li>
+          <li>Production merchant acceptance</li>
+          <li>Main-wallet direct NFC spending</li>
+          <li>Silent signing</li>
+          <li>Background approval</li>
+        </ul>
+      </div>
+      <div class="card">
+        <strong>Core safety rule</strong>
+        <p>NFC can request payment. NFC cannot approve payment. The wallet owner must review and confirm before any Travel Pocket debit.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Travel payment flow</h2>
+      <p><code>NFC or QR request -> TravelPaymentIntent -> Travel Pocket review -> Owner confirmation -> test-mode debit only after approval</code></p>
+    </section>
+
+    <section>
+      <h2>Repository status</h2>
+      <p>GitHub-ready for continued development and closed beta testing. Production release requires wallet engine replacement, secure storage, real NFC integration, real Blockpages411 API client, stablecoin settlement, tests, release signing, and external audit.</p>
+    </section>
+
+    <footer>
+      Nomad Wallet · Voltaire Protocols · Closed beta scaffold · Real funds disabled
+    </footer>
+  </main>
+</body>
+</html>
