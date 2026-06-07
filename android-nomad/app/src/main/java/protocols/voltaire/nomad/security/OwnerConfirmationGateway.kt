@@ -18,7 +18,8 @@ data class OwnerConfirmationRequest(
     val title: String,
     val summary: String,
     val requiredMethod: OwnerConfirmationMethod,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    val timeClockKey: NomadTimeClockKey? = null
 )
 
 data class OwnerConfirmationResult(
@@ -26,5 +27,6 @@ data class OwnerConfirmationResult(
     val accepted: Boolean,
     val method: OwnerConfirmationMethod,
     val message: String,
-    val confirmation: OwnerConfirmation? = null
+    val confirmation: OwnerConfirmation? = null,
+    val timeClockValidation: NomadTimeClockValidationResult? = null
 )
