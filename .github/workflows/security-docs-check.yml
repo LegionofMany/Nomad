@@ -1,0 +1,65 @@
+name: Security Docs Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  security-docs-check:
+    name: Verify required Nomad safety docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required documentation exists
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "README.md"
+            "SECURITY.md"
+            "docs/GITHUB_READY_CHECKLIST.md"
+            "docs/FEATURE_IMPLEMENTATION_STANDARD.md"
+            "docs/DEVELOPER_ONBOARDING.md"
+            "docs/ARCHITECTURE_OVERVIEW.md"
+            "docs/TEST_PLAN.md"
+            "docs/BETA_TESTER_GUIDE.md"
+            "docs/ROADMAP.md"
+            "docs/beta/CLOSED_BETA_PLAN.md"
+            "docs/beta/PHASED_PUBLIC_ROLLOUT.md"
+            "docs/security/THREAT_MODEL.md"
+            "docs/security/PRODUCTION_BLOCKERS.md"
+            "docs/security/KEY_MANAGEMENT.md"
+            "docs/security/OWNER_CONFIRMATION.md"
+            "docs/security/NFC_TRAVEL_MODE.md"
+            "docs/security/TRAVEL_POCKET.md"
+            "docs/security/RECOVERY_MODEL.md"
+            "docs/security/RELEASE_AUDIT_CHECKLIST.md"
+          )
+
+          missing=0
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "Missing required file: $file"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Nomad safety documentation check failed."
+            exit 1
+          fi
+
+          echo "Nomad safety documentation check passed."
+
+      - name: Verify real funds remain disabled in scaffold
+        run: |
+          set -euo pipefail
+
+          grep -R "REAL_FUNDS_ALLOWED: Boolean = false" android-nomad/app/src/main/java/protocols/voltaire/nomad/security/ProductionReadiness.kt
+          grep -R "REAL_FUNDS_ENABLED: Boolean = false" android-nomad/app/src/main/java/protocols/voltaire/nomad/beta/BetaMode.kt
+
+          echo "Real funds disabled check passed."
