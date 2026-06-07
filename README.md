@@ -1,110 +1,202 @@
 # Nomad Wallet
 
-**Nomad** is a non-custodial, security-first crypto wallet designed for real-world travel and everyday use. It combines a calm, human-centered UX with strong security primitives, including a clock-based unlock mechanism, capped travel spending, and explicit user consent for every action.
+Nomad Wallet is a non-custodial, travel-first wallet under Voltaire Protocols. It is designed around explicit owner consent, capped travel spending, NFC request safety, Blockpages411 destination checks, and a phased rollout from closed beta to production.
 
----
+Nomad is currently GitHub-ready for continued development and closed beta testing.
 
-## ✨ Key Principles
+Nomad is not yet approved for real funds.
 
-* **Non-custodial**: Keys never leave the user’s device
-* **Clock-based unlock**: A single smooth motion to unlock actions
-* **Explicit consent**: No silent signing or spending
-* **Travel-safe by design**: NFC and card spending are capped and optional
-* **Honest security**: Residual risks are documented, not hidden
+## Current Status
 
----
-
-## 🔐 Security Overview
-
-* Secure enclave / keystore for private keys
-* Gesture-based clock unlock (rate-limited, shoulder-surf resistant)
-* 24 time-set offline recovery system
-* Human-readable transaction summaries
-* No blanket approvals
-
-See the threat model and worst-case simulations in `/docs/security`.
-
----
-
-## 🌍 Supported Assets & Networks
-
-Nomad is **not limited to regional stablecoins**.
-
-* Native assets: BTC, ETH, HBAR
-* ERC-20 tokens (including major stablecoins)
-* Multi-network support via adapters
-
-Regional stablecoins are used **only** for travel and spending convenience.
-
----
-
-## ✈️ Travel Mode & Payments
-
-* NFC is **off by default**
-* Explicit tap-to-enable
-* Prefunded spending only
-* Region- and amount-based limits
-* Instant freeze and auto-expiry
-
-Travel mode can never drain the main wallet.
-
----
-
-## 🧭 Project Structure (High Level)
-
-```
-/src
-  /identity        # Promises, language, core terms
-  /onboarding      # First-run experience and tutorials
-  /security        # Clock logic, signing, recovery
-  /travel          # NFC, region logic, spending caps
-  /network         # RPC handling, confirmations
-/docs
-  /security        # Threat model & simulations
+```txt
+Repository: LegionofMany/Nomad
+Product: Nomad Wallet / Nomad Protocol
+Phase: Closed beta / test mode scaffold
+Real funds: Disabled
+Production wallet engine: Pending audit and replacement
 ```
 
----
+## Core Product Direction
 
-## 🧪 Development Status
+Nomad is built for users who need a wallet that can travel safely across regions while keeping control in the hands of the wallet owner.
 
-* Core wallet architecture: ✅ Complete
-* UX & onboarding: ✅ Complete
-# Nomad Wallet 🧭
+Core principles:
 
-Nomad is a next-generation, non-custodial, travel-first crypto wallet designed for global payments, regional stablecoin usage, and enhanced security.
+- Non-custodial wallet ownership
+- Explicit confirmation for every payment
+- NFC off by default
+- NFC can request, but cannot approve
+- Travel Pocket spending caps
+- Main wallet isolation from travel spending
+- Clock unlock and recovery concepts
+- Blockpages411 safety checks
+- Phased capability rollout
 
-## ✨ Key Features
+## Samourai Reference Foundation
 
-- 🔐 Clock-based wallet unlock system
-- 🕒 24-point recovery mechanism
-- 🌍 Region-aware stablecoin routing
-- 📡 NFC payment abstraction
-- 🔑 Fully non-custodial
-- 🧩 Modular security architecture
+Nomad uses the public Samourai Wallet Android project as an architecture reference for mobile wallet organization, onboarding, backup/restore flow, transaction review boundaries, and Android wallet structure.
 
-## 🏗 Project Structure
+Nomad does not blindly clone Samourai.
 
-Nomad/
-├─ wallet-core/      # Cryptography & key management
-├─ security/         # Clock unlock, recovery, lockout
-├─ travel/           # Travel Mode & region logic
-├─ mobile/           # Expo (React Native) application
-├─ docs/             # Documentation
-├─ whitepaper/       # Whitepaper drafts
+Nomad does not import mixer, tumbler, laundering, obfuscation, or compliance-avoidance features into core wallet functionality.
 
+Reference document:
 
-## 🚀 Development Status
+```txt
+docs/samourai-reference-map.md
+```
 
-- Phase A–D: ✅ Complete
-- Phase E (UI polish): ⏳ In progress
-- Phase F (audit & beta): ⏳ Pending
+## Major Modules
 
-## ⚠️ Disclaimer
+```txt
+mobile/
+  Expo / React Native prototype
 
-This software is provided for **educational and beta testing purposes only**.  
-Do **not** use with real funds until audited.
+android-nomad/
+  Android-native Nomad scaffold
 
+src/
+  TypeScript wallet/security/travel modules
 
-## 📄 License
-MIT License
+docs/
+  Product, rollout, GitHub readiness, and security documentation
 
+docs/security/
+  Threat model, production blockers, owner confirmation, NFC, Travel Pocket, recovery, key management
+
+docs/beta/
+  Closed beta plan and phased public rollout
+```
+
+## Android-Native Nomad Layer
+
+The Android-native scaffold lives at:
+
+```txt
+android-nomad/app/src/main/java/protocols/voltaire/nomad/
+```
+
+Current Android-native modules include:
+
+- Wallet engine interface and development engine
+- Secure storage gateway and development storage
+- Clock unlock interface and basic development implementation
+- Owner confirmation gateway
+- Travel Mode manager
+- Travel Pocket manager
+- NFC payment gateway
+- Travel payment policy and coordinator
+- Blockpages411 safety client
+- Beta capability flags
+- Release safety gate
+- Development safety report
+
+## Closed Beta Mode
+
+Closed beta is enabled for test/demo flows only.
+
+Enabled beta flows:
+
+- Demo wallet creation
+- Demo wallet restore
+- Clock unlock demo
+- Travel Mode setup
+- Travel Pocket simulation
+- NFC request simulation
+- Owner confirmation simulation
+- Blockpages411 safety messaging
+
+Blocked until production replacement and audit:
+
+- Real funds
+- Real stablecoin settlement
+- Real production private-key custody
+- Production merchant acceptance
+- Main-wallet direct NFC spending
+- Silent signing
+- Background approval
+
+## Travel Wallet Flow
+
+```txt
+NFC / QR / manual request
+   ↓
+TravelPaymentIntent
+   ↓
+TravelPaymentCoordinator.reviewPayment()
+   ↓
+Travel Pocket balance and limit checks
+   ↓
+OwnerConfirmationGateway.requestConfirmation()
+   ↓
+TravelPaymentCoordinator.recordOwnerApproval()
+   ↓
+Travel Pocket debit only after owner approval
+```
+
+## Safety Gate
+
+Nomad currently keeps real funds disabled through:
+
+```txt
+android-nomad/app/src/main/java/protocols/voltaire/nomad/security/ProductionReadiness.kt
+android-nomad/app/src/main/java/protocols/voltaire/nomad/security/ReleaseSafetyGate.kt
+```
+
+Current rule:
+
+```txt
+REAL_FUNDS_ALLOWED = false
+```
+
+## GitHub Readiness
+
+See:
+
+```txt
+docs/GITHUB_READY_CHECKLIST.md
+docs/FEATURE_IMPLEMENTATION_STANDARD.md
+```
+
+Current verdict:
+
+```txt
+GitHub-ready for continued development: YES
+GitHub-ready for production release: NO
+Real funds allowed: NO
+```
+
+## Security Documentation
+
+Key docs:
+
+```txt
+SECURITY.md
+docs/security/THREAT_MODEL.md
+docs/security/PRODUCTION_BLOCKERS.md
+docs/security/KEY_MANAGEMENT.md
+docs/security/OWNER_CONFIRMATION.md
+docs/security/NFC_TRAVEL_MODE.md
+docs/security/TRAVEL_POCKET.md
+docs/security/RECOVERY_MODEL.md
+docs/security/RELEASE_AUDIT_CHECKLIST.md
+```
+
+## Developer Next Steps
+
+1. Review `docs/DEVELOPER_ONBOARDING.md`
+2. Review `docs/ARCHITECTURE_OVERVIEW.md`
+3. Review `docs/beta/CLOSED_BETA_PLAN.md`
+4. Activate Android Gradle build files
+5. Add tests for Travel Pocket, NFC request, owner confirmation, and release safety gate
+6. Wire beta UI screens
+7. Prepare Vercel-facing beta page
+8. Replace development implementations before any real-funds release
+
+## Release Warning
+
+This repository contains development implementations for scaffold and beta testing. Do not use Nomad with real funds until production replacements, tests, CI checks, external audit, and release signing are complete.
+
+## License
+
+License to be finalized before public production release.
