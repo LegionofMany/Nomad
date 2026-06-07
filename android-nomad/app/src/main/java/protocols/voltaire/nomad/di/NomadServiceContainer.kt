@@ -25,6 +25,7 @@ import protocols.voltaire.nomad.travel.TravelPaymentPolicy
 import protocols.voltaire.nomad.travel.TravelPaymentScenario
 import protocols.voltaire.nomad.travel.TravelPocketManager
 import protocols.voltaire.nomad.ui.NomadHomeController
+import protocols.voltaire.nomad.ui.WalletDashboardController
 import protocols.voltaire.nomad.wallet.DevelopmentReceiveAddressCoordinator
 import protocols.voltaire.nomad.wallet.DevelopmentTransferReviewCoordinator
 import protocols.voltaire.nomad.wallet.DevelopmentWalletEngine
@@ -96,5 +97,11 @@ class NomadServiceContainer {
         walletEngine = walletEngine,
         travelModeManager = travelModeManager,
         safetyClient = blockpagesSafetyClient
+    )
+
+    val walletDashboardController: WalletDashboardController = WalletDashboardController(
+        walletStateProvider = { demoWalletState },
+        receiveAddressCoordinator = receiveAddressCoordinator,
+        safetyReportProvider = { developmentSafetyReport }
     )
 }
