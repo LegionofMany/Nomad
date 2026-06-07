@@ -22,6 +22,7 @@ class MainActivity : Activity() {
 
         val dashboard = services.walletDashboardController.build()
         val sendReview = services.sendReviewScenario.prepareDemoNfcTransfer()
+        val ownerReview = services.ownerConfirmationReviewController.build(sendReview)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -65,6 +66,14 @@ class MainActivity : Activity() {
                 appendLine("- Owner confirmation required: ${sendReview.requiresOwnerConfirmation}")
                 appendLine("- Warnings:")
                 sendReview.warnings.forEach { warning -> appendLine("  - $warning") }
+                appendLine()
+                appendLine("Owner confirmation boundary")
+                appendLine("- Review id: ${ownerReview.reviewId}")
+                appendLine("- Title: ${ownerReview.title}")
+                appendLine("- Approve action: ${ownerReview.approveAction.label} / ${if (ownerReview.approveAction.enabled) "enabled" else "locked"}")
+                appendLine("- Deny action: ${ownerReview.denyAction.label} / ${if (ownerReview.denyAction.enabled) "enabled" else "locked"}")
+                appendLine("- Boundary warnings:")
+                ownerReview.warnings.forEach { warning -> appendLine("  - $warning") }
                 appendLine()
                 appendLine("Quick actions")
                 dashboard.quickActions.forEach { action ->
