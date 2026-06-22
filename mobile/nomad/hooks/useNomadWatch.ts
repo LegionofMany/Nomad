@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters, NomadWatchEmergencyAction, NomadWatchState } from '../adapters/walletAdapter';
 
 const fallbackWatch: NomadWatchState = {
@@ -20,8 +20,9 @@ const fallbackWatch: NomadWatchState = {
   ownerAuthorityAlertLabel: 'No new alerts',
 };
 
-export function useNomadWatch(adapters: NomadOverlayAdapters = localNomadOverlayAdapters) {
-  const watchAdapter = adapters.watch;
+export function useNomadWatch(adapters?: NomadOverlayAdapters) {
+  const contextAdapters = useNomadAdapters();
+  const watchAdapter = (adapters ?? contextAdapters).watch;
   const [watch, setWatch] = useState<NomadWatchState>(fallbackWatch);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
