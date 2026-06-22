@@ -24,6 +24,7 @@ import SwapScreen from './screens/SwapScreen';
 import TravelModeScreen from './screens/TravelModeScreen';
 import SecurityCenterScreen from './screens/SecurityCenterScreen';
 import RecoveryCenterScreen from './screens/RecoveryCenterScreen';
+import TimeClockAccessScreen from './screens/TimeClockAccessScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NomadInsightsScreen from './screens/NomadInsightsScreen';
 import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
@@ -43,6 +44,7 @@ type RootStackParamList = {
   TravelMode: undefined;
   SecurityCenter: undefined;
   RecoveryCenter: undefined;
+  TimeClockAccess: undefined;
   Settings: undefined;
   NomadInsights: undefined;
   NomadInsightsSpending: undefined;
@@ -94,6 +96,7 @@ function AppNavigator() {
       <Stack.Screen name="TravelMode" component={TravelModeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="SecurityCenter" component={SecurityCenterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RecoveryCenter" component={RecoveryCenterScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="TimeClockAccess" component={TimeClockAccessScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsights" component={NomadInsightsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
