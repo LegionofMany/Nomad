@@ -1,15 +1,19 @@
 import {
   disableTravelMode,
   enableTravelMode,
+  getDailyUnlockTime,
   getPortfolio,
   getTravelState,
   getWalletMeta,
+  getWalletStatus,
   lockWallet as lockLocalWallet,
 } from '../../services/walletService';
 
 import type {
   NomadAsset,
   NomadOverlayAdapters,
+  NomadRecoveryAdapter,
+  NomadRecoveryState,
   NomadSafetyAdapter,
   NomadSignedTransaction,
   NomadTransactionDraft,
@@ -80,6 +84,49 @@ async function buildTravelPocketState(): Promise<NomadTravelPocketState> {
   };
 }
 
+function formatClockTime(time: { hour: number; minute: number; second?: number } | null): string {
+  if (!time) return '24 Hour Cycle';
+  const second = time.second ?? 0;
+  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(second).padStart(2, '0')} Time Set`;
+}
+
+async function buildRecoveryState(): Promise<NomadRecoveryState> {
+  const [status, meta, unlockTime] = await Promise.all([
+    getWalletStatus(),
+    getWalletMeta(),
+    getDailyUnlockTime(),
+  ]);
+
+  const hasWallet = !!meta;
+  const isRecovery = status === 'recovery';
+  const recoveryStatus: NomadRecoveryState['recoveryStatus'] = !hasWallet
+    ? 'not_started'
+    : isRecovery
+      ? 'recovery_required'
+      : status === 'locked'
+        ? 'locked'
+        : 'protected';
+
+  return {
+    walletStatus: status,
+    dailyUnlockTime: unlockTime ? { ...unlockTime, second: 0 } : null,
+    recoveryStatus,
+    recoverySetupDate: meta?.createdAt ? new Date(meta.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not configured',
+    verificationStatus: hasWallet ? 'Verified' : 'Setup Required',
+    lastCheckLabel: 'Just now',
+    timeSetsComplete: hasWallet ? 24 : 0,
+    timeSetsTotal: 24,
+    recoveryScore: hasWallet ? 94 : 0,
+    signerQuorum: hasWallet ? 3 : 0,
+    signerTotal: 3,
+    nextRecommendedCheck: '30 days from now',
+    timeRemainingLabel: status === 'locked' ? '23:47:32' : status === 'unlocked' ? '00:00:00' : '24:00:00',
+    cycleLabel: formatClockTime(unlockTime),
+    cycleStartedLabel: meta?.createdAt ? new Date(meta.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Awaiting wallet setup',
+    purpose: 'Wallet Access',
+  };
+}
+
 export const localNomadWalletAdapter: NomadWalletAdapter = {
   async getWalletBalance() {
     const portfolio = await getPortfolio();
@@ -144,6 +191,20 @@ export const localNomadTravelAdapter: NomadTravelAdapter = {
   },
 };
 
+export const localNomadRecoveryAdapter: NomadRecoveryAdapter = {
+  async getRecoveryState() {
+    return buildRecoveryState();
+  },
+
+  async runRecoveryCheck() {
+    return buildRecoveryState();
+  },
+
+  async requestOwnerAuthorityApproval(reason: string) {
+    return { status: 'pending', requestedAt: new Date().toISOString(), reason };
+  },
+};
+
 export const localNomadSafetyAdapter: NomadSafetyAdapter = {
   async scanAddress(address: string) {
     const normalized = address.trim().toLowerCase();
@@ -169,5 +230,6 @@ export const localNomadSafetyAdapter: NomadSafetyAdapter = {
 export const localNomadOverlayAdapters: NomadOverlayAdapters = {
   wallet: localNomadWalletAdapter,
   travel: localNomadTravelAdapter,
+  recovery: localNomadRecoveryAdapter,
   safety: localNomadSafetyAdapter,
 };
