@@ -16,8 +16,8 @@ Nomad is not the final production engine. A selected base engine must provide th
 | Phase 2A: Adapter contract hardening | Complete | Session, account, transaction, and safety adapter contracts have been expanded for integration readiness. |
 | Phase 2B: Base-engine bridge scaffold | Complete | `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` defines the future engine bridge. |
 | Phase 2C: Screen readiness pass | Complete | `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` documents all 26 screens, readiness states, and demo/live replacement notes. |
-| Phase 2D: Local compile/audit pass | In progress | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` now gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
-| Phase 2E: Base engine selection/integration | Pending | Select/import the live engine and implement concrete adapters. |
+| Phase 2D: Local compile/audit pass | In progress | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
+| Phase 2E: Base engine selection/integration | Prepared | `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` defines engine selection criteria, integration shape, demo replacement checklist, and acceptance checks. |
 | Phase 3: Live Nomad services | Planned | Connect live BlockPages, Travel Pocket, POS, freeze, recovery, Watch, Voltaire, and swap services. |
 | Phase 4: Production audit/release | Planned | Final security, recovery, privacy, device, testnet/mainnet, and app-store audits. |
 
@@ -119,6 +119,24 @@ It covers:
 - Error report template.
 - Phase 2D completion criteria.
 
+## Phase 2E base engine selection and integration
+
+A dedicated Phase 2E plan has been added for the developer:
+
+```txt
+mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md
+```
+
+It covers:
+
+- Wallet engine selection criteria.
+- Due diligence before choosing an engine.
+- Concrete adapter implementation shape.
+- Required wallet adapter methods.
+- Demo service replacement checklist.
+- Phase 2E acceptance checks.
+- Clear separation between Phase 2E wallet custody work and Phase 3 live Nomad services.
+
 ## Phase 2D local commands
 
 Run from repository root:
@@ -165,14 +183,15 @@ The following must be resolved before release:
 4. Read `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md`.
 5. Read `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md`.
 6. Read `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md`.
-7. Run the local commands listed above.
-8. Complete Phase 2D compile/audit pass.
-9. Select/import the base engine.
-10. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
-11. Inject the concrete adapter through `NomadAdaptersProvider`.
-12. Replace local demo services with production service adapters.
-13. Begin Phase 3 live Nomad service integrations.
-14. Begin Phase 4 release audit only after live engine integration is complete.
+7. Read `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md`.
+8. Run the local commands listed above.
+9. Complete Phase 2D compile/audit pass.
+10. Select/import the base engine.
+11. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
+12. Inject the concrete adapter through `NomadAdaptersProvider`.
+13. Replace local demo services with production service adapters.
+14. Begin Phase 3 live Nomad service integrations.
+15. Begin Phase 4 release audit only after live engine integration is complete.
 
 ## Handoff conclusion
 
