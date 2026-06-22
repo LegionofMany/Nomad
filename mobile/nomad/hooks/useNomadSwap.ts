@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters, NomadSignedTransaction, NomadSwapQuote } from '../adapters/walletAdapter';
 
 const fallbackQuote: NomadSwapQuote = {
@@ -30,8 +30,9 @@ export type NomadSwapHookState = {
   createDraft(): Promise<NomadSignedTransaction>;
 };
 
-export function useNomadSwap(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadSwapHookState {
-  const swap = adapters.swap;
+export function useNomadSwap(adapters?: NomadOverlayAdapters): NomadSwapHookState {
+  const contextAdapters = useNomadAdapters();
+  const swap = (adapters ?? contextAdapters).swap;
   const [quote, setQuote] = useState<NomadSwapQuote>(fallbackQuote);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
