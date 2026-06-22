@@ -280,6 +280,48 @@ export type NomadWatchAdapter = {
   triggerEmergencyAction(action: NomadWatchEmergencyAction): Promise<NomadWatchState>;
 };
 
+export type NomadSettingsRow = {
+  title: string;
+  subtitle: string;
+  icon: string;
+  color?: string;
+  value?: string;
+  route?: string;
+};
+
+export type NomadSettingsShortcut = {
+  title: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+  route?: string;
+};
+
+export type NomadSettingsState = {
+  displayName: string;
+  email: string;
+  identityStatus: string;
+  securityLevel: string;
+  defaultCurrency: string;
+  language: string;
+  appearance: string;
+  defaultNetwork: string;
+  notificationsLabel: string;
+  travelPocketLabel: string;
+  autoConvertEnabled: boolean;
+  paySpendLabel: string;
+  appVersion: string;
+  shortcuts: NomadSettingsShortcut[];
+  preferenceRows: NomadSettingsRow[];
+  featureRows: NomadSettingsRow[];
+  supportRows: NomadSettingsRow[];
+};
+
+export type NomadSettingsAdapter = {
+  getSettingsState(): Promise<NomadSettingsState>;
+  logOut(): Promise<{ status: 'locked' }>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -294,6 +336,7 @@ export type NomadOverlayAdapters = {
   swap?: NomadSwapAdapter;
   protocols?: NomadProtocolsAdapter;
   watch?: NomadWatchAdapter;
+  settings?: NomadSettingsAdapter;
   safety?: NomadSafetyAdapter;
 };
 
