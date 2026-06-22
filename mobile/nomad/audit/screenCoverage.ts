@@ -1,0 +1,283 @@
+import type { NomadOverlayArea, NomadOverlayRouteName } from '../routes/nomadRoutes';
+
+export type NomadScreenWiringStatus = 'wired' | 'foundation' | 'adapter-ready' | 'static-review-needed';
+
+export type NomadScreenCoverageItem = {
+  route: NomadOverlayRouteName;
+  area: NomadOverlayArea;
+  pageNumber?: number;
+  concept: string;
+  adapterLayer: 'wallet' | 'travel' | 'security' | 'recovery' | 'blockpages' | 'swap' | 'insights' | 'protocols' | 'watch' | 'settings' | 'foundation';
+  status: NomadScreenWiringStatus;
+  ownsKeysOrSigning: false;
+};
+
+export const nomadScreenCoverage: NomadScreenCoverageItem[] = [
+  {
+    route: 'Lock',
+    area: 'foundation',
+    concept: 'Wallet creation and restore entry point before the Nomad overlay opens.',
+    adapterLayer: 'foundation',
+    status: 'foundation',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'ClockUnlock',
+    area: 'foundation',
+    concept: 'Clock and Time Set unlock gate for the local wallet backend.',
+    adapterLayer: 'foundation',
+    status: 'foundation',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'Portfolio',
+    area: 'wallet',
+    pageNumber: 1,
+    concept: 'Main Nomad dashboard and wallet command surface.',
+    adapterLayer: 'wallet',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'Wallets',
+    area: 'wallet',
+    pageNumber: 2,
+    concept: 'Asset inventory, wallet balance, and custom asset management.',
+    adapterLayer: 'wallet',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'SendBitcoin',
+    area: 'wallet',
+    pageNumber: 3,
+    concept: 'Create a reviewable send draft without signing or broadcasting.',
+    adapterLayer: 'wallet',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'ReceiveBitcoin',
+    area: 'wallet',
+    pageNumber: 4,
+    concept: 'Receive address and QR-style wallet deposit surface.',
+    adapterLayer: 'wallet',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'Swap',
+    area: 'wallet',
+    pageNumber: 5,
+    concept: 'Voltaire Liquidity Protocol quote and review draft flow.',
+    adapterLayer: 'swap',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'TravelMode',
+    area: 'travel',
+    pageNumber: 6,
+    concept: 'Travel Pocket local stable-value spending surface.',
+    adapterLayer: 'travel',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'SecurityCenter',
+    area: 'security',
+    pageNumber: 7,
+    concept: 'Security health, modules, recovery, and protective status overview.',
+    adapterLayer: 'security',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'Settings',
+    area: 'settings',
+    pageNumber: 8,
+    concept: 'User preferences, app controls, and account settings.',
+    adapterLayer: 'settings',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'NomadInsights',
+    area: 'insights',
+    pageNumber: 9,
+    concept: 'Portfolio, travel, spending, and freedom-score intelligence overview.',
+    adapterLayer: 'insights',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'NomadInsightsSpending',
+    area: 'insights',
+    pageNumber: 10,
+    concept: 'Spending, budget, merchant, and category analytics detail page.',
+    adapterLayer: 'insights',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'RecoveryCenter',
+    area: 'recovery',
+    pageNumber: 11,
+    concept: 'Recovery status, signers, Time Sets, and emergency recovery control center.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'VoltaireProtocols',
+    area: 'voltaire',
+    pageNumber: 12,
+    concept: 'Voltaire protocol hub and protocol-health telemetry surface.',
+    adapterLayer: 'protocols',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'BlockPagesSafety',
+    area: 'blockpages',
+    pageNumber: 13,
+    concept: 'BlockPages privacy, identity, and safety protection dashboard.',
+    adapterLayer: 'blockpages',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'TimeClockAccess',
+    area: 'recovery',
+    pageNumber: 14,
+    concept: 'Time Set lock state, countdown, and early access approval path.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'UnlockWallet',
+    area: 'recovery',
+    pageNumber: 15,
+    concept: 'Wallet unlock confirmation status after Time Set verification.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'RecoverLostWallet',
+    area: 'recovery',
+    pageNumber: 16,
+    concept: 'Step 1 recovery sequence entry for 24 Time Sets.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'VerifyRecoverySequence',
+    area: 'recovery',
+    pageNumber: 17,
+    concept: 'Step 2 recovery sequence verification of Time Sets.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'WalletRecovered',
+    area: 'recovery',
+    pageNumber: 18,
+    concept: 'Step 4 recovered-wallet confirmation and safe return path.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'OwnerAuthorityApproval',
+    area: 'recovery',
+    pageNumber: 19,
+    concept: 'Owner Authority approval request, pending state, and cancellation flow.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'AddressSafetyDetail',
+    area: 'blockpages',
+    pageNumber: 20,
+    concept: 'BlockPages address risk detail before sending or saving a contact.',
+    adapterLayer: 'blockpages',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'TopUpTravelPocket',
+    area: 'travel',
+    pageNumber: 21,
+    concept: 'Travel Pocket top-up step 1 asset selection flow.',
+    adapterLayer: 'travel',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'ApprovePOSTransaction',
+    area: 'travel',
+    pageNumber: 22,
+    concept: 'POS payment approval screen that creates a safe review draft only.',
+    adapterLayer: 'wallet',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'CreateOwnerAuthority',
+    area: 'recovery',
+    pageNumber: 23,
+    concept: 'Owner Authority setup and recovery approval relationship creation.',
+    adapterLayer: 'recovery',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'BlockPagesURLScanner',
+    area: 'blockpages',
+    pageNumber: 24,
+    concept: 'BlockPages URL scanner for drainer, phishing, and malicious site checks.',
+    adapterLayer: 'blockpages',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'EmergencyFreeze',
+    area: 'security',
+    pageNumber: 25,
+    concept: 'Emergency wallet, travel, asset, and authority-freeze action surface.',
+    adapterLayer: 'security',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+  {
+    route: 'NomadWatch',
+    area: 'watch',
+    pageNumber: 26,
+    concept: 'Nomad Watch wearable status, sync, travel, and emergency controls.',
+    adapterLayer: 'watch',
+    status: 'wired',
+    ownsKeysOrSigning: false,
+  },
+];
+
+export const NOMAD_PAGE_COUNT = 26;
+
+export function getNomadScreenCoverageSummary() {
+  const pages = nomadScreenCoverage.filter((item) => typeof item.pageNumber === 'number');
+  const wiredPages = pages.filter((item) => item.status === 'wired');
+  const keyOwnershipViolations = nomadScreenCoverage.filter((item) => item.ownsKeysOrSigning !== false);
+
+  return {
+    expectedPages: NOMAD_PAGE_COUNT,
+    registeredPages: pages.length,
+    wiredPages: wiredPages.length,
+    foundationRoutes: nomadScreenCoverage.filter((item) => item.status === 'foundation').length,
+    keyOwnershipViolations: keyOwnershipViolations.length,
+    complete: pages.length === NOMAD_PAGE_COUNT && wiredPages.length === NOMAD_PAGE_COUNT && keyOwnershipViolations.length === 0,
+  };
+}
