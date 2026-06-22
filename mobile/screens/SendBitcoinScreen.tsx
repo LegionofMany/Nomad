@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+
+import { useNomadWallet } from "../nomad";
 
 type NavItem = {
   icon: string;
@@ -8,6 +10,8 @@ type NavItem = {
   active?: boolean;
   onPress?: () => void;
 };
+
+type DraftStatus = "idle" | "creating" | "created" | "failed";
 
 function Card({ children, style = {} as object }: { children: React.ReactNode; style?: object }) {
   return (
@@ -43,12 +47,14 @@ function CoinBadge() {
   );
 }
 
-function RecipientSection() {
+function RecipientSection({ recipient, onRecipientChange }: { recipient: string; onRecipientChange(value: string): void }) {
   return (
     <Card style={{ marginTop: 24 }}>
       <StepTitle number="1" title="Recipient" />
       <View style={{ minHeight: 66, borderWidth: 1, borderColor: "#1f5f9e", borderRadius: 13, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(1,12,25,0.65)" }}>
         <TextInput
+          value={recipient}
+          onChangeText={onRecipientChange}
           placeholder="Bitcoin address or BlockPages name"
           placeholderTextColor="#8fa4bd"
           style={{ flex: 1, color: "white", fontSize: 18 }}
@@ -172,13 +178,19 @@ function SummarySection() {
   );
 }
 
-function ReviewButton() {
+function ReviewButton({ status, onPress }: { status: DraftStatus; onPress(): void }) {
+  const subtitle = status === "created"
+    ? "Draft created. Ready for wallet-engine review"
+    : status === "failed"
+      ? "Enter a recipient before creating a draft"
+      : "Review and confirm before sending";
+
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Review Transaction" style={{ marginTop: 18, minHeight: 94, borderRadius: 18, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", backgroundColor: "#0b65ff", shadowColor: "#1684ff", shadowOpacity: 0.8, shadowRadius: 18 }}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Review Transaction" onPress={onPress} disabled={status === "creating"} style={{ marginTop: 18, minHeight: 94, borderRadius: 18, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", backgroundColor: status === "failed" ? "#63252a" : "#0b65ff", shadowColor: "#1684ff", shadowOpacity: 0.8, shadowRadius: 18 }}>
       <Text style={{ color: "white", fontSize: 34, marginRight: 20 }}>✈</Text>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: "white", fontSize: 22, fontWeight: "900" }}>Review Transaction</Text>
-        <Text style={{ color: "#dbe9ff", fontSize: 15, marginTop: 6 }}>Review and confirm before sending</Text>
+        <Text style={{ color: "white", fontSize: 22, fontWeight: "900" }}>{status === "creating" ? "Creating Draft..." : "Review Transaction"}</Text>
+        <Text style={{ color: "#dbe9ff", fontSize: 15, marginTop: 6 }}>{subtitle}</Text>
       </View>
       <Text style={{ color: "white", fontSize: 36 }}>›</Text>
     </Pressable>
@@ -191,8 +203,9 @@ function BottomNav() {
     { icon: "⌂", label: "Home", onPress: () => navigation.navigate("Portfolio") },
     { icon: "▣", label: "Wallets", onPress: () => navigation.navigate("Wallets") },
     { icon: "✈", label: "Send", active: true },
+    { icon: "▦", label: "Receive", onPress: () => navigation.navigate("ReceiveBitcoin") },
     { icon: "⊞", label: "Travel", onPress: () => navigation.navigate("TravelMode") },
-    { icon: "⚙", label: "Settings" },
+    { icon: "⚙", label: "Settings", onPress: () => navigation.navigate("Settings") },
   ];
 
   return (
@@ -209,6 +222,24 @@ function BottomNav() {
 
 export const SendBitcoinScreen = () => {
   const navigation = useNavigation<any>();
+  const { createTransaction } = useNomadWallet();
+  const [recipient, setRecipient] = useState("");
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>("idle");
+
+  const handleReviewTransaction = async () => {
+    try {
+      setDraftStatus("creating");
+      const draft = await createTransaction({
+        fromAsset: "BTC",
+        toAddress: recipient.trim(),
+        amount: "0.001000",
+        networkFee: "0.000012",
+      });
+      setDraftStatus(draft.status === "failed" ? "failed" : "created");
+    } catch {
+      setDraftStatus("failed");
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#020812" }}>
@@ -226,12 +257,12 @@ export const SendBitcoinScreen = () => {
           <StatusPill />
         </View>
 
-        <RecipientSection />
+        <RecipientSection recipient={recipient} onRecipientChange={(value) => { setRecipient(value); if (draftStatus !== "idle") setDraftStatus("idle"); }} />
         <AmountSection />
         <NetworkSection />
         <FeeSection />
         <SummarySection />
-        <ReviewButton />
+        <ReviewButton status={draftStatus} onPress={handleReviewTransaction} />
       </ScrollView>
       <BottomNav />
     </View>
