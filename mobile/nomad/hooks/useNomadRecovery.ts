@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
-import type { NomadOverlayAdapters, NomadRecoveryState } from '../adapters/walletAdapter';
+import type { NomadOverlayAdapters, NomadOwnerAuthorityRequest, NomadRecoveryState } from '../adapters/walletAdapter';
 
 const fallbackRecoveryState: NomadRecoveryState = {
   walletStatus: 'locked',
@@ -26,10 +26,11 @@ export type NomadRecoveryHookState = {
   recovery: NomadRecoveryState;
   loading: boolean;
   error: string | null;
-  ownerAuthorityRequest: { status: 'pending'; requestedAt: string; reason: string } | null;
+  ownerAuthorityRequest: NomadOwnerAuthorityRequest;
   refresh(): Promise<void>;
   runCheck(): Promise<NomadRecoveryState>;
-  requestOwnerAuthority(reason: string): Promise<{ status: 'pending'; requestedAt: string; reason: string }>;
+  requestOwnerAuthority(reason: string): Promise<NomadOwnerAuthorityRequest>;
+  cancelOwnerAuthority(): Promise<NomadOwnerAuthorityRequest>;
 };
 
 export function useNomadRecovery(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadRecoveryHookState {
@@ -37,7 +38,7 @@ export function useNomadRecovery(adapters: NomadOverlayAdapters = localNomadOver
   const [recovery, setRecovery] = useState<NomadRecoveryState>(fallbackRecoveryState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ownerAuthorityRequest, setOwnerAuthorityRequest] = useState<{ status: 'pending'; requestedAt: string; reason: string } | null>(null);
+  const [ownerAuthorityRequest, setOwnerAuthorityRequest] = useState<NomadOwnerAuthorityRequest>({ status: 'none' });
 
   const refresh = useCallback(async () => {
     if (!recoveryAdapter) {
@@ -49,7 +50,12 @@ export function useNomadRecovery(adapters: NomadOverlayAdapters = localNomadOver
     try {
       setLoading(true);
       setError(null);
-      setRecovery(await recoveryAdapter.getRecoveryState());
+      const [nextRecovery, nextOwnerAuthorityRequest] = await Promise.all([
+        recoveryAdapter.getRecoveryState(),
+        recoveryAdapter.getOwnerAuthorityRequest(),
+      ]);
+      setRecovery(nextRecovery);
+      setOwnerAuthorityRequest(nextOwnerAuthorityRequest);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load Nomad recovery state.');
     } finally {
@@ -78,8 +84,15 @@ export function useNomadRecovery(adapters: NomadOverlayAdapters = localNomadOver
     [recoveryAdapter],
   );
 
+  const cancelOwnerAuthority = useCallback(async () => {
+    if (!recoveryAdapter) throw new Error('Nomad recovery adapter is not connected.');
+    const request = await recoveryAdapter.cancelOwnerAuthorityRequest();
+    setOwnerAuthorityRequest(request);
+    return request;
+  }, [recoveryAdapter]);
+
   return useMemo(
-    () => ({ recovery, loading, error, ownerAuthorityRequest, refresh, runCheck, requestOwnerAuthority }),
-    [recovery, loading, error, ownerAuthorityRequest, refresh, runCheck, requestOwnerAuthority],
+    () => ({ recovery, loading, error, ownerAuthorityRequest, refresh, runCheck, requestOwnerAuthority, cancelOwnerAuthority }),
+    [recovery, loading, error, ownerAuthorityRequest, refresh, runCheck, requestOwnerAuthority, cancelOwnerAuthority],
   );
 }
