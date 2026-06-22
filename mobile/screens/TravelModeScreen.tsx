@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useAppState } from "../state/appState";
+
+import { useNomadTravel, useNomadWallet } from "../nomad";
+import type { NomadAsset } from "../nomad";
 
 type NavItem = {
   label: string;
@@ -32,7 +34,7 @@ const border = "#0a3862";
 const muted = "#b8c3d6";
 const bg = "#020812";
 
-const fundingSources: FundingSource[] = [
+const fallbackFundingSources: FundingSource[] = [
   { symbol: "BTC", icon: "₿", balance: "0.00421", share: "35%", tint: "#ff9900" },
   { symbol: "HBAR", icon: "H", balance: "1,250.00", share: "20%", tint: "#6b42ff" },
   { symbol: "XRP", icon: "×", balance: "950.00", share: "15%", tint: "#2c2f35" },
@@ -48,23 +50,39 @@ const transactions: Transaction[] = [
   { merchant: "Sushi Zanmai Ginza", meta: "Yesterday • 07:12 PM", amount: "- ¥8,600", usd: "≈ $55.92 USD", icon: "♨" },
 ];
 
+const tokenVisuals: Record<string, { icon: string; tint: string }> = {
+  BTC: { icon: "₿", tint: "#ff9900" },
+  HBAR: { icon: "H", tint: "#6b42ff" },
+  XRP: { icon: "×", tint: "#2c2f35" },
+  XLM: { icon: "≋", tint: "#187bff" },
+  XDC: { icon: "X", tint: "#005ba8" },
+  ADA: { icon: "✣", tint: "#246bff" },
+  ALGO: { icon: "A", tint: "#2e72d8" },
+  USDC: { icon: "$", tint: "#1684ff" },
+  USDT: { icon: "₮", tint: "#33d790" },
+  DAI: { icon: "D", tint: "#f5ac25" },
+  ETH: { icon: "◆", tint: "#627eea" },
+};
+
+function toFundingSources(assets: NomadAsset[]): FundingSource[] {
+  if (!assets.length) return fallbackFundingSources;
+  const total = assets.length || 1;
+  return assets.map((asset) => {
+    const symbol = asset.symbol.toUpperCase();
+    const visual = tokenVisuals[symbol] ?? { icon: symbol.slice(0, 1), tint: blue };
+    return {
+      symbol,
+      icon: visual.icon,
+      balance: asset.balance,
+      share: `${Math.max(5, Math.round(100 / total))}%`,
+      tint: visual.tint,
+    };
+  });
+}
+
 function Card({ children, style }: { children: React.ReactNode; style?: any }) {
   return (
-    <View
-      style={[
-        {
-          borderWidth: 1,
-          borderColor: border,
-          borderRadius: 14,
-          backgroundColor: "rgba(3,16,30,0.94)",
-          shadowColor: blue,
-          shadowOpacity: 0.2,
-          shadowRadius: 12,
-          overflow: "hidden",
-        },
-        style,
-      ]}
-    >
+    <View style={[{ borderWidth: 1, borderColor: border, borderRadius: 14, backgroundColor: "rgba(3,16,30,0.94)", shadowColor: blue, shadowOpacity: 0.2, shadowRadius: 12, overflow: "hidden" }, style]}>
       {children}
     </View>
   );
@@ -72,18 +90,7 @@ function Card({ children, style }: { children: React.ReactNode; style?: any }) {
 
 function ShieldLogo({ size = 68 }: { size?: number }) {
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.22,
-        borderWidth: 4,
-        borderColor: blue,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(22,132,255,0.12)",
-      }}
-    >
+    <View style={{ width: size, height: size, borderRadius: size * 0.22, borderWidth: 4, borderColor: blue, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(22,132,255,0.12)" }}>
       <Text style={{ color: blue, fontSize: size * 0.42, fontWeight: "900" }}>⌁</Text>
     </View>
   );
@@ -119,9 +126,9 @@ function StatBox({ icon, title, value, note, progress }: { icon: string; title: 
   );
 }
 
-function ActionButton({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+function ActionButton({ icon, title, subtitle, onPress }: { icon: string; title: string; subtitle: string; onPress?: () => void }) {
   return (
-    <Pressable style={{ flex: 1, minHeight: 104, marginRight: 10, borderWidth: 1, borderColor, borderRadius: 10, backgroundColor: "rgba(2,15,29,0.92)", alignItems: "center", justifyContent: "center" }}>
+    <Pressable onPress={onPress} style={{ flex: 1, minHeight: 104, marginRight: 10, borderWidth: 1, borderColor, borderRadius: 10, backgroundColor: "rgba(2,15,29,0.92)", alignItems: "center", justifyContent: "center" }}>
       <Text style={{ color: blue, fontSize: 34 }}>{icon}</Text>
       <Text style={{ color: "white", fontSize: 16, fontWeight: "800", marginTop: 8, textAlign: "center" }}>{title}</Text>
       <Text style={{ color: muted, fontSize: 13, marginTop: 3, textAlign: "center" }}>{subtitle}</Text>
@@ -166,8 +173,8 @@ function BottomNav() {
     { label: "Home", icon: "⌂", route: "Portfolio" },
     { label: "Wallets", icon: "▣", route: "Wallets" },
     { label: "Travel", icon: "✈", active: true },
-    { label: "Security", icon: "♢" },
-    { label: "Settings", icon: "⚙" },
+    { label: "Security", icon: "♢", route: "SecurityCenter" },
+    { label: "Settings", icon: "⚙", route: "Settings" },
   ];
 
   return (
@@ -184,7 +191,13 @@ function BottomNav() {
 
 export const TravelModeScreen = () => {
   const navigation = useNavigation<any>();
-  const { travelModeEnabled } = useAppState();
+  const { travelPocket, loading, error } = useNomadTravel();
+  const { assets } = useNomadWallet();
+  const fundingSources = useMemo(() => toFundingSources(assets), [assets]);
+  const activeRegion = travelPocket.regionInput || "Japan";
+  const localCurrency = travelPocket.localCurrency || travelPocket.preferredStablecoin || "JPY Stable";
+  const localBalance = travelPocket.pocketBalanceLocal || "¥185,420";
+  const fiatBalance = travelPocket.pocketBalanceFiat || "$1,208.64";
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
@@ -209,16 +222,18 @@ export const TravelModeScreen = () => {
             <View style={{ flex: 1 }}>
               <Text style={{ color: green, fontSize: 14, fontWeight: "900" }}>CURRENT REGION</Text>
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-                <Text style={{ color: "white", fontSize: 36, fontWeight: "900" }}>Japan 🇯🇵</Text>
+                <Text style={{ color: "white", fontSize: 36, fontWeight: "900" }}>{activeRegion} {activeRegion.toLowerCase().includes("japan") ? "🇯🇵" : ""}</Text>
                 <Text style={{ color: muted, fontSize: 36, marginLeft: 8 }}>›</Text>
               </View>
 
               <Text style={{ color: green, fontSize: 14, fontWeight: "900", marginTop: 18 }}>SPENDING CURRENCY</Text>
               <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-                <Text style={{ color: "white", fontSize: 35, fontWeight: "900" }}>JPY Stable</Text>
-                <Text style={{ color: green, fontSize: 13, fontWeight: "900", backgroundColor: "rgba(53,248,131,0.18)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, marginLeft: 12 }}>{travelModeEnabled ? "ACTIVE" : "READY"}</Text>
+                <Text style={{ color: "white", fontSize: 35, fontWeight: "900" }}>{localCurrency}</Text>
+                <Text style={{ color: green, fontSize: 13, fontWeight: "900", backgroundColor: "rgba(53,248,131,0.18)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, marginLeft: 12 }}>{travelPocket.enabled ? "ACTIVE" : "READY"}</Text>
               </View>
-              <Text style={{ color: muted, fontSize: 16, marginTop: 7 }}>1 JPY ≈ 1 JPY Stable  ⓘ</Text>
+              <Text style={{ color: muted, fontSize: 16, marginTop: 7 }}>1 local unit ≈ 1 local stable  ⓘ</Text>
+              {loading ? <Text style={{ color: muted, fontSize: 13, marginTop: 8 }}>Syncing Travel Pocket…</Text> : null}
+              {error ? <Text style={{ color: "#ffb347", fontSize: 13, marginTop: 8 }}>Using approved preview travel data.</Text> : null}
             </View>
 
             <View style={{ width: 310, alignItems: "center", justifyContent: "center" }}>
@@ -233,8 +248,8 @@ export const TravelModeScreen = () => {
 
           <View style={{ marginHorizontal: 10, marginTop: 16, borderWidth: 1, borderColor, borderRadius: 9, padding: 16 }}>
             <Text style={{ color: muted, fontSize: 15 }}>AVAILABLE BALANCE  ◎</Text>
-            <Text style={{ color: "white", fontSize: 44, fontWeight: "900", marginTop: 6 }}>¥185,420</Text>
-            <Text style={{ color: muted, fontSize: 16, marginTop: 3 }}>≈ $1,208.64 USD</Text>
+            <Text style={{ color: "white", fontSize: 44, fontWeight: "900", marginTop: 6 }}>{localBalance}</Text>
+            <Text style={{ color: muted, fontSize: 16, marginTop: 3 }}>≈ {fiatBalance} USD</Text>
           </View>
 
           <View style={{ flexDirection: "row", borderTopWidth: 1, borderColor: "#092b49" }}>
@@ -246,10 +261,10 @@ export const TravelModeScreen = () => {
         </Card>
 
         <View style={{ flexDirection: "row", marginTop: 18 }}>
-          <ActionButton icon="▰" title="Pay / Spend" subtitle="Use JPY Stable" />
-          <ActionButton icon="▦" title="Scan to Pay" subtitle="Merchant QR" />
-          <ActionButton icon="＋" title="Top Up Pocket" subtitle="Add Funds" />
-          <ActionButton icon="⌁" title="Send to Pocket" subtitle="From Wallets" />
+          <ActionButton icon="▰" title="Pay / Spend" subtitle="Use stable value" onPress={() => navigation.navigate("ApprovePOSTransaction")} />
+          <ActionButton icon="▦" title="Scan to Pay" subtitle="Merchant QR" onPress={() => navigation.navigate("ApprovePOSTransaction")} />
+          <ActionButton icon="＋" title="Top Up Pocket" subtitle="Add Funds" onPress={() => navigation.navigate("TopUpTravelPocket")} />
+          <ActionButton icon="⌁" title="Send to Pocket" subtitle="From Wallets" onPress={() => navigation.navigate("Wallets")} />
         </View>
 
         <Card style={{ marginTop: 18, padding: 18 }}>
