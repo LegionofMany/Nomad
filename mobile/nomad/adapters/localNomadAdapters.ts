@@ -1,5 +1,8 @@
 import {
+  disableTravelMode,
+  enableTravelMode,
   getPortfolio,
+  getTravelState,
   getWalletMeta,
   lockWallet as lockLocalWallet,
 } from '../../services/walletService';
@@ -10,6 +13,8 @@ import type {
   NomadSafetyAdapter,
   NomadSignedTransaction,
   NomadTransactionDraft,
+  NomadTravelAdapter,
+  NomadTravelPocketState,
   NomadWalletAdapter,
 } from './walletAdapter';
 
@@ -50,6 +55,28 @@ function toNomadAsset(balance: { symbol: string; amount: number; fiatApproxUSD: 
     fiatValueUsd: currencyFormatter.format(balance.fiatApproxUSD),
     change24h: percentBySymbol[balance.symbol] ?? '+0.00%',
     network: networkBySymbol[balance.symbol] ?? 'Nomad',
+  };
+}
+
+async function buildTravelPocketState(): Promise<NomadTravelPocketState> {
+  const [travel, portfolio] = await Promise.all([
+    getTravelState(),
+    getPortfolio().catch(() => null),
+  ]);
+
+  const totalUsd = portfolio?.balances.reduce((sum, balance) => sum + balance.fiatApproxUSD, 0) ?? 0;
+  const pocketUsd = totalUsd > 0 ? Math.min(totalUsd, 1240.75) : 1240.75;
+  const region = travel.regionInput || 'Japan';
+  const localCurrency = region.toLowerCase().includes('europe') ? 'EUR Stable' : region.toLowerCase().includes('canada') ? 'CAD Stable' : 'JPY Stable';
+  const localBalance = localCurrency.startsWith('JPY') ? '¥185,420' : currencyFormatter.format(pocketUsd);
+
+  return {
+    enabled: travel.enabled,
+    regionInput: region,
+    preferredStablecoin: travel.preferredStablecoin || localCurrency,
+    pocketBalanceFiat: currencyFormatter.format(pocketUsd),
+    pocketBalanceLocal: localBalance,
+    localCurrency,
   };
 }
 
@@ -101,6 +128,22 @@ export const localNomadWalletAdapter: NomadWalletAdapter = {
   },
 };
 
+export const localNomadTravelAdapter: NomadTravelAdapter = {
+  async getTravelPocketState() {
+    return buildTravelPocketState();
+  },
+
+  async enableTravelPocket(regionInput: string) {
+    await enableTravelMode(regionInput);
+    return buildTravelPocketState();
+  },
+
+  async disableTravelPocket() {
+    await disableTravelMode();
+    return buildTravelPocketState();
+  },
+};
+
 export const localNomadSafetyAdapter: NomadSafetyAdapter = {
   async scanAddress(address: string) {
     const normalized = address.trim().toLowerCase();
@@ -125,5 +168,6 @@ export const localNomadSafetyAdapter: NomadSafetyAdapter = {
 
 export const localNomadOverlayAdapters: NomadOverlayAdapters = {
   wallet: localNomadWalletAdapter,
+  travel: localNomadTravelAdapter,
   safety: localNomadSafetyAdapter,
 };
