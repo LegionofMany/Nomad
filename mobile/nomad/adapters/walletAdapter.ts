@@ -102,6 +102,34 @@ export type NomadRecoveryAdapter = {
   completeRecoverySequence(): Promise<NomadRecoverySequenceState>;
 };
 
+export type NomadFreezeScope = 'entire_wallet' | 'travel_pocket' | 'specific_assets' | 'owner_authority_alert';
+
+export type NomadFreezeActivity = {
+  scope: NomadFreezeScope;
+  label: string;
+  requestedAt: string;
+  status: 'active' | 'alert_sent' | 'cleared';
+};
+
+export type NomadSecurityState = {
+  status: 'secure' | 'warning' | 'frozen';
+  protectedSince: string;
+  protectedDays: string;
+  lastScanLabel: string;
+  lastScanDetail: string;
+  score: number;
+  freezeStatus: 'none' | 'partial' | 'full';
+  freezeScope?: NomadFreezeScope;
+  freezeActivity: NomadFreezeActivity[];
+};
+
+export type NomadSecurityAdapter = {
+  getSecurityState(): Promise<NomadSecurityState>;
+  runSecurityScan(): Promise<NomadSecurityState>;
+  activateFreeze(scope: NomadFreezeScope): Promise<NomadSecurityState>;
+  clearFreeze(): Promise<NomadSecurityState>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -111,6 +139,7 @@ export type NomadOverlayAdapters = {
   wallet?: NomadWalletAdapter;
   travel?: NomadTravelAdapter;
   recovery?: NomadRecoveryAdapter;
+  security?: NomadSecurityAdapter;
   safety?: NomadSafetyAdapter;
 };
 
