@@ -45,6 +45,37 @@ export type NomadTravelAdapter = {
   disableTravelPocket(): Promise<NomadTravelPocketState>;
 };
 
+export type NomadRecoveryClockTime = {
+  hour: number;
+  minute: number;
+  second?: number;
+};
+
+export type NomadRecoveryState = {
+  walletStatus: 'no_wallet' | 'locked' | 'unlocked' | 'recovery';
+  dailyUnlockTime: NomadRecoveryClockTime | null;
+  recoveryStatus: 'not_started' | 'protected' | 'locked' | 'recovery_required';
+  recoverySetupDate: string;
+  verificationStatus: string;
+  lastCheckLabel: string;
+  timeSetsComplete: number;
+  timeSetsTotal: number;
+  recoveryScore: number;
+  signerQuorum: number;
+  signerTotal: number;
+  nextRecommendedCheck: string;
+  timeRemainingLabel: string;
+  cycleLabel: string;
+  cycleStartedLabel: string;
+  purpose: string;
+};
+
+export type NomadRecoveryAdapter = {
+  getRecoveryState(): Promise<NomadRecoveryState>;
+  runRecoveryCheck(): Promise<NomadRecoveryState>;
+  requestOwnerAuthorityApproval(reason: string): Promise<{ status: 'pending'; requestedAt: string; reason: string }>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -53,6 +84,7 @@ export type NomadSafetyAdapter = {
 export type NomadOverlayAdapters = {
   wallet?: NomadWalletAdapter;
   travel?: NomadTravelAdapter;
+  recovery?: NomadRecoveryAdapter;
   safety?: NomadSafetyAdapter;
 };
 
