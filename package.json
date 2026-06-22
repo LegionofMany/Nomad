@@ -8,7 +8,10 @@
     "build": "node -e \"console.log('Nomad beta static site ready')\"",
     "start": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --config jest.config.cjs --passWithNoTests"
+    "test": "jest --config jest.config.cjs --passWithNoTests",
+    "mobile:start": "npm --prefix mobile run start",
+    "mobile:typecheck": "npm --prefix mobile run typecheck",
+    "audit:nomad": "npm run typecheck && npm run mobile:typecheck"
   },
   "dependencies": {
     "@scure/bip39": "^1.0.0",
