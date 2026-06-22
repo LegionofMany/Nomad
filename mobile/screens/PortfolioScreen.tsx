@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+
+import { useNomadWallet } from "../nomad/hooks";
 import { useAppState } from "../state/appState";
 
 type Asset = {
@@ -29,13 +31,24 @@ type EcosystemItem = {
   tint: string;
 };
 
-const assets: Asset[] = [
+const previewAssets: Asset[] = [
   { symbol: "BTC", amount: "0.3567", value: "$22,123.10", badge: "₿", tint: "#ff9f1c" },
   { symbol: "HBAR", amount: "3,250.00", value: "$1,250.25", badge: "H", tint: "#6c4dff" },
   { symbol: "XRP", amount: "1,250.00", value: "$750.00", badge: "X", tint: "#151a20" },
   { symbol: "XLM", amount: "5,200.00", value: "$310.40", badge: "S", tint: "#1684ff" },
   { symbol: "More", amount: "", value: "", badge: "•••", tint: "#081f3d" },
 ];
+
+const assetBadgeBySymbol: Record<string, { badge: string; tint: string }> = {
+  BTC: { badge: "₿", tint: "#ff9f1c" },
+  HBAR: { badge: "H", tint: "#6c4dff" },
+  XRP: { badge: "X", tint: "#151a20" },
+  XLM: { badge: "S", tint: "#1684ff" },
+  ETH: { badge: "Ξ", tint: "#627eea" },
+  USDC: { badge: "$", tint: "#2775ca" },
+  USDT: { badge: "₮", tint: "#26a17b" },
+  DAI: { badge: "D", tint: "#f5ac37" },
+};
 
 const securityItems: SecurityItem[] = [
   { label: "Secure Storage", value: "Secure", icon: "▣" },
@@ -155,13 +168,39 @@ function TravelPocketCard({ onPress }: { onPress: () => void }) {
 export const PortfolioScreen = () => {
   const navigation = useNavigation<any>();
   const { walletStatus, travelModeEnabled, lockWallet } = useAppState();
+  const { totalBalance, assets: liveAssets, loading, error } = useNomadWallet();
+
+  const displayAssets = useMemo<Asset[]>(() => {
+    const mapped = liveAssets.slice(0, 4).map((asset) => {
+      const visual = assetBadgeBySymbol[asset.symbol] ?? { badge: asset.symbol.slice(0, 1), tint: "#081f3d" };
+      return {
+        symbol: asset.symbol,
+        amount: asset.balance,
+        value: asset.fiatValueUsd,
+        badge: visual.badge,
+        tint: visual.tint,
+      };
+    });
+
+    return mapped.length ? [...mapped, previewAssets[4]] : previewAssets;
+  }, [liveAssets]);
+
+  const displayBalance = liveAssets.length ? totalBalance : "$24,832.45";
 
   const actions: Action[] = [
-    { label: "Send", icon: "↑" },
-    { label: "Receive", icon: "↓" },
-    { label: "Swap", icon: "⇄" },
+    { label: "Send", icon: "↑", onPress: () => navigation.navigate("SendBitcoin") },
+    { label: "Receive", icon: "↓", onPress: () => navigation.navigate("ReceiveBitcoin") },
+    { label: "Swap", icon: "⇄", onPress: () => navigation.navigate("Swap") },
     { label: "Travel", icon: "▣", onPress: () => navigation.navigate("TravelMode") },
   ];
+
+  const bottomNav = [
+    ["⌂", "Home", "#1684ff", "Portfolio"],
+    ["▣", "Wallets", "#b9c5d6", "Wallets"],
+    ["✈", "Travel", "#b9c5d6", "TravelMode"],
+    ["♢", "Security", "#b9c5d6", "SecurityCenter"],
+    ["⚙", "Settings", "#b9c5d6", "Settings"],
+  ] as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#020812" }}>
@@ -196,15 +235,16 @@ export const PortfolioScreen = () => {
             </Pressable>
           </View>
           <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: 16 }}>
-            <Text style={{ color: "white", fontSize: 54, lineHeight: 58, fontWeight: "900", letterSpacing: -1 }}>$24,832.45</Text>
+            <Text style={{ color: "white", fontSize: 54, lineHeight: 58, fontWeight: "900", letterSpacing: -1 }}>{displayBalance}</Text>
             <Text style={{ color: "white", fontSize: 20, marginLeft: 10, marginBottom: 7 }}>USD</Text>
           </View>
-          <Text style={{ color: "#35f883", marginTop: 12, fontSize: 18, fontWeight: "800" }}>▲ 1.82% (24h)</Text>
+          <Text style={{ color: loading ? "#8ba8ca" : "#35f883", marginTop: 12, fontSize: 18, fontWeight: "800" }}>{loading ? "Syncing wallet data..." : "▲ 1.82% (24h)"}</Text>
+          {error ? <Text style={{ color: "#ffcf5a", marginTop: 8, fontSize: 12 }}>Preview mode: {error}</Text> : null}
           <View style={{ height: 86, marginTop: 8, alignItems: "flex-end", justifyContent: "center" }}>
             <Text style={{ color: "#1684ff", fontSize: 54, fontWeight: "200" }}>⌁⌁⌁⌁⌁</Text>
           </View>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-            {assets.map((asset) => <AssetBadge key={asset.symbol} asset={asset} />)}
+            {displayAssets.map((asset) => <AssetBadge key={asset.symbol} asset={asset} />)}
           </View>
         </Card>
 
@@ -214,7 +254,7 @@ export const PortfolioScreen = () => {
         <TravelPocketCard onPress={() => navigation.navigate("TravelMode")} />
 
         <Card style={{ marginTop: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open Security Center" onPress={() => navigation.navigate("SecurityCenter")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={{ color: "#1684ff", fontSize: 28, marginRight: 12 }}>♢</Text>
               <Text style={{ color: "white", fontSize: 21, fontWeight: "900" }}>Security Center</Text>
@@ -223,7 +263,7 @@ export const PortfolioScreen = () => {
               <Capsule><Text style={{ color: "#1684ff", fontWeight: "900" }}>{travelModeEnabled ? "TRAVEL" : "SECURE"}</Text></Capsule>
               <Text style={{ color: "#1684ff", fontSize: 30, marginLeft: 12 }}>›</Text>
             </View>
-          </View>
+          </Pressable>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             {securityItems.map((item) => (
               <View key={item.label} style={{ alignItems: "center", width: "24%" }}>
@@ -236,13 +276,13 @@ export const PortfolioScreen = () => {
         </Card>
 
         <Card style={{ marginTop: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open Voltaire Protocols" onPress={() => navigation.navigate("VoltaireProtocols")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Text style={{ color: "#8b5cff", fontSize: 28, marginRight: 12 }}>♛</Text>
               <Text style={{ color: "#8b5cff", fontSize: 20, fontWeight: "900" }}>Voltaire Ecosystem</Text>
             </View>
             <Text style={{ color: "#1684ff", fontSize: 16, fontWeight: "800" }}>Explore All  ›</Text>
-          </View>
+          </Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {ecosystem.map((item) => (
               <View key={item.label} style={{ width: 86, alignItems: "center", marginRight: 12 }}>
@@ -258,14 +298,8 @@ export const PortfolioScreen = () => {
       </ScrollView>
 
       <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-        {[
-          ["⌂", "Home", "#1684ff"],
-          ["▣", "Wallets", "#b9c5d6"],
-          ["✈", "Travel", "#b9c5d6"],
-          ["♢", "Security", "#b9c5d6"],
-          ["⚙", "Settings", "#b9c5d6"],
-        ].map(([icon, label, color]) => (
-          <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={label === "Travel" ? () => navigation.navigate("TravelMode") : undefined} style={{ alignItems: "center", minWidth: 58 }}>
+        {bottomNav.map(([icon, label, color, route]) => (
+          <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={() => navigation.navigate(route)} style={{ alignItems: "center", minWidth: 58 }}>
             <Text style={{ color, fontSize: 27, fontWeight: "900" }}>{icon}</Text>
             <Text style={{ color, fontSize: 12, marginTop: 4 }}>{label}</Text>
           </Pressable>
