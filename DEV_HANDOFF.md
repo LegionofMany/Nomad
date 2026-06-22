@@ -19,7 +19,7 @@ Nomad is not the final production engine. A selected base engine must provide th
 | Phase 2D: Local compile/audit pass | In progress | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
 | Phase 2E: Base engine selection/integration | Prepared | `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` defines engine selection criteria, integration shape, demo replacement checklist, and acceptance checks. |
 | Phase 3: Live Nomad services | Prepared | `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` defines the live service work for BlockPages, Travel Pocket, POS, freeze, recovery, Watch, Voltaire, and swap. |
-| Phase 4: Production audit/release | Planned | Final security, recovery, privacy, device, testnet/mainnet, and app-store audits. |
+| Phase 4: Production audit/release | Prepared | `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` defines the final build, custody, signing, recovery, privacy, device, legal, app-store, and rollout gates. |
 
 ## Phase 1 completed scope
 
@@ -159,6 +159,30 @@ It covers:
 
 Phase 3 should be implemented behind adapters first. Screens should not call raw service clients directly.
 
+## Phase 4 production audit and release
+
+A dedicated Phase 4 release plan has been added for the developer:
+
+```txt
+mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md
+```
+
+It covers:
+
+- Build and TypeScript release gates.
+- Wallet custody audit.
+- Signing and broadcast audit.
+- Receive address and QR audit.
+- Recovery and Owner Authority audit.
+- Emergency Freeze and security audit.
+- BlockPages privacy/scanner audit.
+- Travel Pocket and POS audit.
+- Nomad Watch and device audit.
+- 26-screen mobile QA smoke test.
+- Legal, compliance, support, app-store, testnet, and rollout gates.
+
+Phase 4 should only begin after the real wallet engine and live services are integrated or intentionally disabled behind clear production flags.
+
 ## Phase 2D local commands
 
 Run from repository root:
@@ -207,15 +231,16 @@ The following must be resolved before release:
 6. Read `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md`.
 7. Read `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md`.
 8. Read `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md`.
-9. Run the local commands listed above.
-10. Complete Phase 2D compile/audit pass.
-11. Select/import the base engine.
-12. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
-13. Inject the concrete adapter through `NomadAdaptersProvider`.
-14. Replace local demo services with production service adapters.
-15. Begin Phase 3 live Nomad service integrations.
-16. Begin Phase 4 release audit only after live engine integration is complete.
+9. Read `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md`.
+10. Run the local commands listed above.
+11. Complete Phase 2D compile/audit pass.
+12. Select/import the base engine.
+13. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
+14. Inject the concrete adapter through `NomadAdaptersProvider`.
+15. Replace local demo services with production service adapters.
+16. Begin Phase 3 live Nomad service integrations.
+17. Begin Phase 4 release audit only after live engine integration and live service integration are complete.
 
 ## Handoff conclusion
 
-This repository is ready to hand to a developer as a Phase 1/Phase 2 integration package with Phase 3 service planning prepared. It is not ready for public release until Phase 2E, Phase 3, and Phase 4 are completed.
+This repository is ready to hand to a developer as a Phase 1/Phase 2 integration package with Phase 3 service planning and Phase 4 production release planning prepared. It is not ready for public release until Phase 2E, Phase 3, and Phase 4 are completed and passed.
