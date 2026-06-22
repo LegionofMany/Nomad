@@ -5,3 +5,5 @@ export * from './useNomadRecovery';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
+export * from './useNomadProtocols';
+export * from './useNomadWatch';
