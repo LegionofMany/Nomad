@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+
+import { useNomadWallet, type NomadAsset } from "../nomad";
 
 type AssetRow = {
   name: string;
@@ -14,7 +16,7 @@ type AssetRow = {
   tint: string;
 };
 
-const assets: AssetRow[] = [
+const fallbackAssets: AssetRow[] = [
   { name: "Bitcoin", symbol: "BTC", amount: "0.3567", subValue: "$22,123.10", value: "$22,123.10", change: "+1.82%", changeColor: "#20f878", badge: "₿", tint: "#ff9f1c" },
   { name: "Hedera", symbol: "HBAR", amount: "3,250.00", subValue: "$1,250.25", value: "$1,250.25", change: "+2.35%", changeColor: "#20f878", badge: "H", tint: "#6c4dff" },
   { name: "XRP", symbol: "XRP", amount: "1,250.00", subValue: "$750.00", value: "$750.00", change: "+0.95%", changeColor: "#20f878", badge: "X", tint: "#151a20" },
@@ -27,6 +29,50 @@ const assets: AssetRow[] = [
   { name: "My Custom Token", symbol: "CUSTOM", amount: "12,500.00", subValue: "$52.75", value: "$52.75", change: "+3.45%", changeColor: "#20f878", badge: "◇", tint: "#079b52" },
 ];
 
+const badgeBySymbol: Record<string, string> = {
+  BTC: "₿",
+  HBAR: "H",
+  XRP: "X",
+  XLM: "S",
+  XDC: "X",
+  ADA: "✣",
+  ALGO: "A",
+  ETH: "♦",
+  USDC: "$",
+  USDT: "$",
+  DAI: "D",
+};
+
+const tintBySymbol: Record<string, string> = {
+  BTC: "#ff9f1c",
+  HBAR: "#6c4dff",
+  XRP: "#151a20",
+  XLM: "#1684ff",
+  XDC: "#0a5c9e",
+  ADA: "#2368d8",
+  ALGO: "#2859b8",
+  ETH: "#5a6174",
+  USDC: "#1684ff",
+  USDT: "#079b52",
+  DAI: "#f2b84b",
+};
+
+function mapNomadAsset(asset: NomadAsset): AssetRow {
+  const symbol = asset.symbol.toUpperCase();
+  const change = asset.change24h ?? "+0.00%";
+  return {
+    name: asset.name,
+    symbol,
+    amount: asset.balance,
+    subValue: asset.fiatValueUsd,
+    value: asset.fiatValueUsd,
+    change,
+    changeColor: change.startsWith("-") ? "#ff4b42" : change === "0.00%" || change === "+0.00%" ? "#d6dce8" : "#20f878",
+    badge: badgeBySymbol[symbol] ?? symbol.slice(0, 1),
+    tint: tintBySymbol[symbol] ?? "#079b52",
+  };
+}
+
 function ShieldLogo() {
   return (
     <View style={{ width: 58, height: 58, borderRadius: 20, borderWidth: 5, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", shadowColor: "#1684ff", shadowOpacity: 0.7, shadowRadius: 16 }}>
@@ -35,9 +81,9 @@ function ShieldLogo() {
   );
 }
 
-function CircleButton({ icon, label }: { icon: string; label: string }) {
+function CircleButton({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} style={{ width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(4,17,31,0.95)", alignItems: "center", justifyContent: "center", marginLeft: 12 }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(4,17,31,0.95)", alignItems: "center", justifyContent: "center", marginLeft: 12 }}>
       <Text style={{ color: "#1684ff", fontSize: 31, fontWeight: "700" }}>{icon}</Text>
     </Pressable>
   );
@@ -51,15 +97,15 @@ function Card({ children, style = {} as object }: { children: React.ReactNode; s
   );
 }
 
-function WalletHero() {
+function WalletHero({ totalBalance, loading }: { totalBalance: string; loading: boolean }) {
   return (
     <Card style={{ padding: 20, marginTop: 24 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <View style={{ flex: 1 }}>
           <Text style={{ color: "#f7fbff", fontSize: 19 }}>Total Wallet Balance  ◎</Text>
           <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: 18 }}>
-            <Text style={{ color: "white", fontSize: 48, lineHeight: 52, fontWeight: "900", letterSpacing: -1 }}>$24,832.45</Text>
-            <Text style={{ color: "white", fontSize: 18, marginLeft: 9, marginBottom: 6 }}>USD</Text>
+            <Text style={{ color: "white", fontSize: 48, lineHeight: 52, fontWeight: "900", letterSpacing: -1 }}>{loading ? "Loading..." : totalBalance}</Text>
+            {!loading && <Text style={{ color: "white", fontSize: 18, marginLeft: 9, marginBottom: 6 }}>USD</Text>}
           </View>
           <Text style={{ color: "#20f878", marginTop: 14, fontSize: 18, fontWeight: "800" }}>+1.82% (24h)</Text>
         </View>
@@ -123,7 +169,7 @@ function AssetRowView({ asset }: { asset: AssetRow }) {
   );
 }
 
-function AssetsTable() {
+function AssetsTable({ assets }: { assets: AssetRow[] }) {
   return (
     <Card>
       <View style={{ flexDirection: "row", paddingHorizontal: 20, paddingVertical: 15 }}>
@@ -158,8 +204,8 @@ function BottomNav() {
     { icon: "⌂", label: "Home", color: "#b9c5d6", onPress: () => navigation.navigate("Portfolio") },
     { icon: "▣", label: "Wallets", color: "#1684ff" },
     { icon: "✈", label: "Travel", color: "#b9c5d6", onPress: () => navigation.navigate("TravelMode") },
-    { icon: "♢", label: "Security", color: "#b9c5d6" },
-    { icon: "⚙", label: "Settings", color: "#b9c5d6" },
+    { icon: "♢", label: "Security", color: "#b9c5d6", onPress: () => navigation.navigate("SecurityCenter") },
+    { icon: "⚙", label: "Settings", color: "#b9c5d6", onPress: () => navigation.navigate("Settings") },
   ];
 
   return (
@@ -175,6 +221,9 @@ function BottomNav() {
 }
 
 export const WalletsScreen = () => {
+  const { totalBalance, assets, loading, error, refresh } = useNomadWallet();
+  const mappedAssets = useMemo(() => (assets.length ? assets.map(mapNomadAsset) : fallbackAssets), [assets]);
+
   return (
     <View style={{ flex: 1, backgroundColor: "#020812" }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 126 }} showsVerticalScrollIndicator={false}>
@@ -189,13 +238,19 @@ export const WalletsScreen = () => {
           <View style={{ flexDirection: "row" }}>
             <CircleButton icon="⌕" label="Search wallets" />
             <CircleButton icon="▽" label="Filter assets" />
-            <CircleButton icon="+" label="Add asset" />
+            <CircleButton icon="+" label="Refresh wallet assets" onPress={() => void refresh()} />
           </View>
         </View>
 
-        <WalletHero />
+        <WalletHero totalBalance={assets.length ? totalBalance : "$24,832.45"} loading={loading && !assets.length} />
+        {error && (
+          <Card style={{ marginTop: 16, padding: 14, borderColor: "rgba(255,184,77,0.55)", backgroundColor: "rgba(255,184,77,0.08)" }}>
+            <Text style={{ color: "#ffcf7a", fontSize: 14, fontWeight: "800" }}>Using approved Nomad preview data until the wallet backend is unlocked.</Text>
+            <Text style={{ color: "#d6dce8", marginTop: 6, fontSize: 13 }}>{error}</Text>
+          </Card>
+        )}
         <FilterTabs />
-        <AssetsTable />
+        <AssetsTable assets={mappedAssets} />
         <AddCustomAsset />
       </ScrollView>
       <BottomNav />
