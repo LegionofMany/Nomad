@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
-import type { NomadAsset, NomadOverlayAdapters } from '../adapters/walletAdapter';
+import type {
+  NomadAsset,
+  NomadOverlayAdapters,
+  NomadSignedTransaction,
+  NomadTransactionDraft,
+} from '../adapters/walletAdapter';
 
 export type NomadWalletState = {
   totalBalance: string;
@@ -10,6 +15,7 @@ export type NomadWalletState = {
   error: string | null;
   refresh(): Promise<void>;
   getReceiveAddress(assetSymbol: string): Promise<string>;
+  createTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
 };
 
 export function useNomadWallet(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadWalletState {
@@ -54,8 +60,16 @@ export function useNomadWallet(adapters: NomadOverlayAdapters = localNomadOverla
     [wallet],
   );
 
+  const createTransaction = useCallback(
+    async (draft: NomadTransactionDraft) => {
+      if (!wallet) throw new Error('Nomad wallet adapter is not connected.');
+      return wallet.createTransaction(draft);
+    },
+    [wallet],
+  );
+
   return useMemo(
-    () => ({ totalBalance, assets, loading, error, refresh, getReceiveAddress }),
-    [totalBalance, assets, loading, error, refresh, getReceiveAddress],
+    () => ({ totalBalance, assets, loading, error, refresh, getReceiveAddress, createTransaction }),
+    [totalBalance, assets, loading, error, refresh, getReceiveAddress, createTransaction],
   );
 }
