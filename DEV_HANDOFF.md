@@ -2,6 +2,12 @@
 
 This document is the single-entry handoff guide for the Nomad mobile overlay work.
 
+For the final repository-level handoff index, start with:
+
+```txt
+NOMAD_FINAL_HANDOFF_PACKAGE.md
+```
+
 ## Project summary
 
 Nomad is the branded mobile overlay for travel, protection, recovery, device, BlockPages safety, Voltaire Protocols, POS approval, and wallet command-center experiences.
@@ -16,7 +22,7 @@ Nomad is not the final production engine. A selected base engine must provide th
 | Phase 2A: Adapter contract hardening | Complete | Session, account, transaction, and safety adapter contracts have been expanded for integration readiness. |
 | Phase 2B: Base-engine bridge scaffold | Complete | `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` defines the future engine bridge. |
 | Phase 2C: Screen readiness pass | Complete | `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` documents all 26 screens, readiness states, and demo/live replacement notes. |
-| Phase 2D: Local compile/audit pass | In progress | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
+| Phase 2D: Local compile/audit pass | Ready for developer | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
 | Phase 2E: Base engine selection/integration | Prepared | `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` defines engine selection criteria, integration shape, demo replacement checklist, and acceptance checks. |
 | Phase 3: Live Nomad services | Prepared | `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` defines the live service work for BlockPages, Travel Pocket, POS, freeze, recovery, Watch, Voltaire, and swap. |
 | Phase 4: Production audit/release | Prepared | `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` defines the final build, custody, signing, recovery, privacy, device, legal, app-store, and rollout gates. |
@@ -223,24 +229,25 @@ The following must be resolved before release:
 
 ## Recommended developer workflow
 
-1. Read `NOMAD_PHASE_ROADMAP.md`.
-2. Read `mobile/nomad/NOMAD_LAYER_GUARDRAILS.md`.
-3. Read `mobile/nomad/PHASE_1_WIRING_AUDIT.md`.
-4. Read `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md`.
-5. Read `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md`.
-6. Read `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md`.
-7. Read `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md`.
-8. Read `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md`.
-9. Read `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md`.
-10. Run the local commands listed above.
-11. Complete Phase 2D compile/audit pass.
-12. Select/import the base engine.
-13. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
-14. Inject the concrete adapter through `NomadAdaptersProvider`.
-15. Replace local demo services with production service adapters.
-16. Begin Phase 3 live Nomad service integrations.
-17. Begin Phase 4 release audit only after live engine integration and live service integration are complete.
+1. Read `NOMAD_FINAL_HANDOFF_PACKAGE.md`.
+2. Read `NOMAD_PHASE_ROADMAP.md`.
+3. Read `mobile/nomad/NOMAD_LAYER_GUARDRAILS.md`.
+4. Read `mobile/nomad/PHASE_1_WIRING_AUDIT.md`.
+5. Read `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md`.
+6. Read `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md`.
+7. Read `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md`.
+8. Read `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md`.
+9. Read `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md`.
+10. Read `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md`.
+11. Run the local commands listed above.
+12. Complete Phase 2D compile/audit pass.
+13. Select/import the base engine.
+14. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
+15. Inject the concrete adapter through `NomadAdaptersProvider`.
+16. Replace local demo services with production service adapters.
+17. Begin Phase 3 live Nomad service integrations.
+18. Begin Phase 4 release audit only after live engine integration and live service integration are complete.
 
 ## Handoff conclusion
 
-This repository is ready to hand to a developer as a Phase 1/Phase 2 integration package with Phase 3 service planning and Phase 4 production release planning prepared. It is not ready for public release until Phase 2E, Phase 3, and Phase 4 are completed and passed.
+This repository is ready to hand to a developer as a Phase 1 overlay package with Phase 2 integration preparation, Phase 3 service planning, and Phase 4 production release planning prepared. It is not ready for public release until Phase 2E, Phase 3, and Phase 4 are completed and passed.
