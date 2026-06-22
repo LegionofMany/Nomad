@@ -16,25 +16,27 @@ Nomad is currently a Phase 1 overlay build with Phase 2, Phase 3, and Phase 4 pl
 | Phase 2E — Base Wallet Engine Integration | Prepared | The selection/integration plan exists; the real engine is not connected yet. |
 | Phase 3 — Live Services | Prepared | Live service roadmap exists for BlockPages, Travel Pocket, POS, freeze, recovery, Watch, protocols, and swaps. |
 | Phase 4 — Production Audit / Release | Prepared | Release gates and production blockers are documented but not yet passed. |
+| Developer Kickoff | Complete | The final developer-start packet now exists and points to the first execution path. |
 
 ## Primary handoff files
 
-1. `DEV_HANDOFF.md` — main developer handoff guide.
-2. `NOMAD_DEVELOPER_EXECUTION_CHECKLIST.md` — task-board style execution checklist.
-3. `ENVIRONMENT_SETUP.md` — setup, install, typecheck, Expo, and smoke-test guide.
-4. `PRODUCTION_BLOCKERS.md` — release blocker register.
-5. `NOMAD_PHASE_ROADMAP.md` — 4-phase roadmap.
-6. `mobile/nomad/NOMAD_LAYER_GUARDRAILS.md` — overlay boundary rules.
-7. `mobile/nomad/PHASE_1_WIRING_AUDIT.md` — Phase 1 overlay wiring report.
-8. `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md` — wallet-engine handoff notes.
-9. `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` — all 26 screen readiness checks.
-10. `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` — local compile and audit checklist.
-11. `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` — base wallet selection and integration plan.
-12. `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` — live service integration plan.
-13. `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` — production release gates.
-14. `NOMAD_HANDOFF_CONSISTENCY_AUDIT.md` — consistency audit across handoff files.
-15. `mobile/nomad/audit/screenCoverage.ts` — code-level 26-screen coverage registry.
-16. `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` — adapter scaffold for the real wallet engine.
+1. `NOMAD_DEV_KICKOFF_PACKET.md` — final developer-start packet and execution order.
+2. `DEV_HANDOFF.md` — main developer handoff guide.
+3. `NOMAD_DEVELOPER_EXECUTION_CHECKLIST.md` — task-board style execution checklist.
+4. `ENVIRONMENT_SETUP.md` — setup, install, typecheck, Expo, and smoke-test guide.
+5. `PRODUCTION_BLOCKERS.md` — release blocker register.
+6. `NOMAD_PHASE_ROADMAP.md` — 4-phase roadmap.
+7. `mobile/nomad/NOMAD_LAYER_GUARDRAILS.md` — overlay boundary rules.
+8. `mobile/nomad/PHASE_1_WIRING_AUDIT.md` — Phase 1 overlay wiring report.
+9. `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md` — wallet-engine handoff notes.
+10. `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` — all 26 screen readiness checks.
+11. `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` — local compile and audit checklist.
+12. `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` — base wallet selection and integration plan.
+13. `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` — live service integration plan.
+14. `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` — production release gates.
+15. `NOMAD_HANDOFF_CONSISTENCY_AUDIT.md` — consistency audit across handoff files.
+16. `mobile/nomad/audit/screenCoverage.ts` — code-level 26-screen coverage registry.
+17. `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` — adapter scaffold for the real wallet engine.
 
 ## Core architecture
 
@@ -56,7 +58,7 @@ Nomad owns UX, routing, Travel Pocket interface, safety interface, recovery inte
 
 ## Developer start checklist
 
-Run these checks first:
+Start with `NOMAD_DEV_KICKOFF_PACKET.md`, then run these checks first:
 
 ```bash
 npm install
@@ -124,4 +126,4 @@ This repository is ready to be passed to a developer as a structured integration
 
 It should be described as:
 
-> Nomad Phase 1 overlay complete, with Phase 2 wallet-engine integration, Phase 3 live-service integration, and Phase 4 production audit plans prepared. Production release remains blocked until the real wallet engine, live services, local audit pass, and production audits are complete.
+> Nomad Phase 1 overlay complete, with Phase 2 wallet-engine integration, Phase 3 live-service integration, and Phase 4 production audit plans prepared. Developer kickoff packet is complete. Production release remains blocked until the real wallet engine, live services, local audit pass, and production audits are complete.
