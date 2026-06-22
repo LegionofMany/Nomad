@@ -1,0 +1,153 @@
+# Nomad Developer Handoff
+
+This document is the single-entry handoff guide for the Nomad mobile overlay work.
+
+## Project summary
+
+Nomad is the branded mobile overlay for travel, protection, recovery, device, BlockPages safety, Voltaire Protocols, POS approval, and wallet command-center experiences.
+
+Nomad is not the final production engine. A selected base engine must provide the live wallet implementation behind the Nomad adapter boundary.
+
+## Current phase status
+
+| Phase | Status | Notes |
+| --- | --- | --- |
+| Phase 1: Overlay Foundation | Complete | 26 screens, route registry, adapter contracts, hooks, local demo adapters, provider, screen audit, guardrails, and audit scripts are in place. |
+| Phase 2A: Adapter contract hardening | Complete | Session, account, transaction, and safety adapter contracts have been expanded for integration readiness. |
+| Phase 2B: Base-engine bridge scaffold | Complete | `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` defines the future engine bridge. |
+| Phase 2C: Screen readiness pass | Next | Audit every screen for loading, empty, error, locked, and demo/live replacement states. |
+| Phase 2D: Local compile/audit pass | Pending | Must run locally or in CI because connector-only work cannot execute Expo or TypeScript builds. |
+| Phase 2E: Base engine selection/integration | Pending | Select/import the live engine and implement concrete adapters. |
+| Phase 3: Live Nomad services | Planned | Connect live BlockPages, Travel Pocket, POS, freeze, recovery, Watch, Voltaire, and swap services. |
+| Phase 4: Production audit/release | Planned | Final security, recovery, privacy, device, testnet/mainnet, and app-store audits. |
+
+## Phase 1 completed scope
+
+- 26 registered Nomad mobile screens.
+- Shared route registry through `mobile/nomad/routes/nomadRoutes.ts`.
+- Adapter contracts through `mobile/nomad/adapters/walletAdapter.ts`.
+- Local demo adapters through `mobile/nomad/adapters/localNomadAdapters.ts`.
+- Hook layer for wallet, travel, recovery, security, insights, swap, protocols, watch, settings, and safety.
+- `NomadAdaptersProvider` so future engine-backed adapters can be injected without rewriting screens.
+- Screen coverage audit registry.
+- Guardrails preserving Nomad as the overlay layer.
+- GitHub Actions, typecheck, and audit scripts.
+
+## Screen inventory
+
+1. Portfolio
+2. Wallets
+3. Send Bitcoin
+4. Receive Bitcoin
+5. Swap
+6. Travel Mode / Travel Pocket
+7. Security Center
+8. Settings
+9. Nomad Insights
+10. Nomad Insights Spending
+11. Recovery Center
+12. Voltaire Protocols
+13. BlockPages Safety
+14. Time Clock Access
+15. Unlock Wallet
+16. Recover Lost Wallet
+17. Verify Recovery Sequence
+18. Wallet Recovered
+19. Owner Authority Approval
+20. Address Safety Detail
+21. Top Up Travel Pocket
+22. Approve POS Transaction
+23. Create Owner Authority
+24. BlockPages URL Scanner
+25. Emergency Freeze
+26. Nomad Watch
+
+Every page should keep its own product reason. Do not flatten these screens into a generic template.
+
+## Architecture
+
+```txt
+Selected base engine
+        ↓
+Concrete Nomad adapters
+        ↓
+NomadAdaptersProvider
+        ↓
+Nomad hooks
+        ↓
+26 Nomad screens
+```
+
+The adapter provider currently merges local demo adapters with future overrides. This allows the dev team to inject live engine-backed adapters later without rewriting the page layer.
+
+## Phase 2C next task: screen readiness pass
+
+Before final integration, run a screen-by-screen pass for:
+
+- Loading state.
+- Empty state.
+- Error state.
+- Locked state.
+- Offline state where relevant.
+- Demo/live replacement note.
+- Route destination correctness.
+- Adapter boundary correctness.
+
+Create or update `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` with findings.
+
+## Phase 2D local commands
+
+Run from repository root:
+
+```bash
+npm install
+npm run typecheck
+npm run mobile:typecheck
+npm run audit:nomad
+```
+
+Then run the mobile app:
+
+```bash
+cd mobile
+npm install
+npm run typecheck
+npx expo start
+```
+
+Patch all TypeScript, import, bundler, and runtime errors before starting real engine integration.
+
+## Known production blockers
+
+The following must be resolved before release:
+
+- Local demo service must be replaced or hardened.
+- Demo-only fallback paths must be removed before production.
+- Send, Swap, POS, and Travel Pocket top-up must move from draft-only to live engine handoff.
+- Receive QR values must come from the live engine.
+- BlockPages scanners must connect to a live backend/service.
+- Emergency Freeze must be enforced by wallet/backend policy, not only UI state.
+- Owner Authority must connect to real notification/approval backend.
+- Recovery sequence must connect to real validation and abuse-case controls.
+- Nomad Watch must connect to real device/session service.
+- Time Set should be reconciled with full HH:MM:SS behavior if the product requires seconds.
+- Full final audits are required before release.
+
+## Recommended developer workflow
+
+1. Read `NOMAD_PHASE_ROADMAP.md`.
+2. Read `mobile/nomad/NOMAD_LAYER_GUARDRAILS.md`.
+3. Read `mobile/nomad/PHASE_1_WIRING_AUDIT.md`.
+4. Read `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md`.
+5. Run the local commands listed above.
+6. Complete Phase 2C screen readiness audit.
+7. Select/import the base engine.
+8. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
+9. Inject the concrete adapter through `NomadAdaptersProvider`.
+10. Replace local demo services with production service adapters.
+11. Begin Phase 3 live Nomad service integrations.
+12. Begin Phase 4 release audit only after live engine integration is complete.
+
+## Handoff conclusion
+
+This repository is ready to hand to a developer as a Phase 1/Phase 2 integration package. It is not ready for public release until Phase 2E, Phase 3, and Phase 4 are completed.
