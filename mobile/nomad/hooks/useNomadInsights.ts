@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadInsightsState, NomadOverlayAdapters } from '../adapters/walletAdapter';
 
 const fallbackInsights: NomadInsightsState = {
@@ -60,8 +60,9 @@ export type NomadInsightsHookState = {
   refresh(): Promise<void>;
 };
 
-export function useNomadInsights(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadInsightsHookState {
-  const insightsAdapter = adapters.insights;
+export function useNomadInsights(adapters?: NomadOverlayAdapters): NomadInsightsHookState {
+  const contextAdapters = useNomadAdapters();
+  const insightsAdapter = (adapters ?? contextAdapters).insights;
   const [insights, setInsights] = useState<NomadInsightsState>(fallbackInsights);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
