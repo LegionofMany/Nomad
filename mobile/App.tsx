@@ -17,6 +17,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ClockUnlockScreen from './screens/ClockUnlockScreen';
 import LockScreen from './screens/LockScreen';
 import PortfolioScreen from './screens/PortfolioScreen';
+import WalletsScreen from './screens/WalletsScreen';
 import TravelModeScreen from './screens/TravelModeScreen';
 
 import { AppStateProvider, useAppState } from './state/appState';
@@ -25,6 +26,7 @@ type RootStackParamList = {
   ClockUnlock: undefined;
   Lock: undefined;
   Portfolio: undefined;
+  Wallets: undefined;
   TravelMode: undefined;
 };
 
@@ -65,6 +67,7 @@ function AppNavigator() {
       <Stack.Screen name="Lock" component={LockScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ClockUnlock" component={ClockUnlockScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Portfolio" component={PortfolioScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Wallets" component={WalletsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TravelMode" component={TravelModeScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
