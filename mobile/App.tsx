@@ -25,6 +25,7 @@ import TravelModeScreen from './screens/TravelModeScreen';
 import SecurityCenterScreen from './screens/SecurityCenterScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NomadInsightsScreen from './screens/NomadInsightsScreen';
+import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
 
 import { AppStateProvider, useAppState } from './state/appState';
 
@@ -40,6 +41,7 @@ type RootStackParamList = {
   SecurityCenter: undefined;
   Settings: undefined;
   NomadInsights: undefined;
+  NomadInsightsSpending: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -87,6 +89,7 @@ function AppNavigator() {
       <Stack.Screen name="SecurityCenter" component={SecurityCenterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsights" component={NomadInsightsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
