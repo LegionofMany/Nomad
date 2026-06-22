@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters/NomadAdaptersProvider';
 import type { NomadOverlayAdapters, NomadProtocolsState } from '../adapters/walletAdapter';
 
 const fallbackProtocols: NomadProtocolsState = {
@@ -28,7 +28,9 @@ const fallbackProtocols: NomadProtocolsState = {
   ],
 };
 
-export function useNomadProtocols(adapters: NomadOverlayAdapters = localNomadOverlayAdapters) {
+export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters) {
+  const providerAdapters = useNomadAdapters();
+  const adapters = adapterOverride ?? providerAdapters;
   const protocolAdapter = adapters.protocols;
   const [protocols, setProtocols] = useState<NomadProtocolsState>(fallbackProtocols);
   const [loading, setLoading] = useState(true);
