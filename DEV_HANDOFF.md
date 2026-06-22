@@ -16,7 +16,7 @@ Nomad is not the final production engine. A selected base engine must provide th
 | Phase 2A: Adapter contract hardening | Complete | Session, account, transaction, and safety adapter contracts have been expanded for integration readiness. |
 | Phase 2B: Base-engine bridge scaffold | Complete | `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` defines the future engine bridge. |
 | Phase 2C: Screen readiness pass | Complete | `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` documents all 26 screens, readiness states, and demo/live replacement notes. |
-| Phase 2D: Local compile/audit pass | Next | Must run locally or in CI because connector-only work cannot execute Expo or TypeScript builds. |
+| Phase 2D: Local compile/audit pass | In progress | `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` now gives the developer the install, typecheck, Expo launch, route smoke-test, and error-report workflow. |
 | Phase 2E: Base engine selection/integration | Pending | Select/import the live engine and implement concrete adapters. |
 | Phase 3: Live Nomad services | Planned | Connect live BlockPages, Travel Pocket, POS, freeze, recovery, Watch, Voltaire, and swap services. |
 | Phase 4: Production audit/release | Planned | Final security, recovery, privacy, device, testnet/mainnet, and app-store audits. |
@@ -78,8 +78,6 @@ Nomad hooks
 26 Nomad screens
 ```
 
-The adapter provider currently merges local demo adapters with future overrides. This allows the dev team to inject live engine-backed adapters later without rewriting the page layer.
-
 ## Phase 2C completed: screen readiness pass
 
 Before final integration, every screen has now been documented for:
@@ -98,6 +96,28 @@ Read:
 ```txt
 mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md
 ```
+
+## Phase 2D local audit checklist
+
+A dedicated Phase 2D checklist has been added for the developer:
+
+```txt
+mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md
+```
+
+It covers:
+
+- Fresh clone setup.
+- Root dependency install.
+- Mobile dependency install.
+- Root TypeScript check.
+- Mobile TypeScript check.
+- Full Nomad audit command.
+- Expo launch check.
+- Manual 26-route smoke test.
+- Known items to verify.
+- Error report template.
+- Phase 2D completion criteria.
 
 ## Phase 2D local commands
 
@@ -144,14 +164,15 @@ The following must be resolved before release:
 3. Read `mobile/nomad/PHASE_1_WIRING_AUDIT.md`.
 4. Read `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md`.
 5. Read `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md`.
-6. Run the local commands listed above.
-7. Complete Phase 2D compile/audit pass.
-8. Select/import the base engine.
-9. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
-10. Inject the concrete adapter through `NomadAdaptersProvider`.
-11. Replace local demo services with production service adapters.
-12. Begin Phase 3 live Nomad service integrations.
-13. Begin Phase 4 release audit only after live engine integration is complete.
+6. Read `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md`.
+7. Run the local commands listed above.
+8. Complete Phase 2D compile/audit pass.
+9. Select/import the base engine.
+10. Implement a concrete adapter beside `clonedWalletAdapterTemplate.ts`.
+11. Inject the concrete adapter through `NomadAdaptersProvider`.
+12. Replace local demo services with production service adapters.
+13. Begin Phase 3 live Nomad service integrations.
+14. Begin Phase 4 release audit only after live engine integration is complete.
 
 ## Handoff conclusion
 
