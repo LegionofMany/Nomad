@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+
+import { useNomadTravel, useNomadWallet } from '../nomad';
+import type { NomadAsset } from '../nomad';
 
 type Asset = {
   symbol: string;
@@ -11,7 +14,7 @@ type Asset = {
   color: string;
 };
 
-const assets: Asset[] = [
+const fallbackAssets: Asset[] = [
   { symbol: 'USDT (TRC20)', name: 'Tether', balance: '1,250.00 USDT', value: '$1,250.00', icon: '₮', color: '#33d790' },
   { symbol: 'USDC (ERC20)', name: 'USD Coin', balance: '750.50 USDC', value: '$750.50', icon: '$', color: '#1684ff' },
   { symbol: 'BTC', name: 'Bitcoin', balance: '0.025468 BTC', value: '$1,675.22', icon: '₿', color: '#ff9900' },
@@ -26,6 +29,32 @@ const bottomItems = [
   { label: 'Security', icon: '♢', route: 'SecurityCenter' },
   { label: 'More', icon: '•••', route: 'Settings' },
 ];
+
+const tokenVisuals: Record<string, { icon: string; color: string }> = {
+  USDT: { icon: '₮', color: '#33d790' },
+  USDC: { icon: '$', color: '#1684ff' },
+  BTC: { icon: '₿', color: '#ff9900' },
+  ETH: { icon: '◆', color: '#627eea' },
+  DAI: { icon: 'D', color: '#f5ac25' },
+  HBAR: { icon: 'H', color: '#6b42ff' },
+  XRP: { icon: '×', color: '#2c2f35' },
+  XLM: { icon: '≋', color: '#187bff' },
+};
+
+function toTopUpAsset(asset: NomadAsset): Asset {
+  const baseSymbol = asset.symbol.toUpperCase();
+  const visual = tokenVisuals[baseSymbol] ?? { icon: baseSymbol.slice(0, 1), color: '#1684ff' };
+  const network = asset.network && asset.network !== 'Nomad' ? ` (${asset.network})` : '';
+
+  return {
+    symbol: `${asset.symbol}${network}`,
+    name: asset.name,
+    balance: `${asset.balance} ${asset.symbol}`,
+    value: asset.fiatValueUsd,
+    icon: visual.icon,
+    color: visual.color,
+  };
+}
 
 function Card({ children, style }: { children: React.ReactNode; style?: any }) {
   return (
@@ -76,21 +105,21 @@ function Stepper() {
   );
 }
 
-function BalanceCard() {
+function BalanceCard({ balance, region }: { balance: string; region: string }) {
   return (
     <Card style={{ borderColor: '#18b653', backgroundColor: 'rgba(0,42,25,0.42)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         <Text style={{ color: '#19e45f', fontSize: 72, marginRight: 24 }}>▰</Text>
         <View>
           <Text style={{ color: '#19e45f', fontSize: 21, fontWeight: '900' }}>Travel Pocket Balance</Text>
-          <Text style={{ color: 'white', fontSize: 42, fontWeight: '900', marginTop: 10 }}>$1,240.75</Text>
+          <Text style={{ color: 'white', fontSize: 42, fontWeight: '900', marginTop: 10 }}>{balance}</Text>
           <Text style={{ color: '#d8dce6', fontSize: 23, marginTop: 4 }}>USD Value</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Text style={{ color: '#19e45f', fontSize: 54, marginRight: 18 }}>◎</Text>
         <View>
-          <Text style={{ color: 'white', fontSize: 27, fontWeight: '800' }}>Europe</Text>
+          <Text style={{ color: 'white', fontSize: 27, fontWeight: '800' }}>{region}</Text>
           <Text style={{ color: '#d3d8e0', fontSize: 20, marginTop: 4 }}>Active Region</Text>
         </View>
       </View>
@@ -148,6 +177,9 @@ function BottomNav() {
 
 export default function TopUpTravelPocketScreen() {
   const navigation = useNavigation<any>();
+  const { assets: walletAssets, loading: walletLoading, error: walletError } = useNomadWallet();
+  const { travelPocket } = useNomadTravel();
+  const topUpAssets = useMemo(() => (walletAssets.length > 0 ? walletAssets.map(toTopUpAsset) : fallbackAssets), [walletAssets]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#02070c' }}>
@@ -168,12 +200,14 @@ export default function TopUpTravelPocketScreen() {
 
         <View style={{ height: 1, backgroundColor: '#26313a', marginTop: 18 }} />
         <Stepper />
-        <BalanceCard />
+        <BalanceCard balance={travelPocket.pocketBalanceFiat ?? '$1,240.75'} region={travelPocket.regionInput ?? 'Europe'} />
 
         <Card style={{ marginTop: 24 }}>
           <Text style={{ color: '#19e45f', fontSize: 26, fontWeight: '900', marginBottom: 18 }}>SELECT ASSET TO TOP UP</Text>
           <View style={{ height: 1, backgroundColor: '#1f3540', marginBottom: 0 }} />
-          {assets.map((asset, index) => <AssetRow key={asset.symbol} asset={asset} isLast={index === assets.length - 1} />)}
+          {topUpAssets.map((asset, index) => <AssetRow key={`${asset.symbol}-${index}`} asset={asset} isLast={index === topUpAssets.length - 1} />)}
+          {walletLoading ? <Text style={{ color: '#d2d6df', fontSize: 18, marginTop: 14 }}>Loading live wallet assets…</Text> : null}
+          {walletError ? <Text style={{ color: '#ffb347', fontSize: 18, marginTop: 14 }}>Using approved preview assets until wallet data is available.</Text> : null}
         </Card>
 
         <Card style={{ marginTop: 24, flexDirection: 'row', alignItems: 'center', paddingVertical: 26 }}>
