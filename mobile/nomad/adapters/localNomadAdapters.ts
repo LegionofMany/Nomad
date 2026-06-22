@@ -12,6 +12,7 @@ import {
 import type {
   NomadAsset,
   NomadOverlayAdapters,
+  NomadOwnerAuthorityRequest,
   NomadRecoveryAdapter,
   NomadRecoveryState,
   NomadSafetyAdapter,
@@ -50,6 +51,8 @@ const networkBySymbol: Record<string, string> = {
   XRP: 'XRPL',
   XLM: 'Stellar',
 };
+
+let ownerAuthorityRequest: NomadOwnerAuthorityRequest = { status: 'none' };
 
 function toNomadAsset(balance: { symbol: string; amount: number; fiatApproxUSD: number }): NomadAsset {
   return {
@@ -200,8 +203,24 @@ export const localNomadRecoveryAdapter: NomadRecoveryAdapter = {
     return buildRecoveryState();
   },
 
+  async getOwnerAuthorityRequest() {
+    return ownerAuthorityRequest;
+  },
+
   async requestOwnerAuthorityApproval(reason: string) {
-    return { status: 'pending', requestedAt: new Date().toISOString(), reason };
+    ownerAuthorityRequest = {
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      reason,
+      requestedBy: 'You (Owner)',
+      device: 'Android Device',
+    };
+    return ownerAuthorityRequest;
+  },
+
+  async cancelOwnerAuthorityRequest() {
+    ownerAuthorityRequest = { status: 'cancelled', requestedAt: new Date().toISOString(), reason: 'Request cancelled by owner' };
+    return ownerAuthorityRequest;
   },
 };
 
