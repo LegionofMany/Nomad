@@ -1,67 +1,260 @@
-# Blockpages411 Auditor v8 for Nomad
+# Blockpages411 Auditor v8
 
-This folder is the Nomad-side landing area for the Blockpages411 Auditor v8 service.
+Defensive production-ready URL, cloned-site, drainer-script, fake-airdrop, wallet-request, Permit/Permit2, approval, downloaded-payload, threat-intelligence, admin-review, screenshot-evidence, and read-only chain-simulation auditor for Blockpages411.
 
-The auditor is designed to run as a separate service from the Nomad mobile overlay. Nomad should call it through an adapter; Nomad should not run Playwright, Redis, chain simulation, or backend scanner logic inside the mobile app.
+> Safety notice: this scanner reduces risk but cannot guarantee any URL is safe. Never enter a seed phrase, private key, or recovery phrase into any website.
 
-## Integration boundary
+## v8 purpose
 
-```txt
-Nomad mobile app
-  -> NomadSafetyAdapter
-  -> Blockpages411 Auditor API
-  -> queued scan worker
-  -> sandbox + static analysis + chain simulation
-  -> risk report
-  -> Nomad URL Scanner screen
+v8 is the final GitHub-readiness hardening pass. It audits backwards from v7, fixes production defaults, and adds a readiness checker so the repo can be connected to GitHub after secrets are configured.
+
+## What changed in v8
+
+- Startup security gate for backend and worker.
+- Weak/default `ADMIN_API_KEY` values are rejected.
+- `ADMIN_API_KEY` must be 32+ characters in production.
+- Constant-time admin key comparison.
+- Synchronous `/audit` route is disabled by default.
+- Production flow uses queued scans through `/audits`.
+- Redis is no longer exposed on the host in Docker Compose.
+- Docker Compose requires `ADMIN_API_KEY` before startup.
+- Frontend admin panel is hidden unless `VITE_ENABLE_ADMIN_PANEL=true`.
+- Frontend Dockerfile now builds static assets before preview serving.
+- Added `npm run test:readiness` for final repo checks.
+- Added final GitHub readiness audit and GitHub connect steps.
+
+## Architecture
+
+```text
+frontend
+  -> backend API
+      -> /audits queued submission
+          -> BullMQ / Redis
+              -> worker
+                  -> URL safety + SSRF guard
+                  -> domain intelligence + threat-intel match
+                  -> static HTML/JS analysis
+                  -> external payload analysis + script-hash match
+                  -> clone/fingerprint detection
+                  -> Playwright sandbox + fake wallets
+                  -> dynamic private-network request blocking
+                  -> optional screenshot evidence
+                  -> wallet request capture
+                  -> EVM selector / approval / Permit inspection
+                  -> optional read-only chain simulation
+                  -> risk scoring
+                  -> persisted JSON report
+                  -> optional webhook alert
+                  -> admin verdict / manual review
+                  -> threat-intel export
 ```
 
-## Current inclusion status
+## Public endpoints
 
-```txt
-Repository: LegionofMany/Nomad
-Branch: feature/blockpages411-auditor-v8
-Status: v8 integration scaffold added
-Full service source: prepared in Blockpages411 Auditor v8 package and ready to expand under this folder
-Nomad app change: live adapter scaffold added at mobile/nomad/adapters/blockpages411AuditorAdapter.ts
-```
+### Submit queued audit
 
-## Expected auditor API
-
-The v8 service exposes the queued production workflow:
-
-```txt
+```http
 POST /audits
+Content-Type: application/json
+
+{ "url": "https://example.com" }
+```
+
+### Poll status
+
+```http
 GET /audits/:auditId
+```
+
+### Fetch completed report
+
+```http
 GET /audits/:auditId/report
+```
+
+### Recent summary
+
+```http
 GET /audits/recent
 ```
 
-Nomad should use the queued flow only. The older synchronous `/audit` route is disabled by default in v8 production mode.
+### Legacy synchronous audit
 
-## Required Nomad environment variable
-
-```env
-EXPO_PUBLIC_BLOCKPAGES411_AUDITOR_URL=https://your-blockpages411-auditor-api.example.com
+```http
+POST /audit
 ```
 
-For local development:
+Disabled by default in v8. Enable only for local development:
 
 ```env
-EXPO_PUBLIC_BLOCKPAGES411_AUDITOR_URL=http://localhost:4000
+ENABLE_SYNC_AUDIT=true
 ```
 
-## Production rule
+## Admin/operator endpoints
 
-Do not connect this adapter to live user flows until:
+All `/admin/*` routes require:
 
-1. Auditor v8 backend is deployed to staging.
-2. Redis worker is running.
-3. ADMIN_API_KEY is configured server-side only.
-4. QA fixtures pass.
-5. Nomad scanner screen confirms report mapping.
-6. Phase 4 production audit confirms the service boundary.
+```http
+x-admin-api-key: your-strong-admin-key
+```
 
-## Next repository step
+Important routes:
 
-Expand the full v8 service source under this folder or keep it as a separately deployed service repository and use this folder as the Nomad integration boundary.
+```http
+GET  /admin/health
+GET  /admin/audits/recent
+GET  /admin/audits/:auditId
+POST /admin/audits/:auditId/verdict
+GET  /admin/export/threat-intel
+GET  /admin/audits/:auditId/screenshot
+```
+
+Manual verdicts support:
+
+```text
+needs_review
+confirmed_malicious
+confirmed_safe
+false_positive
+inconclusive
+```
+
+When `verdict=confirmed_malicious` and `addToThreatIntel=true`, observed host, addresses, and downloaded script hashes can be promoted into local threat intelligence.
+
+## Required environment setup
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Generate a strong admin secret:
+
+```bash
+openssl rand -hex 32
+```
+
+Set it in `.env`:
+
+```env
+ADMIN_API_KEY=<your-generated-64-character-hex-secret>
+```
+
+For public production builds, keep:
+
+```env
+ENABLE_QUEUE=true
+ENABLE_SYNC_AUDIT=false
+ALLOW_PRIVATE_AUDIT=false
+ALLOW_PRIVATE_RPC=false
+VITE_ENABLE_ADMIN_PANEL=false
+```
+
+For an internal operator frontend build only:
+
+```env
+VITE_ENABLE_ADMIN_PANEL=true
+```
+
+## Chain simulation
+
+Chain simulation is disabled by default.
+
+```env
+ENABLE_CHAIN_SIMULATION=false
+```
+
+To enable read-only simulation, set trusted public RPC URLs only:
+
+```env
+ENABLE_CHAIN_SIMULATION=true
+ETHEREUM_RPC_URL=https://your-trusted-rpc
+BASE_RPC_URL=https://your-trusted-rpc
+POLYGON_RPC_URL=https://your-trusted-rpc
+```
+
+Keep this false in production unless you fully control the RPC settings:
+
+```env
+ALLOW_PRIVATE_RPC=false
+```
+
+The simulation is defensive and read-only. It does not sign, send, or broadcast transactions.
+
+## Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:4000`
+- Redis: internal Docker network only
+- Worker: background audit processor
+
+## Local validation
+
+Backend syntax:
+
+```bash
+cd backend
+npm install
+npm run syntax
+```
+
+Final readiness check:
+
+```bash
+npm run test:readiness
+```
+
+Docker startup:
+
+```bash
+cd ..
+docker compose up --build
+```
+
+Health check:
+
+```bash
+curl http://localhost:4000/health
+```
+
+Submit queued audit:
+
+```bash
+curl -X POST http://localhost:4000/audits \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com"}'
+```
+
+Admin health:
+
+```bash
+curl -H "x-admin-api-key: $ADMIN_API_KEY" http://localhost:4000/admin/health
+```
+
+## GitHub status
+
+v8 is ready to connect to GitHub after `.env` is created locally and secrets are not committed.
+
+Do not commit:
+
+- `.env`
+- audit reports
+- audit logs
+- screenshots
+- admin verdict JSON files
+- real RPC URLs
+- webhook URLs
+- admin API keys
+
+See:
+
+- `FINAL_GITHUB_READINESS_AUDIT.md`
+- `GITHUB_CONNECT_STEPS.md`
+- `PRODUCTION_LAUNCH_CHECKLIST.md`
