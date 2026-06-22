@@ -200,6 +200,29 @@ export type NomadInsightsAdapter = {
   getInsightsState(): Promise<NomadInsightsState>;
 };
 
+export type NomadSwapQuote = {
+  fromAsset: string;
+  toAsset: string;
+  fromAmount: string;
+  toAmount: string;
+  fromValueUsd: string;
+  toValueUsd: string;
+  fromBalance: string;
+  toBalance: string;
+  rateLabel: string;
+  priceImpact: string;
+  network: string;
+  networkFee: string;
+  estimatedTime: string;
+  slippageTolerance: string;
+  status: 'quote' | 'draft_created' | 'failed';
+};
+
+export type NomadSwapAdapter = {
+  getSwapQuote(fromAsset: string, toAsset: string, amount: string): Promise<NomadSwapQuote>;
+  createSwapDraft(quote: NomadSwapQuote): Promise<NomadSignedTransaction>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -211,6 +234,7 @@ export type NomadOverlayAdapters = {
   recovery?: NomadRecoveryAdapter;
   security?: NomadSecurityAdapter;
   insights?: NomadInsightsAdapter;
+  swap?: NomadSwapAdapter;
   safety?: NomadSafetyAdapter;
 };
 
