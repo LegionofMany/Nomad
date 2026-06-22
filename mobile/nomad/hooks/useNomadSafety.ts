@@ -1,10 +1,11 @@
 import { useCallback } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters } from '../adapters/walletAdapter';
 
-export function useNomadSafety(adapters: NomadOverlayAdapters = localNomadOverlayAdapters) {
-  const safety = adapters.safety;
+export function useNomadSafety(adapters?: NomadOverlayAdapters) {
+  const contextAdapters = useNomadAdapters();
+  const safety = (adapters ?? contextAdapters).safety;
 
   const scanAddress = useCallback(
     async (address: string) => {
