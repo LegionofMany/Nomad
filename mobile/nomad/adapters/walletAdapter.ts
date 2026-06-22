@@ -30,6 +30,21 @@ export type NomadWalletAdapter = {
   unlockWallet(): Promise<void>;
 };
 
+export type NomadTravelPocketState = {
+  enabled: boolean;
+  regionInput?: string;
+  preferredStablecoin?: string;
+  pocketBalanceFiat?: string;
+  pocketBalanceLocal?: string;
+  localCurrency?: string;
+};
+
+export type NomadTravelAdapter = {
+  getTravelPocketState(): Promise<NomadTravelPocketState>;
+  enableTravelPocket(regionInput: string): Promise<NomadTravelPocketState>;
+  disableTravelPocket(): Promise<NomadTravelPocketState>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -37,6 +52,7 @@ export type NomadSafetyAdapter = {
 
 export type NomadOverlayAdapters = {
   wallet?: NomadWalletAdapter;
+  travel?: NomadTravelAdapter;
   safety?: NomadSafetyAdapter;
 };
 
