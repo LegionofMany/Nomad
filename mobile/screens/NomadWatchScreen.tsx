@@ -222,7 +222,7 @@ function EmergencyActions() {
       <Text style={{ color: '#ff5757', fontSize: 20, fontWeight: '900', marginBottom: 18 }}>EMERGENCY ACTIONS</Text>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         {actions.map((action) => (
-          <View key={action.label} style={{ width: '23%', borderWidth: 1, borderColor, borderRadius: 12, padding: 15, alignItems: 'center' }}>
+          <View key={action.label} style={{ width: '23%', borderWidth: 1, borderColor: border, borderRadius: 12, padding: 15, alignItems: 'center' }}>
             <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: `${action.color}22`, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: action.color, fontSize: 28 }}>{action.icon}</Text>
             </View>
