@@ -23,6 +23,7 @@ import ReceiveBitcoinScreen from './screens/ReceiveBitcoinScreen';
 import SwapScreen from './screens/SwapScreen';
 import TravelModeScreen from './screens/TravelModeScreen';
 import TopUpTravelPocketScreen from './screens/TopUpTravelPocketScreen';
+import ApprovePOSTransactionScreen from './screens/ApprovePOSTransactionScreen';
 import SecurityCenterScreen from './screens/SecurityCenterScreen';
 import RecoveryCenterScreen from './screens/RecoveryCenterScreen';
 import TimeClockAccessScreen from './screens/TimeClockAccessScreen';
@@ -49,6 +50,7 @@ type RootStackParamList = {
   Swap: undefined;
   TravelMode: undefined;
   TopUpTravelPocket: undefined;
+  ApprovePOSTransaction: undefined;
   SecurityCenter: undefined;
   RecoveryCenter: undefined;
   TimeClockAccess: undefined;
@@ -107,6 +109,7 @@ function AppNavigator() {
       <Stack.Screen name="Swap" component={SwapScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TravelMode" component={TravelModeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TopUpTravelPocket" component={TopUpTravelPocketScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="ApprovePOSTransaction" component={ApprovePOSTransactionScreen} options={{ headerShown: false }} />
       <Stack.Screen name="SecurityCenter" component={SecurityCenterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RecoveryCenter" component={RecoveryCenterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TimeClockAccess" component={TimeClockAccessScreen} options={{ headerShown: false }} />
