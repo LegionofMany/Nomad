@@ -27,6 +27,7 @@ import RecoveryCenterScreen from './screens/RecoveryCenterScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NomadInsightsScreen from './screens/NomadInsightsScreen';
 import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
+import VoltaireProtocolsScreen from './screens/VoltaireProtocolsScreen';
 
 import { AppStateProvider, useAppState } from './state/appState';
 
@@ -44,6 +45,7 @@ type RootStackParamList = {
   Settings: undefined;
   NomadInsights: undefined;
   NomadInsightsSpending: undefined;
+  VoltaireProtocols: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -93,6 +95,7 @@ function AppNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsights" component={NomadInsightsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="VoltaireProtocols" component={VoltaireProtocolsScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
