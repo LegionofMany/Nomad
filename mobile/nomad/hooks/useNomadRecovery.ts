@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters, NomadOwnerAuthorityRequest, NomadRecoveryClockTime, NomadRecoverySequenceState, NomadRecoveryState } from '../adapters/walletAdapter';
 
 const fallbackRecoveryState: NomadRecoveryState = {
@@ -48,8 +48,9 @@ export type NomadRecoveryHookState = {
   completeSequence(): Promise<NomadRecoverySequenceState>;
 };
 
-export function useNomadRecovery(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadRecoveryHookState {
-  const recoveryAdapter = adapters.recovery;
+export function useNomadRecovery(adapters?: NomadOverlayAdapters): NomadRecoveryHookState {
+  const contextAdapters = useNomadAdapters();
+  const recoveryAdapter = (adapters ?? contextAdapters).recovery;
   const [recovery, setRecovery] = useState<NomadRecoveryState>(fallbackRecoveryState);
   const [sequence, setSequence] = useState<NomadRecoverySequenceState>(fallbackSequenceState);
   const [loading, setLoading] = useState(true);
