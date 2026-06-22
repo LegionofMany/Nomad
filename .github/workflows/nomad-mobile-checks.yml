@@ -7,6 +7,7 @@ on:
       - "src/**"
       - "travel/**"
       - "package.json"
+      - "tsconfig.json"
       - ".github/workflows/nomad-mobile-checks.yml"
   push:
     branches:
@@ -16,6 +17,7 @@ on:
       - "src/**"
       - "travel/**"
       - "package.json"
+      - "tsconfig.json"
       - ".github/workflows/nomad-mobile-checks.yml"
 
 jobs:
@@ -26,19 +28,41 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      - name: Detect root TypeScript changes
+        id: root_changes
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -E '^(src/|travel/|package.json|tsconfig.json)$|^(src/|travel/)'; then
+            echo "run_root_typecheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_root_typecheck=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install root dependencies
+        if: steps.root_changes.outputs.run_root_typecheck == 'true'
         run: npm install
 
       - name: Install mobile dependencies
         run: npm --prefix mobile install
 
       - name: Typecheck root backend modules
+        if: steps.root_changes.outputs.run_root_typecheck == 'true'
         run: npm run typecheck
 
       - name: Typecheck Nomad mobile overlay
