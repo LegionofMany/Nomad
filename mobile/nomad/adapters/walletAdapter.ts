@@ -70,10 +70,20 @@ export type NomadRecoveryState = {
   purpose: string;
 };
 
+export type NomadOwnerAuthorityRequest = {
+  status: 'none' | 'pending' | 'approved' | 'declined' | 'cancelled';
+  requestedAt?: string;
+  reason?: string;
+  requestedBy?: string;
+  device?: string;
+};
+
 export type NomadRecoveryAdapter = {
   getRecoveryState(): Promise<NomadRecoveryState>;
   runRecoveryCheck(): Promise<NomadRecoveryState>;
-  requestOwnerAuthorityApproval(reason: string): Promise<{ status: 'pending'; requestedAt: string; reason: string }>;
+  getOwnerAuthorityRequest(): Promise<NomadOwnerAuthorityRequest>;
+  requestOwnerAuthorityApproval(reason: string): Promise<NomadOwnerAuthorityRequest>;
+  cancelOwnerAuthorityRequest(): Promise<NomadOwnerAuthorityRequest>;
 };
 
 export type NomadSafetyAdapter = {
