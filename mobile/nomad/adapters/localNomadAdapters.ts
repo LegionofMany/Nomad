@@ -17,6 +17,8 @@ import type {
   NomadInsightsState,
   NomadOverlayAdapters,
   NomadOwnerAuthorityRequest,
+  NomadProtocolsAdapter,
+  NomadProtocolsState,
   NomadRecoveryAdapter,
   NomadRecoveryClockTime,
   NomadRecoverySequenceState,
@@ -31,8 +33,15 @@ import type {
   NomadTravelAdapter,
   NomadTravelPocketState,
   NomadWalletAdapter,
+  NomadWatchAdapter,
+  NomadWatchEmergencyAction,
+  NomadWatchState,
 } from './walletAdapter';
 
+const green = '#35f883';
+const cyan = '#00e5ff';
+const purple = '#9b4dff';
+const gold = '#ffcc33';
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percentBySymbol: Record<string, string> = { USDC: '+0.01%', USDT: '+0.00%', DAI: '+0.02%', ETH: '+1.42%', BTC: '+1.82%', HBAR: '+2.10%', XRP: '+0.64%', XLM: '+0.44%' };
 const networkBySymbol: Record<string, string> = { USDC: 'Ethereum', USDT: 'TRC20', DAI: 'Ethereum', ETH: 'Ethereum', BTC: 'Bitcoin', HBAR: 'Hedera', XRP: 'XRPL', XLM: 'Stellar' };
@@ -40,6 +49,7 @@ const networkBySymbol: Record<string, string> = { USDC: 'Ethereum', USDT: 'TRC20
 let ownerAuthorityRequest: NomadOwnerAuthorityRequest = { status: 'none' };
 let recoverySequenceState: NomadRecoverySequenceState = { step: 1, enteredSets: 0, verifiedSets: 0, totalSets: 24, strengthScore: 0, currentSet: 1, sampleTime: { hour: 3, minute: 15, second: 27 }, status: 'entry' };
 let freezeActivity: NomadFreezeActivity[] = [];
+let watchLastSyncedAt = new Date().toISOString();
 
 function toNomadAsset(balance: { symbol: string; amount: number; fiatApproxUSD: number }): NomadAsset {
   return { symbol: balance.symbol, name: balance.symbol, balance: String(balance.amount), fiatValueUsd: currencyFormatter.format(balance.fiatApproxUSD), change24h: percentBySymbol[balance.symbol] ?? '+0.00%', network: networkBySymbol[balance.symbol] ?? 'Nomad' };
@@ -101,11 +111,7 @@ async function buildInsightsState(): Promise<NomadInsightsState> {
   const walletUsd = Math.max(0, totalUsd - 1240.75);
   const travelUsd = Number((travel?.pocketBalanceFiat ?? '$4,652.33').replace(/[^0-9.]/g, '')) || 4652.33;
   const spendingCategories = [
-    { label: 'Food & Dining', icon: '♨', percent: '34%', amount: '$424.12', color: '#35f883' },
-    { label: 'Shopping', icon: '▢', percent: '24%', amount: '$299.18', color: '#1684ff' },
-    { label: 'Transport', icon: '▰', percent: '18%', amount: '$224.36', color: '#8b5cff' },
-    { label: 'Travel', icon: '✈', percent: '14%', amount: '$174.50', color: '#ffb84d' },
-    { label: 'Other', icon: '•••', percent: '10%', amount: '$126.74', color: '#9aa7ba' },
+    { label: 'Food & Dining', icon: '♨', percent: '34%', amount: '$424.12', color: '#35f883' }, { label: 'Shopping', icon: '▢', percent: '24%', amount: '$299.18', color: '#1684ff' }, { label: 'Transport', icon: '▰', percent: '18%', amount: '$224.36', color: '#8b5cff' }, { label: 'Travel', icon: '✈', percent: '14%', amount: '$174.50', color: '#ffb84d' }, { label: 'Other', icon: '•••', percent: '10%', amount: '$126.74', color: '#9aa7ba' },
   ];
   return {
     totalPortfolioValue: currencyFormatter.format(totalUsd), monthlyGrowth: '+$1,248.32', monthlyGrowthPercent: '5.32%',
@@ -123,31 +129,18 @@ async function buildInsightsState(): Promise<NomadInsightsState> {
       { name: 'Sushi Zanmai Ginza', meta: 'May 11, 2025 • 07:12 PM', category: 'Food & Dining', amount: '¥8,600', usd: '≈ $55.92 USD', icon: '寿', color: '#35f883' },
     ],
     budgets: [
-      { label: 'Food & Dining', spent: '$424', total: '$600', percent: '71%', icon: '♨', color: '#35f883' },
-      { label: 'Shopping', spent: '$299', total: '$500', percent: '60%', icon: '▢', color: '#1684ff' },
-      { label: 'Transport', spent: '$224', total: '$400', percent: '56%', icon: '▰', color: '#8b5cff' },
-      { label: 'Travel', spent: '$174', total: '$300', percent: '58%', icon: '✈', color: '#ffb84d' },
-      { label: 'Other', spent: '$126', total: '$200', percent: '63%', icon: '•••', color: '#9aa7ba' },
+      { label: 'Food & Dining', spent: '$424', total: '$600', percent: '71%', icon: '♨', color: '#35f883' }, { label: 'Shopping', spent: '$299', total: '$500', percent: '60%', icon: '▢', color: '#1684ff' }, { label: 'Transport', spent: '$224', total: '$400', percent: '56%', icon: '▰', color: '#8b5cff' }, { label: 'Travel', spent: '$174', total: '$300', percent: '58%', icon: '✈', color: '#ffb84d' }, { label: 'Other', spent: '$126', total: '$200', percent: '63%', icon: '•••', color: '#9aa7ba' },
     ],
     performanceRows: [
-      { asset: 'Bitcoin', symbol: 'BTC', icon: '₿', price: '$63,852.21', change: '+6.27%', positive: true },
-      { asset: 'Hedera', symbol: 'HBAR', icon: 'H', price: '$0.1234', change: '+4.18%', positive: true },
-      { asset: 'XRP', symbol: 'XRP', icon: '×', price: '$0.5218', change: '-1.35%', positive: false },
-      { asset: 'USDC', symbol: 'USDC', icon: '$', price: '$1.00', change: '+0.01%', positive: true },
-      { asset: travel?.localCurrency ?? 'JPY Stable', symbol: 'JPY', icon: '¥', price: '¥1.00', change: '+0.00%', positive: true },
+      { asset: 'Bitcoin', symbol: 'BTC', icon: '₿', price: '$63,852.21', change: '+6.27%', positive: true }, { asset: 'Hedera', symbol: 'HBAR', icon: 'H', price: '$0.1234', change: '+4.18%', positive: true }, { asset: 'XRP', symbol: 'XRP', icon: '×', price: '$0.5218', change: '-1.35%', positive: false }, { asset: 'USDC', symbol: 'USDC', icon: '$', price: '$1.00', change: '+0.01%', positive: true }, { asset: travel?.localCurrency ?? 'JPY Stable', symbol: 'JPY', icon: '¥', price: '¥1.00', change: '+0.00%', positive: true },
     ],
     topInsight: 'You spent 12% less on dining compared to last month.', topSavings: '$56.40',
     travelLocation: `${travel?.regionInput ?? 'Tokyo'}, Japan`, travelDateRange: 'May 12 – May 20, 2025', travelPocketSpent: '¥36,480', travelPocketSpentUsd: '≈ $234.29 USD', travelDailyAverage: '¥4,560', travelDailyAverageUsd: '≈ $29.00 USD', freedomScore: 84,
   };
 }
 
-function freezeLabel(scope: NomadFreezeScope): string {
-  switch (scope) { case 'entire_wallet': return 'Entire wallet freeze activated'; case 'travel_pocket': return 'Travel Pocket freeze activated'; case 'specific_assets': return 'Specific asset freeze selected'; case 'owner_authority_alert': return 'Owner Authority alert sent'; }
-}
-
-function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime {
-  return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second ?? 0)) };
-}
+function freezeLabel(scope: NomadFreezeScope): string { switch (scope) { case 'entire_wallet': return 'Entire wallet freeze activated'; case 'travel_pocket': return 'Travel Pocket freeze activated'; case 'specific_assets': return 'Specific asset freeze selected'; case 'owner_authority_alert': return 'Owner Authority alert sent'; } }
+function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime { return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second ?? 0)) }; }
 
 async function buildSwapQuote(fromAsset: string, toAsset: string, amount: string): Promise<NomadSwapQuote> {
   const portfolio = await getPortfolio().catch(() => null);
@@ -158,23 +151,31 @@ async function buildSwapQuote(fromAsset: string, toAsset: string, amount: string
   const toAmount = numericAmount * rate;
   const fromUsd = numericAmount * 61410;
   const toUsd = fromUsd * 0.9916;
+  return { fromAsset, toAsset, fromAmount: String(numericAmount), toAmount: toAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }), fromValueUsd: currencyFormatter.format(fromUsd), toValueUsd: currencyFormatter.format(toUsd), fromBalance: `Balance: ${fromBalance} ${fromAsset}`, toBalance: `Balance: ${toBalance.toLocaleString('en-US')} ${toAsset}`, rateLabel: `1 ${fromAsset} ≈ ${rate.toLocaleString('en-US')} ${toAsset}`, priceImpact: '0.30%', network: toAsset === 'HBAR' ? 'Hedera Mainnet' : networkBySymbol[toAsset] ?? 'Nomad Liquidity', networkFee: '0.00012 BTC (≈ $0.73)', estimatedTime: '~ 15 seconds', slippageTolerance: '0.50%', status: 'quote' };
+}
+
+async function buildProtocolsState(): Promise<NomadProtocolsState> {
+  const security = await buildSecurityState();
+  const activeProtocols = security.status === 'frozen' ? 5 : 6;
   return {
-    fromAsset,
-    toAsset,
-    fromAmount: String(numericAmount),
-    toAmount: toAmount.toLocaleString('en-US', { maximumFractionDigits: 2 }),
-    fromValueUsd: currencyFormatter.format(fromUsd),
-    toValueUsd: currencyFormatter.format(toUsd),
-    fromBalance: `Balance: ${fromBalance} ${fromAsset}`,
-    toBalance: `Balance: ${toBalance.toLocaleString('en-US')} ${toAsset}`,
-    rateLabel: `1 ${fromAsset} ≈ ${rate.toLocaleString('en-US')} ${toAsset}`,
-    priceImpact: '0.30%',
-    network: toAsset === 'HBAR' ? 'Hedera Mainnet' : networkBySymbol[toAsset] ?? 'Nomad Liquidity',
-    networkFee: '0.00012 BTC (≈ $0.73)',
-    estimatedTime: '~ 15 seconds',
-    slippageTolerance: '0.50%',
-    status: 'quote',
+    status: activeProtocols === 6 ? 'active' : 'degraded', activeProtocols, totalProtocols: 6, networkUptime: '99.99%', globalNodes: '1,248', countries: '32', message: activeProtocols === 6 ? 'The Voltaire Protocols are operating optimally.' : 'Security controls are active. Some protocol actions are restricted.',
+    protocols: [
+      { title: 'Voltaire Security Layer', subtitle: 'Multi-layered security and threat protection', detail: `${security.status === 'frozen' ? 'PROTECTED' : 'ACTIVE'}  •  Score ${security.score}`, uptime: '99.99%', icon: '♢', color: green },
+      { title: 'Voltaire Interoperability Protocol (VIP)', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  42 Chains Connected', uptime: '99.98%', icon: '⌘', color: cyan },
+      { title: 'Voltaire Key Management Protocol (VKP)', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: purple },
+      { title: 'Voltaire Notary Protocol (VNP)', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  1,003 Notaries', uptime: '99.97%', icon: '▤', color: gold },
+      { title: 'Voltaire Data Transmission Protocol (VDTP)', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & Encrypted', uptime: '99.99%', icon: '⌁', color: cyan },
+      { title: 'Voltaire Governance Protocol (VGP)', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Proposals Live', uptime: '100%', icon: '♙', color: purple },
+    ],
+    health: [
+      { label: 'Block Finality', value: '2.1 sec', note: 'Excellent', icon: '◷' }, { label: 'Transaction Success', value: '99.97%', note: 'Excellent', icon: '✓' }, { label: 'Security Events', value: security.freezeActivity.length ? String(security.freezeActivity.length) : '0', note: 'Last 7 Days', icon: '♢' }, { label: 'Alerts', value: security.freezeStatus === 'none' ? '0' : '1', note: security.freezeStatus === 'none' ? 'All Clear' : 'Review', icon: '♧' }, { label: 'Nodes Online', value: '1,248 / 1,300', note: '95.9%', icon: '◎' },
+    ],
   };
+}
+
+async function buildWatchState(): Promise<NomadWatchState> {
+  const [travel, security, ownerRequest] = await Promise.all([buildTravelPocketState(), buildSecurityState(), localNomadRecoveryAdapter.getOwnerAuthorityRequest()]);
+  return { connected: true, deviceName: 'Nomad Watch 1', firmware: 'v1.2.0', batteryPercent: 87, lastSyncedLabel: new Date(watchLastSyncedAt).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }), securityStatus: security.status === 'frozen' ? 'locked' : security.status === 'warning' ? 'warning' : 'secure', travelRegion: travel.regionInput ?? 'Europe', travelSubregion: (travel.regionInput ?? '').toLowerCase().includes('japan') ? 'Japan' : 'France', travelModeLabel: travel.enabled ? 'Active' : 'Ready', timeSetLabel: '10:24 AM Local', travelPocketBalance: travel.pocketBalanceFiat ?? '$1,240.75', todaySpending: '$142.30', dailyLimit: '$500.00', ownerAuthorityAlertLabel: ownerRequest.status === 'pending' ? 'Pending approval' : 'No new alerts' };
 }
 
 export const localNomadWalletAdapter: NomadWalletAdapter = {
@@ -201,10 +202,12 @@ export const localNomadRecoveryAdapter: NomadRecoveryAdapter = {
 export const localNomadSecurityAdapter: NomadSecurityAdapter = { async getSecurityState() { return buildSecurityState(); }, async runSecurityScan() { return buildSecurityState(); }, async activateFreeze(scope: NomadFreezeScope) { const status = scope === 'owner_authority_alert' ? 'alert_sent' : 'active'; freezeActivity = [{ scope, label: freezeLabel(scope), requestedAt: new Date().toISOString(), status }, ...freezeActivity.filter((item) => item.status !== 'active')].slice(0, 5); return buildSecurityState(); }, async clearFreeze() { freezeActivity = freezeActivity.map((item) => item.status === 'active' ? { ...item, status: 'cleared' } : item); return buildSecurityState(); } };
 export const localNomadInsightsAdapter: NomadInsightsAdapter = { async getInsightsState() { return buildInsightsState(); } };
 export const localNomadSwapAdapter: NomadSwapAdapter = { async getSwapQuote(fromAsset: string, toAsset: string, amount: string) { return buildSwapQuote(fromAsset, toAsset, amount); }, async createSwapDraft(quote: NomadSwapQuote) { return localNomadWalletAdapter.createTransaction({ fromAsset: quote.fromAsset, toAddress: `SWAP:${quote.toAsset}`, amount: quote.fromAmount, networkFee: quote.networkFee, memo: `Nomad swap ${quote.fromAsset} to ${quote.toAsset}` }); } };
+export const localNomadProtocolsAdapter: NomadProtocolsAdapter = { async getProtocolsState() { return buildProtocolsState(); } };
+export const localNomadWatchAdapter: NomadWatchAdapter = { async getWatchState() { return buildWatchState(); }, async syncNow() { watchLastSyncedAt = new Date().toISOString(); return buildWatchState(); }, async triggerEmergencyAction(action: NomadWatchEmergencyAction) { if (action === 'emergency_lock' || action === 'panic_mode') await localNomadSecurityAdapter.activateFreeze('entire_wallet'); if (action === 'pause_spending') await localNomadSecurityAdapter.activateFreeze('travel_pocket'); if (action === 'alert_authority') await localNomadRecoveryAdapter.requestOwnerAuthorityApproval('Nomad Watch authority alert'); return buildWatchState(); } };
 
 export const localNomadSafetyAdapter: NomadSafetyAdapter = {
   async scanAddress(address: string) { const normalized = address.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No address supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('scam') || normalized.includes('phish'); return isSuspicious ? { score: 32, risk: 'high', summary: 'Potentially suspicious address pattern detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local safety flags detected. Ready for BlockPages live scan integration.' }; },
   async scanUrl(url: string) { const normalized = url.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No URL supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('airdrop') || normalized.includes('claim') || normalized.includes('phish'); return isSuspicious ? { score: 41, risk: 'medium', summary: 'Potential phishing or drainer language detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local URL threat flags detected. Ready for BlockPages live scanner integration.' }; },
 };
 
-export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, security: localNomadSecurityAdapter, insights: localNomadInsightsAdapter, swap: localNomadSwapAdapter, safety: localNomadSafetyAdapter };
+export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, security: localNomadSecurityAdapter, insights: localNomadInsightsAdapter, swap: localNomadSwapAdapter, protocols: localNomadProtocolsAdapter, watch: localNomadWatchAdapter, safety: localNomadSafetyAdapter };
