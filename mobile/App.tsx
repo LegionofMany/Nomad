@@ -32,6 +32,7 @@ import RecoverLostWalletScreen from './screens/RecoverLostWalletScreen';
 import VerifyRecoverySequenceScreen from './screens/VerifyRecoverySequenceScreen';
 import WalletRecoveredScreen from './screens/WalletRecoveredScreen';
 import OwnerAuthorityApprovalScreen from './screens/OwnerAuthorityApprovalScreen';
+import CreateOwnerAuthorityScreen from './screens/CreateOwnerAuthorityScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NomadInsightsScreen from './screens/NomadInsightsScreen';
 import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
@@ -59,6 +60,7 @@ type RootStackParamList = {
   VerifyRecoverySequence: undefined;
   WalletRecovered: undefined;
   OwnerAuthorityApproval: undefined;
+  CreateOwnerAuthority: undefined;
   Settings: undefined;
   NomadInsights: undefined;
   NomadInsightsSpending: undefined;
@@ -118,6 +120,7 @@ function AppNavigator() {
       <Stack.Screen name="VerifyRecoverySequence" component={VerifyRecoverySequenceScreen} options={{ headerShown: false }} />
       <Stack.Screen name="WalletRecovered" component={WalletRecoveredScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OwnerAuthorityApproval" component={OwnerAuthorityApprovalScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CreateOwnerAuthority" component={CreateOwnerAuthorityScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsights" component={NomadInsightsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
