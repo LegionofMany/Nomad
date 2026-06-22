@@ -1,4 +1,5 @@
 import type {
+  NomadAsset,
   NomadBroadcastResult,
   NomadChain,
   NomadOverlayAdapters,
@@ -31,7 +32,7 @@ export type ClonedWalletEngineBridge = {
   getSupportedChains(): Promise<NomadChain[]>;
   getAccounts(): Promise<NomadWalletAccount[]>;
   getWalletBalance(): Promise<string>;
-  getAssets(): Promise<NomadOverlayAdapters['wallet'] extends infer Wallet ? Wallet extends { getAssets(): Promise<infer Assets> } ? Assets : never : never>;
+  getAssets(): Promise<NomadAsset[]>;
   getReceiveAddress(assetSymbol: string, chainId?: string, accountId?: string): Promise<string>;
   createTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
   signTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
