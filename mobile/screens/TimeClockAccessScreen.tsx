@@ -2,12 +2,15 @@ import React from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
+import { useNomadRecovery } from "../nomad";
+
 const bg = "#020812";
 const border = "#0a3862";
 const green = "#35f883";
 const muted = "#b8c3d6";
 const blue = "#1684ff";
 const purple = "#8b5cff";
+const red = "#ff455c";
 
 function Card({ children, style }: { children: React.ReactNode; style?: any }) {
   return (
@@ -71,16 +74,17 @@ function InfoStat({ icon, title, value }: { icon: string; title: string; value: 
   );
 }
 
-function AccessMethod({ icon, color, title, subtitle }: { icon: string; color: string; title: string; subtitle: string }) {
+function AccessMethod({ icon, color, title, subtitle, route }: { icon: string; color: string; title: string; subtitle: string; route: string }) {
+  const navigation = useNavigation<any>();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(10,56,98,0.55)" }}>
+    <Pressable onPress={() => navigation.navigate(route)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(10,56,98,0.55)" }}>
       <CircleIcon icon={icon} color={color} size={48} />
       <View style={{ flex: 1, marginLeft: 16 }}>
         <Text style={{ color: "white", fontSize: 18, fontWeight: "800" }}>{title}</Text>
         <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>{subtitle}</Text>
       </View>
       <Text style={{ color: "#d7e8ff", fontSize: 30 }}>›</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -95,7 +99,7 @@ function BottomNav() {
   ];
 
   return (
-    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
+    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
       {items.map((item) => (
         <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}>
           <Text style={{ color: item.active ? green : "#c9d2e3", fontSize: 28 }}>{item.icon}</Text>
@@ -108,23 +112,31 @@ function BottomNav() {
 
 export default function TimeClockAccessScreen() {
   const navigation = useNavigation<any>();
+  const { recovery, error, requestOwnerAuthority } = useNomadRecovery();
+  const isUnlocked = recovery.walletStatus === "unlocked";
+
+  const handleEarlyAccess = async () => {
+    await requestOwnerAuthority("Request early Time Clock access");
+    navigation.navigate("OwnerAuthorityApproval");
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <Header />
+        {error ? <Text style={{ color: red, marginBottom: 10 }}>{error}</Text> : null}
 
         <Card style={{ borderColor: "#0b8f3c", backgroundColor: "rgba(2,34,24,0.65)" }}>
           <View style={{ alignItems: "center", padding: 24 }}>
             <CircleIcon icon="▣" size={56} />
-            <Text style={{ color: "white", fontSize: 32, fontWeight: "900", marginTop: 16 }}>Wallet is Time Locked</Text>
+            <Text style={{ color: "white", fontSize: 32, fontWeight: "900", marginTop: 16 }}>{isUnlocked ? "Wallet Time Set Complete" : "Wallet is Time Locked"}</Text>
             <Text style={{ color: muted, fontSize: 16, lineHeight: 22, textAlign: "center", marginTop: 10 }}>
               Your wallet is protected by the Nomad Time Set. It will unlock when the clock completes its cycle.
             </Text>
 
             <View style={{ width: 300, height: 300, borderRadius: 150, borderWidth: 14, borderColor: green, backgroundColor: "rgba(4,29,26,0.86)", alignItems: "center", justifyContent: "center", marginTop: 28, shadowColor: green, shadowOpacity: 0.5, shadowRadius: 24 }}>
-              <Text style={{ color: green, fontSize: 14, fontWeight: "900", marginBottom: 14 }}>TIME REMAINING</Text>
-              <Text style={{ color: "white", fontSize: 46, fontWeight: "900", letterSpacing: -1 }}>23:47:32</Text>
+              <Text style={{ color: green, fontSize: 14, fontWeight: "900", marginBottom: 14 }}>{isUnlocked ? "READY" : "TIME REMAINING"}</Text>
+              <Text style={{ color: "white", fontSize: 46, fontWeight: "900", letterSpacing: -1 }}>{recovery.timeRemainingLabel}</Text>
               <View style={{ flexDirection: "row", marginTop: 12 }}>
                 <Text style={{ color: green, fontSize: 12, marginHorizontal: 10 }}>HOURS</Text>
                 <Text style={{ color: green, fontSize: 12, marginHorizontal: 10 }}>MINUTES</Text>
@@ -134,9 +146,9 @@ export default function TimeClockAccessScreen() {
 
             <Card style={{ marginTop: 22, width: "100%", backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.25)" }}>
               <View style={{ flexDirection: "row", paddingVertical: 16 }}>
-                <InfoStat icon="◷" title="Time Set" value="24 Hour Cycle" />
-                <InfoStat icon="▦" title="Started" value="May 19, 2025 • 10:24 AM" />
-                <InfoStat icon="♢" title="Purpose" value="Wallet Access" />
+                <InfoStat icon="◷" title="Time Set" value={recovery.cycleLabel} />
+                <InfoStat icon="▦" title="Started" value={recovery.cycleStartedLabel} />
+                <InfoStat icon="♢" title="Purpose" value={recovery.purpose} />
               </View>
             </Card>
           </View>
@@ -147,7 +159,7 @@ export default function TimeClockAccessScreen() {
               <ProgressStep label="6 Hours" sub="Completed" done />
               <ProgressStep label="12 Hours" sub="Completed" done />
               <ProgressStep label="18 Hours" sub="Completed" done />
-              <ProgressStep label="24 Hours" sub="Unlock" />
+              <ProgressStep label="24 Hours" sub={isUnlocked ? "Complete" : "Unlock"} done={isUnlocked} />
             </View>
           </View>
 
@@ -156,7 +168,7 @@ export default function TimeClockAccessScreen() {
               <Text style={{ color: "white", fontSize: 20, fontWeight: "900" }}>Need Access Now?</Text>
               <Text style={{ color: muted, fontSize: 15, lineHeight: 22, marginTop: 8 }}>You can request early access using your Owner Authority.</Text>
             </View>
-            <Pressable style={{ borderWidth: 1, borderColor: green, borderRadius: 9, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center" }}>
+            <Pressable onPress={() => { void handleEarlyAccess(); }} style={{ borderWidth: 1, borderColor: green, borderRadius: 9, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center" }}>
               <Text style={{ color: green, fontSize: 15, fontWeight: "900", marginRight: 8 }}>Request Early Access</Text>
               <Text style={{ color: green, fontSize: 25 }}>›</Text>
             </Pressable>
@@ -165,9 +177,9 @@ export default function TimeClockAccessScreen() {
 
         <Card style={{ marginTop: 18, padding: 18 }}>
           <Text style={{ color: "white", fontSize: 17, fontWeight: "900", marginBottom: 10 }}>ALTERNATE ACCESS METHODS</Text>
-          <AccessMethod icon="♙" color={green} title="Owner Authority Approval" subtitle="Request approval from your Owner Authority" />
-          <AccessMethod icon="⌕" color={blue} title="Emergency Access" subtitle="Use your emergency recovery method" />
-          <AccessMethod icon="◷" color={purple} title="Restore from Backup" subtitle="Restore wallet using recovery backup" />
+          <AccessMethod icon="♙" color={green} title="Owner Authority Approval" subtitle="Request approval from your Owner Authority" route="OwnerAuthorityApproval" />
+          <AccessMethod icon="⌕" color={blue} title="Emergency Access" subtitle="Use your emergency recovery method" route="RecoverLostWallet" />
+          <AccessMethod icon="◷" color={purple} title="Restore from Backup" subtitle="Restore wallet using recovery backup" route="RecoverLostWallet" />
         </Card>
 
         <Card style={{ marginTop: 18, padding: 18, borderColor: "#0b8f3c", backgroundColor: "rgba(2,34,24,0.7)", flexDirection: "row", alignItems: "center" }}>
@@ -176,7 +188,7 @@ export default function TimeClockAccessScreen() {
             <Text style={{ color: green, fontSize: 18, fontWeight: "900" }}>Why Time Sets?</Text>
             <Text style={{ color: muted, fontSize: 14, lineHeight: 21, marginTop: 6 }}>Time Sets protect you by preventing impulsive actions, reducing risk, and giving you full control.</Text>
           </View>
-          <Pressable style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pressable onPress={() => navigation.navigate("RecoveryCenter")} style={{ flexDirection: "row", alignItems: "center" }}>
             <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginRight: 8 }}>Learn More</Text>
             <Text style={{ color: green, fontSize: 26 }}>›</Text>
           </Pressable>
