@@ -2,9 +2,13 @@ import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
+import { useNomadRecovery } from '../nomad';
+
 const green = '#19ef5f';
 const muted = '#c9d0d8';
 const border = '#123345';
+const warning = '#ffb800';
+const red = '#ff4b5f';
 
 const navItems = [
   { label: 'Home', icon: '⌂', route: 'Portfolio' },
@@ -47,8 +51,34 @@ function DetailRow({ label, value, valueColor = '#f4f7fa' }: { label: string; va
   );
 }
 
+function formatRequestTime(value?: string) {
+  if (!value) return 'Awaiting request';
+  return new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export default function OwnerAuthorityApprovalScreen() {
   const navigation = useNavigation<any>();
+  const { ownerAuthorityRequest, requestOwnerAuthority, cancelOwnerAuthority, error } = useNomadRecovery();
+  const requestStatus = ownerAuthorityRequest.status === 'none' ? 'pending' : ownerAuthorityRequest.status;
+  const requestReason = ownerAuthorityRequest.reason ?? 'Wallet Recovery';
+  const requestedAt = formatRequestTime(ownerAuthorityRequest.requestedAt);
+  const requestedBy = ownerAuthorityRequest.requestedBy ?? 'You (Owner)';
+  const device = ownerAuthorityRequest.device ?? 'Android Device';
+
+  const ensureRequest = async () => {
+    if (ownerAuthorityRequest.status === 'none' || ownerAuthorityRequest.status === 'cancelled') {
+      await requestOwnerAuthority('Recover Wallet Access');
+    }
+  };
+
+  React.useEffect(() => {
+    void ensureRequest();
+  }, []);
+
+  const cancelRequest = async () => {
+    await cancelOwnerAuthority();
+    navigation.navigate('RecoveryCenter');
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#02060d' }}>
@@ -65,6 +95,8 @@ export default function OwnerAuthorityApprovalScreen() {
           <Text style={{ color: green, fontSize: 24 }}>Help  ?</Text>
         </View>
 
+        {error ? <Text style={{ color: red, fontSize: 18, marginTop: 16 }}>{error}</Text> : null}
+
         <Card style={{ marginTop: 24, borderColor: '#12602b', minHeight: 210, flexDirection: 'row', alignItems: 'center' }}>
           <Text style={{ color: green, fontSize: 118, marginRight: 24 }}>♙</Text>
           <View style={{ flex: 1 }}>
@@ -76,10 +108,10 @@ export default function OwnerAuthorityApprovalScreen() {
         <Card style={{ marginTop: 18 }}>
           <Text style={{ color: green, fontSize: 23, fontWeight: '900', marginBottom: 10 }}>ACTION REQUIRING APPROVAL</Text>
           <DetailRow label="Action" value="Recover Wallet Access" />
-          <DetailRow label="Requested By" value="You (Owner)" />
-          <DetailRow label="Date & Time" value="May 20, 2025 • 10:24 AM" />
-          <DetailRow label="Device" value="Android Device" />
-          <DetailRow label="Reason" value="Wallet Recovery" />
+          <DetailRow label="Requested By" value={requestedBy} />
+          <DetailRow label="Date & Time" value={requestedAt} />
+          <DetailRow label="Device" value={device} />
+          <DetailRow label="Reason" value={requestReason} />
         </Card>
 
         <Card style={{ marginTop: 18 }}>
@@ -94,25 +126,25 @@ export default function OwnerAuthorityApprovalScreen() {
                 <Text style={{ color: muted, fontSize: 22, marginTop: 5 }}>Primary Authority</Text>
               </View>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Change Owner Authority" style={{ borderWidth: 1, borderColor: green, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 16 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Change Owner Authority" onPress={() => navigation.navigate('CreateOwnerAuthority')} style={{ borderWidth: 1, borderColor: green, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 16 }}>
               <Text style={{ color: green, fontSize: 23 }}>Change</Text>
             </Pressable>
           </View>
           <DetailRow label="Email" value="owner@nomadauthority.com" />
           <DetailRow label="Method" value="Secure In-App Approval" />
-          <DetailRow label="Status" value="Pending Approval ◷" valueColor="#ffb800" />
+          <DetailRow label="Status" value={`${requestStatus.toUpperCase()} ◷`} valueColor={requestStatus === 'cancelled' ? red : warning} />
         </Card>
 
         <Card style={{ marginTop: 18, borderColor: '#8f6500', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#ffb800', fontSize: 58, marginRight: 20 }}>◷</Text>
+          <Text style={{ color: warning, fontSize: 58, marginRight: 20 }}>◷</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#ffb800', fontSize: 27, fontWeight: '900', marginBottom: 12 }}>Waiting for Approval</Text>
-            <Text style={{ color: '#f2f5f7', fontSize: 23, lineHeight: 34 }}>Your Owner Authority will be notified and must approve this request to continue. You will be notified once approved.</Text>
+            <Text style={{ color: warning, fontSize: 27, fontWeight: '900', marginBottom: 12 }}>{requestStatus === 'cancelled' ? 'Request Cancelled' : 'Waiting for Approval'}</Text>
+            <Text style={{ color: '#f2f5f7', fontSize: 23, lineHeight: 34 }}>{requestStatus === 'cancelled' ? 'The owner authority request has been cancelled. You can start a new request from recovery or Time Clock Access.' : 'Your Owner Authority will be notified and must approve this request to continue. You will be notified once approved.'}</Text>
           </View>
         </Card>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Cancel Request" style={{ marginTop: 18, minHeight: 86, borderWidth: 1, borderColor: '#ff3347', borderRadius: 12, backgroundColor: 'rgba(55,8,16,0.38)', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#ff4b5f', fontSize: 29, fontWeight: '800' }}>Cancel Request</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel Request" onPress={() => { void cancelRequest(); }} style={{ marginTop: 18, minHeight: 86, borderWidth: 1, borderColor: '#ff3347', borderRadius: 12, backgroundColor: 'rgba(55,8,16,0.38)', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: red, fontSize: 29, fontWeight: '800' }}>Cancel Request</Text>
         </Pressable>
       </ScrollView>
       <BottomNav />
