@@ -26,6 +26,8 @@ import type {
   NomadSafetyAdapter,
   NomadSecurityAdapter,
   NomadSecurityState,
+  NomadSettingsAdapter,
+  NomadSettingsState,
   NomadSignedTransaction,
   NomadSwapAdapter,
   NomadSwapQuote,
@@ -139,6 +141,51 @@ async function buildInsightsState(): Promise<NomadInsightsState> {
   };
 }
 
+async function buildSettingsState(): Promise<NomadSettingsState> {
+  const [meta, security, travel] = await Promise.all([getWalletMeta(), buildSecurityState(), buildTravelPocketState()]);
+  const emailSuffix = meta?.evmAddress ? `${meta.evmAddress.slice(0, 6)}…${meta.evmAddress.slice(-4)}` : 'nomad.user';
+  const identityStatus = meta ? 'Identity Verified' : 'Identity Setup Required';
+  const securityLevel = security.score >= 90 ? 'Level 2 Security' : 'Security Review';
+  const travelLabel = `${travel.regionInput ?? 'Japan'} • ${travel.localCurrency ?? 'JPY Stable'} • ${travel.enabled ? 'Active' : 'Ready'}`;
+  return {
+    displayName: 'Nomad User',
+    email: `${emailSuffix}@nomadwallet.io`,
+    identityStatus,
+    securityLevel,
+    defaultCurrency: 'USD',
+    language: 'English',
+    appearance: 'Dark Mode',
+    defaultNetwork: 'Hedera Mainnet',
+    notificationsLabel: security.freezeStatus === 'none' ? 'Push, email, and alerts' : 'Security alerts active',
+    travelPocketLabel: travelLabel,
+    autoConvertEnabled: true,
+    paySpendLabel: `Default currency • ${travel.localCurrency ?? 'JPY Stable'}`,
+    appVersion: 'Version 2.1.0 (120) • Terms • Privacy',
+    shortcuts: [
+      { title: 'Preferences', subtitle: 'App & display', icon: '≛', color: '#1684ff' },
+      { title: 'Security', subtitle: 'Manage protection', icon: '▾', color: '#35f883', route: 'SecurityCenter' },
+      { title: 'Wallets', subtitle: 'Manage wallets', icon: '▣', color: '#8b5cff', route: 'Wallets' },
+      { title: 'Connected Apps', subtitle: 'DApps & services', icon: '⌁', color: '#2af4e4', route: 'VoltaireProtocols' },
+    ],
+    preferenceRows: [
+      { title: 'Currency & Language', subtitle: 'USD • English', icon: '◎' },
+      { title: 'Appearance', subtitle: 'Dark Mode', icon: '◐' },
+      { title: 'Notifications', subtitle: security.freezeStatus === 'none' ? 'Push, email, and alerts' : 'Security alerts active', icon: '♢', route: 'SecurityCenter' },
+      { title: 'Default Network', subtitle: 'Hedera Mainnet', icon: '⬡', route: 'VoltaireProtocols' },
+    ],
+    featureRows: [
+      { title: 'Travel Pocket', subtitle: travelLabel, icon: '▤', color: '#35f883', route: 'TravelMode' },
+      { title: 'Auto-Convert & Optimize', subtitle: 'Optimize for best rates & lowest fees', icon: '⇄', color: '#35f883', value: 'ON', route: 'Swap' },
+      { title: 'Pay / Spend Settings', subtitle: `Default currency • ${travel.localCurrency ?? 'JPY Stable'}`, icon: '▭', color: '#35f883', route: 'ApprovePOSTransaction' },
+    ],
+    supportRows: [
+      { title: 'Help Center', subtitle: 'Guides, FAQs & support', icon: '?' },
+      { title: 'Contact Support', subtitle: "We're here to help", icon: '☏' },
+      { title: 'About Nomad', subtitle: 'Version 2.1.0 (120) • Terms • Privacy', icon: 'i' },
+    ],
+  };
+}
+
 function freezeLabel(scope: NomadFreezeScope): string { switch (scope) { case 'entire_wallet': return 'Entire wallet freeze activated'; case 'travel_pocket': return 'Travel Pocket freeze activated'; case 'specific_assets': return 'Specific asset freeze selected'; case 'owner_authority_alert': return 'Owner Authority alert sent'; } }
 function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime { return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second ?? 0)) }; }
 
@@ -204,10 +251,11 @@ export const localNomadInsightsAdapter: NomadInsightsAdapter = { async getInsigh
 export const localNomadSwapAdapter: NomadSwapAdapter = { async getSwapQuote(fromAsset: string, toAsset: string, amount: string) { return buildSwapQuote(fromAsset, toAsset, amount); }, async createSwapDraft(quote: NomadSwapQuote) { return localNomadWalletAdapter.createTransaction({ fromAsset: quote.fromAsset, toAddress: `SWAP:${quote.toAsset}`, amount: quote.fromAmount, networkFee: quote.networkFee, memo: `Nomad swap ${quote.fromAsset} to ${quote.toAsset}` }); } };
 export const localNomadProtocolsAdapter: NomadProtocolsAdapter = { async getProtocolsState() { return buildProtocolsState(); } };
 export const localNomadWatchAdapter: NomadWatchAdapter = { async getWatchState() { return buildWatchState(); }, async syncNow() { watchLastSyncedAt = new Date().toISOString(); return buildWatchState(); }, async triggerEmergencyAction(action: NomadWatchEmergencyAction) { if (action === 'emergency_lock' || action === 'panic_mode') await localNomadSecurityAdapter.activateFreeze('entire_wallet'); if (action === 'pause_spending') await localNomadSecurityAdapter.activateFreeze('travel_pocket'); if (action === 'alert_authority') await localNomadRecoveryAdapter.requestOwnerAuthorityApproval('Nomad Watch authority alert'); return buildWatchState(); } };
+export const localNomadSettingsAdapter: NomadSettingsAdapter = { async getSettingsState() { return buildSettingsState(); }, async logOut() { await lockLocalWallet(); return { status: 'locked' }; } };
 
 export const localNomadSafetyAdapter: NomadSafetyAdapter = {
   async scanAddress(address: string) { const normalized = address.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No address supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('scam') || normalized.includes('phish'); return isSuspicious ? { score: 32, risk: 'high', summary: 'Potentially suspicious address pattern detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local safety flags detected. Ready for BlockPages live scan integration.' }; },
   async scanUrl(url: string) { const normalized = url.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No URL supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('airdrop') || normalized.includes('claim') || normalized.includes('phish'); return isSuspicious ? { score: 41, risk: 'medium', summary: 'Potential phishing or drainer language detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local URL threat flags detected. Ready for BlockPages live scanner integration.' }; },
 };
 
-export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, security: localNomadSecurityAdapter, insights: localNomadInsightsAdapter, swap: localNomadSwapAdapter, protocols: localNomadProtocolsAdapter, watch: localNomadWatchAdapter, safety: localNomadSafetyAdapter };
+export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, security: localNomadSecurityAdapter, insights: localNomadInsightsAdapter, swap: localNomadSwapAdapter, protocols: localNomadProtocolsAdapter, watch: localNomadWatchAdapter, settings: localNomadSettingsAdapter, safety: localNomadSafetyAdapter };
