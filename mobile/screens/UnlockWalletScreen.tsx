@@ -2,6 +2,8 @@ import React from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
+import { useNomadRecovery } from "../nomad";
+
 const bg = "#020812";
 const border = "#0a3862";
 const green = "#35f883";
@@ -87,7 +89,7 @@ function BottomNav() {
   ];
 
   return (
-    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
+    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
       {items.map((item) => (
         <Pressable key={item.label} onPress={() => navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}>
           <Text style={{ color: "#c9d2e3", fontSize: 28 }}>{item.icon}</Text>
@@ -100,25 +102,30 @@ function BottomNav() {
 
 export default function UnlockWalletScreen() {
   const navigation = useNavigation<any>();
+  const { recovery, error } = useNomadRecovery();
+  const isUnlocked = recovery.walletStatus === "unlocked";
+  const unlockLabel = isUnlocked ? "Wallet Unlocked!" : "Unlocking Wallet...";
+  const unlockSubtitle = isUnlocked ? "Access granted. Welcome back!" : "Please wait while we verify your Time Set.";
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <Header />
+        {error ? <Text style={{ color: "#ff4b5f", marginBottom: 10 }}>{error}</Text> : null}
 
         <Card style={{ marginBottom: 22, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.18)" }}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TopStat icon="▦" title="Time Set" value="24 Hour Cycle" />
+            <TopStat icon="▦" title="Time Set" value={recovery.cycleLabel} />
             <View style={{ width: 1, height: 70, backgroundColor: "rgba(255,255,255,0.1)" }} />
-            <TopStat icon="" title="Started" value="May 19, 2025 • 10:24 AM" />
+            <TopStat icon="" title="Started" value={recovery.cycleStartedLabel} />
             <Text style={{ color: green, fontSize: 42, paddingRight: 18 }}>♢</Text>
           </View>
         </Card>
 
         <View style={{ alignItems: "center" }}>
           <View style={{ width: 330, height: 330, borderRadius: 165, borderWidth: 14, borderColor: green, backgroundColor: "rgba(4,29,26,0.86)", alignItems: "center", justifyContent: "center", shadowColor: green, shadowOpacity: 0.55, shadowRadius: 30 }}>
-            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginBottom: 18 }}>TIME REMAINING</Text>
-            <Text style={{ color: "white", fontSize: 55, fontWeight: "900", letterSpacing: -1 }}>00:00:07</Text>
+            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginBottom: 18 }}>{isUnlocked ? "UNLOCKED" : "TIME REMAINING"}</Text>
+            <Text style={{ color: "white", fontSize: 55, fontWeight: "900", letterSpacing: -1 }}>{recovery.timeRemainingLabel}</Text>
             <View style={{ flexDirection: "row", marginTop: 14 }}>
               <Text style={{ color: green, fontSize: 13, marginHorizontal: 12 }}>HOURS</Text>
               <Text style={{ color: green, fontSize: 13, marginHorizontal: 12 }}>MINUTES</Text>
@@ -126,23 +133,23 @@ export default function UnlockWalletScreen() {
             </View>
           </View>
 
-          <Text style={{ color: "white", fontSize: 34, fontWeight: "900", marginTop: 24 }}>Unlocking Wallet...</Text>
-          <Text style={{ color: muted, fontSize: 18, textAlign: "center", marginTop: 10 }}>Please wait while we verify your Time Set.</Text>
+          <Text style={{ color: "white", fontSize: 34, fontWeight: "900", marginTop: 24 }}>{unlockLabel}</Text>
+          <Text style={{ color: muted, fontSize: 18, textAlign: "center", marginTop: 10 }}>{unlockSubtitle}</Text>
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 34, marginBottom: 26 }}>
           <ProgressStep label="Time Set Verified" done />
           <ProgressStep label="Cycle Complete" done />
           <ProgressStep label="Security Check" done />
-          <ProgressStep label="Unlocking Wallet" active />
+          <ProgressStep label="Unlocking Wallet" active={!isUnlocked} done={isUnlocked} />
         </View>
 
         <Card style={{ padding: 22, alignItems: "center", marginBottom: 18 }}>
           <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
             <CircleIcon icon="✓" size={72} />
             <View style={{ flex: 1, marginLeft: 20 }}>
-              <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>Wallet Unlocked!</Text>
-              <Text style={{ color: muted, fontSize: 17, marginTop: 8 }}>Access granted. Welcome back!</Text>
+              <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>{unlockLabel}</Text>
+              <Text style={{ color: muted, fontSize: 17, marginTop: 8 }}>{unlockSubtitle}</Text>
             </View>
           </View>
           <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", width: "100%", marginVertical: 18 }} />
@@ -154,10 +161,10 @@ export default function UnlockWalletScreen() {
 
         <Card style={{ paddingHorizontal: 20, paddingVertical: 12, marginBottom: 18 }}>
           <Text style={{ color: "white", fontSize: 17, fontWeight: "900", marginBottom: 8 }}>DETAILS</Text>
-          <DetailRow icon="▦" label="Time Set" value="24 Hour Cycle" />
-          <DetailRow icon="▦" label="Started" value="May 19, 2025 • 10:24 AM" />
-          <DetailRow icon="▣" label="Unlocked" value="May 20, 2025 • 10:24 AM" />
-          <DetailRow icon="♢" label="Security Status" value="All Clear" status />
+          <DetailRow icon="▦" label="Time Set" value={recovery.cycleLabel} />
+          <DetailRow icon="▦" label="Started" value={recovery.cycleStartedLabel} />
+          <DetailRow icon="▣" label="Unlocked" value={isUnlocked ? "Now" : "Pending Time Set"} />
+          <DetailRow icon="♢" label="Security Status" value={isUnlocked ? "All Clear" : "Verifying"} status={isUnlocked} />
         </Card>
 
         <Card style={{ padding: 20, flexDirection: "row", alignItems: "center" }}>
@@ -166,7 +173,7 @@ export default function UnlockWalletScreen() {
             <Text style={{ color: "white", fontSize: 16, lineHeight: 23 }}>Your wallet is protected by Nomad Time Sets.</Text>
             <Text style={{ color: muted, fontSize: 15, lineHeight: 22 }}>You're in control. Your time. Your freedom.</Text>
           </View>
-          <Pressable style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pressable onPress={() => navigation.navigate("RecoveryCenter")} style={{ flexDirection: "row", alignItems: "center" }}>
             <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginRight: 8 }}>Learn More</Text>
             <Text style={{ color: green, fontSize: 26 }}>›</Text>
           </Pressable>
