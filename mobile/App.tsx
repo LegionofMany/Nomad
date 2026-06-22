@@ -20,6 +20,7 @@ import PortfolioScreen from './screens/PortfolioScreen';
 import WalletsScreen from './screens/WalletsScreen';
 import SendBitcoinScreen from './screens/SendBitcoinScreen';
 import ReceiveBitcoinScreen from './screens/ReceiveBitcoinScreen';
+import SwapScreen from './screens/SwapScreen';
 import TravelModeScreen from './screens/TravelModeScreen';
 
 import { AppStateProvider, useAppState } from './state/appState';
@@ -31,6 +32,7 @@ type RootStackParamList = {
   Wallets: undefined;
   SendBitcoin: undefined;
   ReceiveBitcoin: undefined;
+  Swap: undefined;
   TravelMode: undefined;
 };
 
@@ -74,6 +76,7 @@ function AppNavigator() {
       <Stack.Screen name="Wallets" component={WalletsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="SendBitcoin" component={SendBitcoinScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ReceiveBitcoin" component={ReceiveBitcoinScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Swap" component={SwapScreen} options={{ headerShown: false }} />
       <Stack.Screen name="TravelMode" component={TravelModeScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
