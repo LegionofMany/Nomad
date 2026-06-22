@@ -78,12 +78,28 @@ export type NomadOwnerAuthorityRequest = {
   device?: string;
 };
 
+export type NomadRecoverySequenceState = {
+  step: 1 | 2 | 3 | 4;
+  enteredSets: number;
+  verifiedSets: number;
+  totalSets: number;
+  strengthScore: number;
+  currentSet: number;
+  sampleTime: NomadRecoveryClockTime;
+  status: 'entry' | 'verifying' | 'ready_to_recover' | 'complete';
+  recoveredAt?: string;
+};
+
 export type NomadRecoveryAdapter = {
   getRecoveryState(): Promise<NomadRecoveryState>;
   runRecoveryCheck(): Promise<NomadRecoveryState>;
   getOwnerAuthorityRequest(): Promise<NomadOwnerAuthorityRequest>;
   requestOwnerAuthorityApproval(reason: string): Promise<NomadOwnerAuthorityRequest>;
   cancelOwnerAuthorityRequest(): Promise<NomadOwnerAuthorityRequest>;
+  getRecoverySequenceState(): Promise<NomadRecoverySequenceState>;
+  startRecoverySequence(): Promise<NomadRecoverySequenceState>;
+  verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime): Promise<NomadRecoverySequenceState>;
+  completeRecoverySequence(): Promise<NomadRecoverySequenceState>;
 };
 
 export type NomadSafetyAdapter = {
