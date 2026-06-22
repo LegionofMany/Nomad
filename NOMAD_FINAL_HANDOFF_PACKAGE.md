@@ -12,7 +12,7 @@ Nomad is currently a Phase 1 overlay build with Phase 2, Phase 3, and Phase 4 pl
 | Phase 2A — Adapter Contract Hardening | Complete | Wallet/session/transaction/history/swap/security/recovery contracts are prepared for a real engine. |
 | Phase 2B — Cloned Wallet Bridge Scaffold | Complete | A cloned-wallet adapter template exists for the selected wallet engine. |
 | Phase 2C — Screen Readiness Audit | Complete | Every screen has a readiness row and phase action notes. |
-| Phase 2D — Local Compile / Audit Execution | Ready for developer | The checklist and environment setup guide exist, but commands must be run on a local machine or CI. |
+| Phase 2D — Local Compile / Audit Execution | Ready for developer | The checklist, environment setup guide, and execution report template exist, but commands must be run on a local machine or CI. |
 | Phase 2E — Base Wallet Engine Integration | Prepared | The selection/integration plan exists; the real engine is not connected yet. |
 | Phase 3 — Live Services | Prepared | Live service roadmap exists for BlockPages, Travel Pocket, POS, freeze, recovery, Watch, protocols, and swaps. |
 | Phase 4 — Production Audit / Release | Prepared | Release gates and production blockers are documented but not yet passed. |
@@ -34,12 +34,13 @@ Nomad is currently a Phase 1 overlay build with Phase 2, Phase 3, and Phase 4 pl
 11. `mobile/nomad/PHASE_2_WALLET_ENGINE_HANDOFF.md` — wallet-engine handoff notes.
 12. `mobile/nomad/PHASE_2C_SCREEN_READINESS_AUDIT.md` — all 26 screen readiness checks.
 13. `mobile/nomad/PHASE_2D_LOCAL_AUDIT_CHECKLIST.md` — local compile and audit checklist.
-14. `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` — base wallet selection and integration plan.
-15. `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` — live service integration plan.
-16. `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` — production release gates.
-17. `NOMAD_HANDOFF_CONSISTENCY_AUDIT.md` — consistency audit across handoff files.
-18. `mobile/nomad/audit/screenCoverage.ts` — code-level 26-screen coverage registry.
-19. `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` — adapter scaffold for the real wallet engine.
+14. `mobile/nomad/PHASE_2D_EXECUTION_REPORT_TEMPLATE.md` — report template for developer/local audit results.
+15. `mobile/nomad/PHASE_2E_BASE_ENGINE_SELECTION.md` — base wallet selection and integration plan.
+16. `mobile/nomad/PHASE_3_LIVE_SERVICES_PLAN.md` — live service integration plan.
+17. `mobile/nomad/PHASE_4_PRODUCTION_AUDIT_RELEASE.md` — production release gates.
+18. `NOMAD_HANDOFF_CONSISTENCY_AUDIT.md` — consistency audit across handoff files.
+19. `mobile/nomad/audit/screenCoverage.ts` — code-level 26-screen coverage registry.
+20. `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` — adapter scaffold for the real wallet engine.
 
 ## Core architecture
 
@@ -76,7 +77,7 @@ npm run start
 
 Then smoke test the full 26-screen route set from the mobile app.
 
-Use `ENVIRONMENT_SETUP.md` for the full setup and error-reporting process.
+Use `ENVIRONMENT_SETUP.md` for the full setup and error-reporting process. Record the results in `mobile/nomad/PHASE_2D_EXECUTION_REPORT_TEMPLATE.md`.
 
 ## 26-screen coverage
 
