@@ -38,6 +38,7 @@ import NomadInsightsScreen from './screens/NomadInsightsScreen';
 import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
 import VoltaireProtocolsScreen from './screens/VoltaireProtocolsScreen';
 import BlockPagesSafetyScreen from './screens/BlockPagesSafetyScreen';
+import BlockPagesURLScannerScreen from './screens/BlockPagesURLScannerScreen';
 
 import { AppStateProvider, useAppState } from './state/appState';
 
@@ -66,6 +67,7 @@ type RootStackParamList = {
   NomadInsightsSpending: undefined;
   VoltaireProtocols: undefined;
   BlockPagesSafety: undefined;
+  BlockPagesURLScanner: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,6 +128,7 @@ function AppNavigator() {
       <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="VoltaireProtocols" component={VoltaireProtocolsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="BlockPagesSafety" component={BlockPagesSafetyScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="BlockPagesURLScanner" component={BlockPagesURLScannerScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
