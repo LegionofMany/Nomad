@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters, NomadTravelPocketState } from '../adapters/walletAdapter';
 
 const fallbackTravelPocket: NomadTravelPocketState = {
@@ -21,8 +21,9 @@ export type NomadTravelState = {
   disable(): Promise<NomadTravelPocketState>;
 };
 
-export function useNomadTravel(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadTravelState {
-  const travel = adapters.travel;
+export function useNomadTravel(adapters?: NomadOverlayAdapters): NomadTravelState {
+  const contextAdapters = useNomadAdapters();
+  const travel = (adapters ?? contextAdapters).travel;
   const [travelPocket, setTravelPocket] = useState<NomadTravelPocketState>(fallbackTravelPocket);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
