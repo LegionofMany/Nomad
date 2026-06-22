@@ -28,6 +28,7 @@ import TimeClockAccessScreen from './screens/TimeClockAccessScreen';
 import UnlockWalletScreen from './screens/UnlockWalletScreen';
 import RecoverLostWalletScreen from './screens/RecoverLostWalletScreen';
 import VerifyRecoverySequenceScreen from './screens/VerifyRecoverySequenceScreen';
+import WalletRecoveredScreen from './screens/WalletRecoveredScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import NomadInsightsScreen from './screens/NomadInsightsScreen';
 import NomadInsightsSpendingScreen from './screens/NomadInsightsSpendingScreen';
@@ -51,6 +52,7 @@ type RootStackParamList = {
   UnlockWallet: undefined;
   RecoverLostWallet: undefined;
   VerifyRecoverySequence: undefined;
+  WalletRecovered: undefined;
   Settings: undefined;
   NomadInsights: undefined;
   NomadInsightsSpending: undefined;
@@ -106,6 +108,7 @@ function AppNavigator() {
       <Stack.Screen name="UnlockWallet" component={UnlockWalletScreen} options={{ headerShown: false }} />
       <Stack.Screen name="RecoverLostWallet" component={RecoverLostWalletScreen} options={{ headerShown: false }} />
       <Stack.Screen name="VerifyRecoverySequence" component={VerifyRecoverySequenceScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="WalletRecovered" component={WalletRecoveredScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsights" component={NomadInsightsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NomadInsightsSpending" component={NomadInsightsSpendingScreen} options={{ headerShown: false }} />
