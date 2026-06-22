@@ -2,36 +2,17 @@ import React from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
+import { useNomadProtocols } from "../nomad";
+import type { NomadProtocolHealthItem, NomadProtocolRow } from "../nomad";
+
 const blue = "#1684ff";
 const green = "#35f883";
-const cyan = "#00e5ff";
-const purple = "#9b4dff";
-const gold = "#ffcc33";
 const border = "#0a3862";
 const bg = "#020812";
 const muted = "#b8c3d6";
 
 type NavItem = { label: string; icon: string; route?: string; active?: boolean };
-type Protocol = { title: string; subtitle: string; detail: string; uptime: string; icon: string; color: string };
-type HealthItem = { label: string; value: string; note: string; icon: string };
-type ResourceItem = { label: string; subtitle: string; icon: string };
-
-const protocols: Protocol[] = [
-  { title: "Voltaire Security Layer", subtitle: "Multi-layered security and threat protection", detail: "ACTIVE  •  All systems secure", uptime: "99.99%", icon: "♢", color: green },
-  { title: "Voltaire Interoperability Protocol (VIP)", subtitle: "Cross-chain communication and asset mobility", detail: "ACTIVE  •  42 Chains Connected", uptime: "99.98%", icon: "⌘", color: cyan },
-  { title: "Voltaire Key Management Protocol (VKP)", subtitle: "Sovereign key control and recovery framework", detail: "ACTIVE  •  You own your keys", uptime: "100%", icon: "⚿", color: purple },
-  { title: "Voltaire Notary Protocol (VNP)", subtitle: "Decentralized verification and digital notary", detail: "ACTIVE  •  1,003 Notaries", uptime: "99.97%", icon: "▤", color: gold },
-  { title: "Voltaire Data Transmission Protocol (VDTP)", subtitle: "Encrypted data routing and secure messaging", detail: "ACTIVE  •  Private & Encrypted", uptime: "99.99%", icon: "⌁", color: cyan },
-  { title: "Voltaire Governance Protocol (VGP)", subtitle: "Community governance and protocol evolution", detail: "ACTIVE  •  Proposals Live", uptime: "100%", icon: "♙", color: purple },
-];
-
-const health: HealthItem[] = [
-  { label: "Block Finality", value: "2.1 sec", note: "Excellent", icon: "◷" },
-  { label: "Transaction Success", value: "99.97%", note: "Excellent", icon: "✓" },
-  { label: "Security Events", value: "0", note: "Last 7 Days", icon: "♢" },
-  { label: "Alerts", value: "0", note: "All Clear", icon: "♧" },
-  { label: "Nodes Online", value: "1,248 / 1,300", note: "95.9%", icon: "◎" },
-];
+type ResourceItem = { label: string; subtitle: string; icon: string; route?: string };
 
 const resources: ResourceItem[] = [
   { label: "Protocol Docs", subtitle: "Learn & Explore", icon: "▤" },
@@ -53,19 +34,20 @@ function VoltaireLogo({ size = 66 }: { size?: number }) {
   );
 }
 
-function SecurePill() {
+function SecurePill({ status }: { status: string }) {
+  const secure = status === "active";
   return (
     <View style={{ borderWidth: 1, borderColor, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 9, flexDirection: "row", alignItems: "center" }}>
-      <Text style={{ color: green, fontSize: 22, marginRight: 9 }}>♢</Text>
+      <Text style={{ color: secure ? green : "#ffcc33", fontSize: 22, marginRight: 9 }}>♢</Text>
       <View>
-        <Text style={{ color: "#d7e8ff", fontSize: 13 }}>All Systems</Text>
-        <Text style={{ color: green, fontSize: 13, fontWeight: "900" }}>SECURE</Text>
+        <Text style={{ color: "#d7e8ff", fontSize: 13 }}>{secure ? "All Systems" : "Review"}</Text>
+        <Text style={{ color: secure ? green : "#ffcc33", fontSize: 13, fontWeight: "900" }}>{secure ? "SECURE" : "DEGRADED"}</Text>
       </View>
     </View>
   );
 }
 
-function Header() {
+function Header({ status }: { status: string }) {
   const navigation = useNavigation<any>();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}>
@@ -80,7 +62,7 @@ function Header() {
         </View>
         <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>The protocols powering Nomad’s freedom layer.</Text>
       </View>
-      <SecurePill />
+      <SecurePill status={status} />
       <View style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor, alignItems: "center", justifyContent: "center", marginLeft: 10 }}>
         <Text style={{ color: "#d7e8ff", fontSize: 20, fontWeight: "900" }}>?</Text>
       </View>
@@ -98,32 +80,37 @@ function HeroStat({ icon, label, value, note }: { icon: string; label: string; v
   );
 }
 
-function ProtocolHero() {
+function Orb({ icon, color }: { icon: string; color: string }) {
+  return <View style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: color, backgroundColor: `${color}22`, alignItems: "center", justifyContent: "center" }}><Text style={{ color, fontSize: 21 }}>{icon}</Text></View>;
+}
+
+function ProtocolHero({ active, total, uptime, nodes, countries, status }: { active: number; total: number; uptime: string; nodes: string; countries: string; status: string }) {
+  const secure = status === "active";
   return (
-    <Card style={{ borderColor: "rgba(53,248,131,0.72)", padding: 20, marginBottom: 14 }}>
+    <Card style={{ borderColor: secure ? "rgba(53,248,131,0.72)" : "rgba(255,204,51,0.72)", padding: 20, marginBottom: 14 }}>
       <View style={{ flexDirection: "row" }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: green, fontSize: 15, fontWeight: "900" }}>PROTOCOL STATUS</Text>
+          <Text style={{ color: secure ? green : "#ffcc33", fontSize: 15, fontWeight: "900" }}>PROTOCOL STATUS</Text>
           <Text style={{ color: "white", fontSize: 22, fontWeight: "900", marginTop: 18 }}>ALL PROTOCOLS</Text>
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3 }}>
-            <Text style={{ color: green, fontSize: 54, fontWeight: "900" }}>ACTIVE</Text>
-            <Text style={{ color: green, fontSize: 38, marginLeft: 12 }}>✓</Text>
+            <Text style={{ color: secure ? green : "#ffcc33", fontSize: 54, fontWeight: "900" }}>{secure ? "ACTIVE" : "REVIEW"}</Text>
+            <Text style={{ color: secure ? green : "#ffcc33", fontSize: 38, marginLeft: 12 }}>{secure ? "✓" : "!"}</Text>
           </View>
           <Text style={{ color: "white", fontSize: 15, marginTop: 8 }}>Decentralized. Sovereign. Interoperable.</Text>
           <View style={{ height: 1, backgroundColor: "#143556", marginVertical: 18 }} />
           <View style={{ flexDirection: "row" }}>
-            <HeroStat icon="⌬" label="Protocols Active" value="6 / 6" note="100%" />
-            <HeroStat icon="◷" label="Network Uptime" value="99.99%" note="30 days" />
-            <HeroStat icon="◎" label="Global Nodes" value="1,248" note="32 countries" />
+            <HeroStat icon="⌬" label="Protocols Active" value={`${active} / ${total}`} note={`${Math.round((active / total) * 100)}%`} />
+            <HeroStat icon="◷" label="Network Uptime" value={uptime} note="30 days" />
+            <HeroStat icon="◎" label="Global Nodes" value={nodes} note={`${countries} countries`} />
           </View>
         </View>
         <View style={{ width: 260, alignItems: "center", justifyContent: "center" }}>
           <View style={{ width: 190, height: 190, borderRadius: 95, borderWidth: 1, borderColor: "rgba(53,248,131,0.35)", alignItems: "center", justifyContent: "center" }}>
             <View style={{ position: "absolute", top: 8 }}><Orb icon="♢" color={green} /></View>
-            <View style={{ position: "absolute", right: 8, top: 48 }}><Orb icon="⌁" color={cyan} /></View>
-            <View style={{ position: "absolute", right: 26, bottom: 26 }}><Orb icon="▣" color={cyan} /></View>
-            <View style={{ position: "absolute", left: 18, bottom: 36 }}><Orb icon="▤" color={gold} /></View>
-            <View style={{ position: "absolute", left: 12, top: 52 }}><Orb icon="♙" color={purple} /></View>
+            <View style={{ position: "absolute", right: 8, top: 48 }}><Orb icon="⌁" color="#00e5ff" /></View>
+            <View style={{ position: "absolute", right: 26, bottom: 26 }}><Orb icon="▣" color="#00e5ff" /></View>
+            <View style={{ position: "absolute", left: 18, bottom: 36 }}><Orb icon="▤" color="#ffcc33" /></View>
+            <View style={{ position: "absolute", left: 12, top: 52 }}><Orb icon="♙" color="#9b4dff" /></View>
             <VoltaireLogo size={116} />
           </View>
         </View>
@@ -132,11 +119,7 @@ function ProtocolHero() {
   );
 }
 
-function Orb({ icon, color }: { icon: string; color: string }) {
-  return <View style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: color, backgroundColor: `${color}22`, alignItems: "center", justifyContent: "center" }}><Text style={{ color, fontSize: 21 }}>{icon}</Text></View>;
-}
-
-function ProtocolRow({ item }: { item: Protocol }) {
+function ProtocolRow({ item }: { item: NomadProtocolRow }) {
   return (
     <Pressable style={{ flexDirection: "row", alignItems: "center", minHeight: 88, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "rgba(10,56,98,0.72)", backgroundColor: "rgba(2,15,27,0.65)" }}>
       <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: `${item.color}22`, alignItems: "center", justifyContent: "center", marginRight: 16 }}>
@@ -156,7 +139,7 @@ function ProtocolRow({ item }: { item: Protocol }) {
   );
 }
 
-function ProtocolList() {
+function ProtocolList({ protocols }: { protocols: NomadProtocolRow[] }) {
   return (
     <Card style={{ padding: 16, marginBottom: 14 }}>
       <Text style={{ color: "white", fontSize: 18, fontWeight: "900", marginBottom: 12 }}>VOLTAIRE PROTOCOLS</Text>
@@ -172,7 +155,7 @@ function ProtocolList() {
   );
 }
 
-function HealthCard({ item }: { item: HealthItem }) {
+function HealthCard({ item }: { item: NomadProtocolHealthItem }) {
   return (
     <View style={{ flex: 1, minHeight: 104, borderWidth: 1, borderColor, borderRadius: 9, padding: 12, marginHorizontal: 5 }}>
       <Text style={{ color: muted, fontSize: 12 }}>{item.label}</Text>
@@ -180,12 +163,12 @@ function HealthCard({ item }: { item: HealthItem }) {
         <Text style={{ color: green, fontSize: 22, marginRight: 9 }}>{item.icon}</Text>
         <Text style={{ color: "white", fontSize: item.value.length > 8 ? 15 : 20, fontWeight: "900" }}>{item.value}</Text>
       </View>
-      <Text style={{ color: item.note.includes("Excellent") || item.note.includes("95") ? green : muted, fontSize: 12, marginTop: 10 }}>{item.note}</Text>
+      <Text style={{ color: item.note.includes("Excellent") || item.note.includes("95") || item.note.includes("Clear") ? green : muted, fontSize: 12, marginTop: 10 }}>{item.note}</Text>
     </View>
   );
 }
 
-function NetworkHealth() {
+function NetworkHealth({ health, message }: { health: NomadProtocolHealthItem[]; message: string }) {
   return (
     <Card style={{ padding: 16, marginBottom: 14 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -196,7 +179,7 @@ function NetworkHealth() {
       <View style={{ marginTop: 14, borderWidth: 1, borderColor, borderRadius: 10, padding: 14, flexDirection: "row", alignItems: "center" }}>
         <Text style={{ color: green, fontSize: 34, marginRight: 14 }}>♢</Text>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: green, fontSize: 16, fontWeight: "900" }}>The Voltaire Protocols are operating optimally.</Text>
+          <Text style={{ color: green, fontSize: 16, fontWeight: "900" }}>{message}</Text>
           <Text style={{ color: muted, fontSize: 12, marginTop: 5 }}>Your freedom layer is secure, decentralized, and unstoppable.</Text>
         </View>
         <Text style={{ color: green, fontSize: 16, fontWeight: "900" }}>Learn More</Text>
@@ -231,32 +214,25 @@ function ToolsResources() {
 function BottomNav() {
   const navigation = useNavigation<any>();
   const items: NavItem[] = [
-    { label: "Home", icon: "⌂", route: "Portfolio" },
-    { label: "Wallets", icon: "▣", route: "Wallets" },
-    { label: "Travel", icon: "✈", route: "TravelMode" },
-    { label: "Protocols", icon: "V", active: true },
-    { label: "Settings", icon: "⚙", route: "Settings" },
+    { label: "Home", icon: "⌂", route: "Portfolio" }, { label: "Wallets", icon: "▣", route: "Wallets" }, { label: "Travel", icon: "✈", route: "TravelMode" }, { label: "Protocols", icon: "V", active: true }, { label: "Settings", icon: "⚙", route: "Settings" },
   ];
   return (
     <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-      {items.map((item) => (
-        <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}>
-          <Text style={{ color: item.active ? green : "#c7cfdf", fontSize: 29, fontWeight: item.active ? "900" : "600" }}>{item.icon}</Text>
-          <Text style={{ color: item.active ? green : "#c7cfdf", marginTop: 5, fontSize: 13 }}>{item.label}</Text>
-        </Pressable>
-      ))}
+      {items.map((item) => <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}><Text style={{ color: item.active ? green : "#c7cfdf", fontSize: 29, fontWeight: item.active ? "900" : "600" }}>{item.icon}</Text><Text style={{ color: item.active ? green : "#c7cfdf", marginTop: 5, fontSize: 13 }}>{item.label}</Text></Pressable>)}
     </View>
   );
 }
 
 export default function VoltaireProtocolsScreen() {
+  const { protocols, error } = useNomadProtocols();
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 116 }} showsVerticalScrollIndicator={false}>
-        <Header />
-        <ProtocolHero />
-        <ProtocolList />
-        <NetworkHealth />
+        <Header status={protocols.status} />
+        {error ? <Text style={{ color: "#ff455c", marginBottom: 10 }}>{error}</Text> : null}
+        <ProtocolHero active={protocols.activeProtocols} total={protocols.totalProtocols} uptime={protocols.networkUptime} nodes={protocols.globalNodes} countries={protocols.countries} status={protocols.status} />
+        <ProtocolList protocols={protocols.protocols} />
+        <NetworkHealth health={protocols.health} message={protocols.message} />
         <ToolsResources />
       </ScrollView>
       <BottomNav />
