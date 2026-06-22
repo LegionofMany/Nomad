@@ -11,6 +11,8 @@ import {
 
 import type {
   NomadAsset,
+  NomadFreezeActivity,
+  NomadFreezeScope,
   NomadOverlayAdapters,
   NomadOwnerAuthorityRequest,
   NomadRecoveryAdapter,
@@ -18,6 +20,8 @@ import type {
   NomadRecoverySequenceState,
   NomadRecoveryState,
   NomadSafetyAdapter,
+  NomadSecurityAdapter,
+  NomadSecurityState,
   NomadSignedTransaction,
   NomadTransactionDraft,
   NomadTravelAdapter,
@@ -41,6 +45,7 @@ let recoverySequenceState: NomadRecoverySequenceState = {
   sampleTime: { hour: 3, minute: 15, second: 27 },
   status: 'entry',
 };
+let freezeActivity: NomadFreezeActivity[] = [];
 
 function toNomadAsset(balance: { symbol: string; amount: number; fiatApproxUSD: number }): NomadAsset {
   return { symbol: balance.symbol, name: balance.symbol, balance: String(balance.amount), fiatValueUsd: currencyFormatter.format(balance.fiatApproxUSD), change24h: percentBySymbol[balance.symbol] ?? '+0.00%', network: networkBySymbol[balance.symbol] ?? 'Nomad' };
@@ -87,6 +92,34 @@ async function buildRecoveryState(): Promise<NomadRecoveryState> {
   };
 }
 
+async function buildSecurityState(): Promise<NomadSecurityState> {
+  const meta = await getWalletMeta();
+  const protectedSince = meta?.createdAt ? new Date(meta.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not configured';
+  const activeFreeze = freezeActivity.find((item) => item.status === 'active');
+  const ownerAlert = freezeActivity.find((item) => item.status === 'alert_sent');
+  const freezeStatus: NomadSecurityState['freezeStatus'] = activeFreeze?.scope === 'entire_wallet' ? 'full' : activeFreeze || ownerAlert ? 'partial' : 'none';
+  return {
+    status: activeFreeze ? 'frozen' : meta ? 'secure' : 'warning',
+    protectedSince,
+    protectedDays: meta ? '42 days' : 'Setup required',
+    lastScanLabel: 'Just now',
+    lastScanDetail: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }),
+    score: activeFreeze ? 88 : meta ? 100 : 64,
+    freezeStatus,
+    freezeScope: activeFreeze?.scope ?? ownerAlert?.scope,
+    freezeActivity,
+  };
+}
+
+function freezeLabel(scope: NomadFreezeScope): string {
+  switch (scope) {
+    case 'entire_wallet': return 'Entire wallet freeze activated';
+    case 'travel_pocket': return 'Travel Pocket freeze activated';
+    case 'specific_assets': return 'Specific asset freeze selected';
+    case 'owner_authority_alert': return 'Owner Authority alert sent';
+  }
+}
+
 function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime {
   return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second ?? 0)) };
 }
@@ -118,9 +151,23 @@ export const localNomadRecoveryAdapter: NomadRecoveryAdapter = {
   async completeRecoverySequence() { recoverySequenceState = { ...recoverySequenceState, step: 4, enteredSets: 24, verifiedSets: 24, strengthScore: 96, status: 'complete', recoveredAt: new Date().toISOString() }; return recoverySequenceState; },
 };
 
+export const localNomadSecurityAdapter: NomadSecurityAdapter = {
+  async getSecurityState() { return buildSecurityState(); },
+  async runSecurityScan() { return buildSecurityState(); },
+  async activateFreeze(scope: NomadFreezeScope) {
+    const status = scope === 'owner_authority_alert' ? 'alert_sent' : 'active';
+    freezeActivity = [{ scope, label: freezeLabel(scope), requestedAt: new Date().toISOString(), status }, ...freezeActivity.filter((item) => item.status !== 'active')].slice(0, 5);
+    return buildSecurityState();
+  },
+  async clearFreeze() {
+    freezeActivity = freezeActivity.map((item) => item.status === 'active' ? { ...item, status: 'cleared' } : item);
+    return buildSecurityState();
+  },
+};
+
 export const localNomadSafetyAdapter: NomadSafetyAdapter = {
   async scanAddress(address: string) { const normalized = address.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No address supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('scam') || normalized.includes('phish'); return isSuspicious ? { score: 32, risk: 'high', summary: 'Potentially suspicious address pattern detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local safety flags detected. Ready for BlockPages live scan integration.' }; },
   async scanUrl(url: string) { const normalized = url.trim().toLowerCase(); if (!normalized) return { score: 0, risk: 'high', summary: 'No URL supplied.' }; const isSuspicious = normalized.includes('drain') || normalized.includes('airdrop') || normalized.includes('claim') || normalized.includes('phish'); return isSuspicious ? { score: 41, risk: 'medium', summary: 'Potential phishing or drainer language detected by the local safety bridge.' } : { score: 92, risk: 'low', summary: 'No local URL threat flags detected. Ready for BlockPages live scanner integration.' }; },
 };
 
-export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, safety: localNomadSafetyAdapter };
+export const localNomadOverlayAdapters: NomadOverlayAdapters = { wallet: localNomadWalletAdapter, travel: localNomadTravelAdapter, recovery: localNomadRecoveryAdapter, security: localNomadSecurityAdapter, safety: localNomadSafetyAdapter };
