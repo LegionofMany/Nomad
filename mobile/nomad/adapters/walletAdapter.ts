@@ -1,3 +1,44 @@
+export type NomadChain = {
+  id: string;
+  name: string;
+  family: 'bitcoin' | 'evm' | 'hedera' | 'xrpl' | 'stellar' | 'solana' | 'other';
+  nativeAsset: string;
+  testnet?: boolean;
+};
+
+export type NomadWalletAccount = {
+  id: string;
+  label: string;
+  address: string;
+  assetSymbol?: string;
+  chainId: string;
+  derivationPath?: string;
+  isPrimary?: boolean;
+};
+
+export type NomadWalletSessionState = {
+  status: 'no_wallet' | 'locked' | 'unlocked' | 'expired' | 'recovery';
+  activeAccountId?: string;
+  activeChainId?: string;
+  expiresAt?: string;
+};
+
+export type NomadAdapterFailureCode =
+  | 'unsupported_chain'
+  | 'wallet_locked'
+  | 'expired_session'
+  | 'missing_provider'
+  | 'rejected_signing'
+  | 'broadcast_failed'
+  | 'not_implemented'
+  | 'invalid_request';
+
+export type NomadAdapterFailure = {
+  code: NomadAdapterFailureCode;
+  message: string;
+  recoverable: boolean;
+};
+
 export type NomadAsset = {
   symbol: string;
   name: string;
@@ -5,6 +46,9 @@ export type NomadAsset = {
   fiatValueUsd: string;
   change24h?: string;
   network?: string;
+  chainId?: string;
+  accountId?: string;
+  contractAddress?: string;
 };
 
 export type NomadTransactionDraft = {
@@ -13,21 +57,60 @@ export type NomadTransactionDraft = {
   amount: string;
   networkFee?: string;
   memo?: string;
+  chainId?: string;
+  fromAccountId?: string;
+  intent?: 'send' | 'swap' | 'pos_approval' | 'travel_pocket_top_up';
+  requiresUserApproval?: boolean;
+  createdBy?: 'nomad_overlay' | 'cloned_wallet_engine';
+};
+
+export type NomadTransactionHistoryItem = {
+  id: string;
+  assetSymbol: string;
+  amount: string;
+  fiatValueUsd?: string;
+  direction: 'sent' | 'received' | 'swap' | 'pos' | 'fee';
+  status: 'pending' | 'confirmed' | 'failed';
+  counterparty?: string;
+  txHash?: string;
+  chainId?: string;
+  timestamp: string;
 };
 
 export type NomadSignedTransaction = {
   txHash?: string;
   rawTransaction?: string;
-  status: 'created' | 'signed' | 'submitted' | 'failed';
+  status: 'created' | 'signed' | 'submitted' | 'broadcasted' | 'failed';
+  failure?: NomadAdapterFailure;
 };
 
+export type NomadBroadcastResult = {
+  txHash: string;
+  status: 'submitted' | 'broadcasted' | 'failed';
+  chainId?: string;
+  failure?: NomadAdapterFailure;
+};
+
+/**
+ * Phase 2 wallet boundary.
+ *
+ * Nomad may request wallet facts, receive addresses, reviewable drafts, and lock state.
+ * The cloned/base wallet must own account derivation, private keys, signing, broadcasting,
+ * provider selection, balances, and canonical transaction history.
+ */
 export type NomadWalletAdapter = {
   getWalletBalance(): Promise<string>;
   getAssets(): Promise<NomadAsset[]>;
-  getReceiveAddress(assetSymbol: string): Promise<string>;
+  getReceiveAddress(assetSymbol: string, chainId?: string, accountId?: string): Promise<string>;
   createTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
   lockWallet(): Promise<void>;
   unlockWallet(): Promise<void>;
+  getSessionState?(): Promise<NomadWalletSessionState>;
+  getSupportedChains?(): Promise<NomadChain[]>;
+  getAccounts?(): Promise<NomadWalletAccount[]>;
+  getTransactionHistory?(accountId?: string): Promise<NomadTransactionHistoryItem[]>;
+  signTransaction?(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
+  broadcastTransaction?(signedTransaction: NomadSignedTransaction): Promise<NomadBroadcastResult>;
 };
 
 export type NomadTravelPocketState = {
@@ -216,6 +299,9 @@ export type NomadSwapQuote = {
   estimatedTime: string;
   slippageTolerance: string;
   status: 'quote' | 'draft_created' | 'failed';
+  quoteId?: string;
+  expiresAt?: string;
+  failure?: NomadAdapterFailure;
 };
 
 export type NomadSwapAdapter = {
@@ -322,9 +408,18 @@ export type NomadSettingsAdapter = {
   logOut(): Promise<{ status: 'locked' }>;
 };
 
+export type NomadSafetyScanResult = {
+  score: number;
+  risk: 'low' | 'medium' | 'high';
+  summary: string;
+  provider?: 'local' | 'blockpages' | 'cloned_wallet_engine';
+  checkedAt?: string;
+  failure?: NomadAdapterFailure;
+};
+
 export type NomadSafetyAdapter = {
-  scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
-  scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
+  scanAddress(address: string): Promise<NomadSafetyScanResult>;
+  scanUrl(url: string): Promise<NomadSafetyScanResult>;
 };
 
 export type NomadOverlayAdapters = {
@@ -342,3 +437,5 @@ export type NomadOverlayAdapters = {
 
 export const createMissingAdapterError = (adapterName: string) =>
   new Error(`${adapterName} adapter is not connected yet. Connect the cloned wallet core before enabling live actions.`);
+
+export const createAdapterFailure = (code: NomadAdapterFailureCode, message: string, recoverable = true): NomadAdapterFailure => ({ code, message, recoverable });
