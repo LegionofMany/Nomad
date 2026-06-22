@@ -3,7 +3,7 @@
  *
  * Nomad is now mounted as an overlay route layer. The cloned wallet core can
  * replace wallet services later while these screens remain mounted through the
- * shared Nomad route registry.
+ * shared Nomad route registry and adapter provider.
  */
 
 import React from 'react';
@@ -13,6 +13,7 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AppStateProvider, useAppState } from './state/appState';
+import { NomadAdaptersProvider } from './nomad';
 import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } from './nomad/routes/nomadRoutes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -57,15 +58,17 @@ function AppNavigator() {
 export default function App() {
   return (
     <AppStateProvider>
-      <SafeAreaProvider>
-        <NavigationContainer ref={navigationRef}>
-          <SafeAreaView style={{ flex: 1 }}>
-            <NavigationGate />
-            <AppNavigator />
-            <StatusBar style="auto" />
-          </SafeAreaView>
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <NomadAdaptersProvider>
+        <SafeAreaProvider>
+          <NavigationContainer ref={navigationRef}>
+            <SafeAreaView style={{ flex: 1 }}>
+              <NavigationGate />
+              <AppNavigator />
+              <StatusBar style="auto" />
+            </SafeAreaView>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </NomadAdaptersProvider>
     </AppStateProvider>
   );
 }
