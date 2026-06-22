@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadOverlayAdapters, NomadSettingsState } from '../adapters/walletAdapter';
 
 const fallbackSettings: NomadSettingsState = {
@@ -49,8 +49,9 @@ export type NomadSettingsHookState = {
   logOut(): Promise<void>;
 };
 
-export function useNomadSettings(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadSettingsHookState {
-  const settingsAdapter = adapters.settings;
+export function useNomadSettings(adapters?: NomadOverlayAdapters): NomadSettingsHookState {
+  const contextAdapters = useNomadAdapters();
+  const settingsAdapter = (adapters ?? contextAdapters).settings;
   const [settings, setSettings] = useState<NomadSettingsState>(fallbackSettings);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
