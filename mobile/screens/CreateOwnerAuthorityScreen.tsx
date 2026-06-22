@@ -2,10 +2,13 @@ import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
+import { useNomadRecovery } from '../nomad';
+
 const green = '#19ef5f';
 const blue = '#1684ff';
 const muted = '#c9d0d8';
 const border = '#123345';
+const red = '#ff455c';
 
 const authorityTypes = [
   { title: 'Spouse / Family Member', subtitle: 'Add a trusted family member', icon: '●', tint: green },
@@ -59,9 +62,9 @@ function Header() {
   );
 }
 
-function AuthorityTypeRow({ item }: { item: typeof authorityTypes[number] }) {
+function AuthorityTypeRow({ item, selected, onPress }: { item: typeof authorityTypes[number]; selected: boolean; onPress(): void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={item.title} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 19, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 19, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
       <View style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: `${item.tint}cc`, alignItems: 'center', justifyContent: 'center', marginRight: 22 }}>
         <Text style={{ color: 'white', fontSize: 32, fontWeight: '900' }}>{item.icon}</Text>
       </View>
@@ -69,7 +72,7 @@ function AuthorityTypeRow({ item }: { item: typeof authorityTypes[number] }) {
         <Text style={{ color: 'white', fontSize: 26, fontWeight: '900' }}>{item.title}</Text>
         <Text style={{ color: muted, fontSize: 20, marginTop: 7 }}>{item.subtitle}</Text>
       </View>
-      <Text style={{ color: green, fontSize: 44 }}>›</Text>
+      <Text style={{ color: selected ? green : '#8aa1b3', fontSize: selected ? 30 : 44 }}>{selected ? '✓' : '›'}</Text>
     </Pressable>
   );
 }
@@ -91,10 +94,23 @@ function BottomNav() {
 }
 
 export default function CreateOwnerAuthorityScreen() {
+  const navigation = useNavigation<any>();
+  const { ownerAuthorityRequest, requestOwnerAuthority, error } = useNomadRecovery();
+  const [selectedAuthority, setSelectedAuthority] = React.useState(authorityTypes[0].title);
+  const pending = ownerAuthorityRequest.status === 'pending';
+
+  const handleAddAuthority = async () => {
+    await requestOwnerAuthority(`Create Owner Authority: ${selectedAuthority}`);
+    navigation.navigate('OwnerAuthorityApproval');
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#02060d' }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 130 }}>
         <Header />
+
+        {error ? <Text style={{ color: red, marginTop: 16 }}>{error}</Text> : null}
+        {pending ? <Text style={{ color: green, marginTop: 16, fontSize: 17, fontWeight: '800' }}>Owner Authority request pending approval.</Text> : null}
 
         <Card style={{ marginTop: 24, minHeight: 275, flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 225, alignItems: 'center', justifyContent: 'center' }}>
@@ -104,7 +120,7 @@ export default function CreateOwnerAuthorityScreen() {
             <Text style={{ color: green, fontSize: 31, fontWeight: '900', marginBottom: 15 }}>Add an Owner Authority</Text>
             <Text style={{ color: '#f2f6fa', fontSize: 22, lineHeight: 32 }}>Your Owner Authority can approve critical actions like wallet recovery, large transactions, or security changes. You remain in full control.</Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 25 }}>
-              {[['▣', 'Extra Security'], ['♙', 'Your Control'], ['◷', 'Recovery Help']].map(([icon, label]) => (
+              {[["▣", 'Extra Security'], ['♙', 'Your Control'], ['◷', 'Recovery Help']].map(([icon, label]) => (
                 <View key={label} style={{ alignItems: 'center', width: '31%' }}>
                   <Text style={{ color: green, fontSize: 34 }}>{icon}</Text>
                   <Text style={{ color: muted, fontSize: 14, marginTop: 7, textAlign: 'center' }}>{label}</Text>
@@ -116,7 +132,7 @@ export default function CreateOwnerAuthorityScreen() {
 
         <Card style={{ marginTop: 18 }}>
           <Text style={{ color: green, fontSize: 23, fontWeight: '900', marginBottom: 14 }}>CHOOSE AUTHORITY TYPE</Text>
-          {authorityTypes.map((item) => <AuthorityTypeRow key={item.title} item={item} />)}
+          {authorityTypes.map((item) => <AuthorityTypeRow key={item.title} item={item} selected={selectedAuthority === item.title} onPress={() => setSelectedAuthority(item.title)} />)}
         </Card>
 
         <Card style={{ marginTop: 18, minHeight: 210, flexDirection: 'row', alignItems: 'center' }}>
@@ -142,9 +158,9 @@ export default function CreateOwnerAuthorityScreen() {
           <Text style={{ color: '#f2f5f7', fontSize: 20, lineHeight: 30, flex: 1 }}>You can add up to 5 Owner Authorities. We recommend at least 1 for optimal protection.</Text>
         </Card>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Add Owner Authority" style={{ marginTop: 18, minHeight: 82, borderRadius: 12, backgroundColor: '#14d84f', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add Owner Authority" onPress={() => { void handleAddAuthority(); }} style={{ marginTop: 18, minHeight: 82, borderRadius: 12, backgroundColor: '#14d84f', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#03110a', fontSize: 31, marginRight: 18 }}>♙</Text>
-          <Text style={{ color: '#03110a', fontSize: 28, fontWeight: '900' }}>Add Owner Authority</Text>
+          <Text style={{ color: '#03110a', fontSize: 28, fontWeight: '900' }}>{pending ? 'View Pending Authority' : 'Add Owner Authority'}</Text>
         </Pressable>
       </ScrollView>
       <BottomNav />
