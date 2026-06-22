@@ -130,6 +130,76 @@ export type NomadSecurityAdapter = {
   clearFreeze(): Promise<NomadSecurityState>;
 };
 
+export type NomadInsightStat = {
+  label: string;
+  value: string;
+  note: string;
+  icon: string;
+  color: string;
+};
+
+export type NomadSpendingCategory = {
+  label: string;
+  icon?: string;
+  percent: string;
+  amount: string;
+  color: string;
+};
+
+export type NomadSpendingTransaction = {
+  name: string;
+  meta: string;
+  category: string;
+  amount: string;
+  usd: string;
+  icon: string;
+  color: string;
+};
+
+export type NomadBudgetItem = {
+  label: string;
+  spent: string;
+  total: string;
+  percent: string;
+  icon: string;
+  color: string;
+};
+
+export type NomadPerformanceRow = {
+  asset: string;
+  symbol: string;
+  icon: string;
+  price: string;
+  change: string;
+  positive: boolean;
+};
+
+export type NomadInsightsState = {
+  totalPortfolioValue: string;
+  monthlyGrowth: string;
+  monthlyGrowthPercent: string;
+  statCards: NomadInsightStat[];
+  spendingTotal: string;
+  spendingDelta: string;
+  spendingCategories: NomadSpendingCategory[];
+  recentSpending: NomadSpendingTransaction[];
+  budgets: NomadBudgetItem[];
+  performanceRows: NomadPerformanceRow[];
+  topInsight: string;
+  topSavings: string;
+  travelLocation: string;
+  travelDateRange: string;
+  travelPocketSpent: string;
+  travelPocketSpentUsd: string;
+  travelDailyAverage: string;
+  travelDailyAverageUsd: string;
+  freedomScore: number;
+};
+
+export type NomadInsightsAdapter = {
+  getInsightsState(): Promise<NomadInsightsState>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -140,6 +210,7 @@ export type NomadOverlayAdapters = {
   travel?: NomadTravelAdapter;
   recovery?: NomadRecoveryAdapter;
   security?: NomadSecurityAdapter;
+  insights?: NomadInsightsAdapter;
   safety?: NomadSafetyAdapter;
 };
 
