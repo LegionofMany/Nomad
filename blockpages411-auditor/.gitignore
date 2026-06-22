@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Runtime audit data
+backend/data/audit-logs/
+backend/data/audit-reports/
+backend/data/admin-verdicts/*.json
+backend/data/screenshots/*.png
+backend/data/screenshots/*.jpg
+backend/data/screenshots/*.jpeg
+backend/data/screenshots/*.webp
+backend/data/threat-intel/*.custom.json
+
+# Keep runtime directories present
+!backend/data/audit-logs/.gitkeep
+!backend/data/audit-reports/.gitkeep
+!backend/data/admin-verdicts/.gitkeep
+!backend/data/screenshots/.gitkeep
