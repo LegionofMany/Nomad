@@ -7,3 +7,4 @@ export * from './useNomadInsights';
 export * from './useNomadSwap';
 export * from './useNomadProtocols';
 export * from './useNomadWatch';
+export * from './useNomadBlockPagesSafety';
