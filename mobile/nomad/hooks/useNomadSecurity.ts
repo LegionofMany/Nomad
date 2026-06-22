@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters';
 import type { NomadFreezeScope, NomadOverlayAdapters, NomadSecurityState } from '../adapters/walletAdapter';
 
 const fallbackSecurityState: NomadSecurityState = {
@@ -24,8 +24,9 @@ export type NomadSecurityHookState = {
   clearFreeze(): Promise<NomadSecurityState>;
 };
 
-export function useNomadSecurity(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadSecurityHookState {
-  const securityAdapter = adapters.security;
+export function useNomadSecurity(adapters?: NomadOverlayAdapters): NomadSecurityHookState {
+  const contextAdapters = useNomadAdapters();
+  const securityAdapter = (adapters ?? contextAdapters).security;
   const [security, setSecurity] = useState<NomadSecurityState>(fallbackSecurityState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
