@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { localNomadOverlayAdapters } from '../adapters/localNomadAdapters';
+import { useNomadAdapters } from '../adapters/NomadAdaptersProvider';
 import type {
   NomadAsset,
   NomadOverlayAdapters,
@@ -18,7 +18,9 @@ export type NomadWalletState = {
   createTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
 };
 
-export function useNomadWallet(adapters: NomadOverlayAdapters = localNomadOverlayAdapters): NomadWalletState {
+export function useNomadWallet(adapterOverride?: NomadOverlayAdapters): NomadWalletState {
+  const providerAdapters = useNomadAdapters();
+  const adapters = adapterOverride ?? providerAdapters;
   const wallet = adapters.wallet;
   const [totalBalance, setTotalBalance] = useState('$0.00');
   const [assets, setAssets] = useState<NomadAsset[]>([]);
