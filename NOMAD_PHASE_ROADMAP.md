@@ -26,11 +26,13 @@ Phase 1 proves the Nomad user experience, screen coverage, and adapter boundarie
 
 ## Phase 2: Wallet Engine Readiness and Adapter Integration
 
-**Status:** Next active phase.
+**Status:** Prepared through Phase 2E; Phase 2D must still be run by the developer locally or in CI before live integration work is accepted.
 
 Phase 2 can continue before selecting or cloning a specific open-source wallet repository. The goal is to make the Nomad side ready for any compatible wallet engine.
 
 ### Phase 2A: Integration contract hardening
+
+**Status:** Complete.
 
 - Confirm every adapter method has a clear responsibility.
 - Split demo-only methods from production-required methods.
@@ -40,6 +42,8 @@ Phase 2 can continue before selecting or cloning a specific open-source wallet r
 
 ### Phase 2B: Wallet engine bridge scaffolding
 
+**Status:** Complete.
+
 - Create a `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts` file.
 - Keep it unimplemented or safely stubbed until a real base wallet is selected.
 - Map the exact adapter methods that the cloned wallet must fill.
@@ -48,12 +52,16 @@ Phase 2 can continue before selecting or cloning a specific open-source wallet r
 
 ### Phase 2C: Screen readiness pass
 
+**Status:** Complete.
+
 - Review all 26 screens for loading, error, empty, and locked states.
 - Confirm transaction screens only request drafts until the base wallet signs.
 - Confirm recovery and owner-authority flows do not imply funds can be recovered without the actual wallet engine.
 - Confirm emergency freeze UI is clearly an overlay request until the backend/wallet engine enforces it.
 
 ### Phase 2D: Local audit and compile pass
+
+**Status:** Ready for developer execution.
 
 Run:
 
@@ -69,6 +77,8 @@ Patch all TypeScript, import, and runtime errors before beginning real wallet en
 
 ### Phase 2E: Base wallet selection and integration
 
+**Status:** Prepared.
+
 Once a base wallet is selected:
 
 - Import or clone the wallet engine.
@@ -83,7 +93,7 @@ Once a base wallet is selected:
 
 ## Phase 3: Live Nomad Services
 
-**Status:** Planned after Phase 2 foundation is stable.
+**Status:** Prepared after Phase 2 foundation is stable.
 
 Phase 3 turns Nomad's special overlay features into live services.
 
@@ -106,7 +116,7 @@ Nomad becomes a live protection, travel, recovery, and protocol overlay instead 
 
 ## Phase 4: Production Audit and Release
 
-**Status:** Final phase.
+**Status:** Prepared as final release-gate plan.
 
 ### Phase 4 scope
 
@@ -115,9 +125,12 @@ Nomad becomes a live protection, travel, recovery, and protocol overlay instead 
 - Wallet custody audit.
 - Seed/private-key storage audit.
 - Signing and broadcast audit.
+- Receive address and QR audit.
 - Recovery attack-path audit.
 - Freeze/owner-authority abuse-case audit.
 - BlockPages scanner privacy audit.
+- Travel Pocket and POS audit.
+- Nomad Watch and device audit.
 - Device testing on iOS and Android.
 - Testnet rollout.
 - Mainnet rollout plan.
@@ -125,10 +138,16 @@ Nomad becomes a live protection, travel, recovery, and protocol overlay instead 
 - App Store and Play Store release preparation.
 - Final dev-team handoff and release signoff.
 
+### Phase 4 output
+
+Nomad can be called production-ready only after Phase 2E wallet integration is complete, Phase 3 live services are complete or safely disabled behind production flags, and every Phase 4 gate passes.
+
 ## Current honest status
 
-Nomad is complete for Phase 1 overlay architecture. It is not production-ready as a real wallet until Phase 2 replaces the local/demo wallet layer with a secure wallet engine and Phase 4 audits the final production build.
+Nomad is complete for Phase 1 overlay architecture. Phase 2A, 2B, and 2C are complete. Phase 2D must still be run by the developer, and Phase 2E requires selecting and integrating the real wallet engine. Phase 3 and Phase 4 plans are now prepared for the developer.
+
+It is not production-ready as a real wallet until Phase 2E replaces the local/demo wallet layer with a secure wallet engine, Phase 3 connects or disables live services properly, and Phase 4 audits the final production build.
 
 ## Next recommended action
 
-Begin Phase 2A and Phase 2B immediately. These steps do not require cloning an open-source wallet yet. They prepare the repository so the chosen wallet engine can be connected cleanly later.
+Complete the local Phase 2D compile/audit checklist, then select the base wallet engine and begin Phase 2E concrete adapter implementation.
