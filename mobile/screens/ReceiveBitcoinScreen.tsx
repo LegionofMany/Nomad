@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollView, View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+
+import { useNomadWallet } from "../nomad";
 
 type NavItem = {
   icon: string;
@@ -9,7 +11,7 @@ type NavItem = {
   onPress?: () => void;
 };
 
-const BTC_ADDRESS = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+const PREVIEW_BTC_ADDRESS = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
 
 function Card({ children, style = {} as object }: { children: React.ReactNode; style?: object }) {
   return (
@@ -76,17 +78,19 @@ function FakeQrCode() {
   );
 }
 
-function AddressPanel() {
+function AddressPanel({ address, loading, error }: { address: string; loading: boolean; error: string | null }) {
+  const displayAddress = loading ? "Loading wallet address..." : address;
+
   return (
     <Card style={{ marginTop: 18, padding: 24 }}>
       <FakeQrCode />
 
       <View style={{ alignItems: "center", marginTop: 28 }}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: "#20f878", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-            <Text style={{ color: "#20f878", fontWeight: "900" }}>✓</Text>
+          <View style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: error ? "#ff5d5d" : "#20f878", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+            <Text style={{ color: error ? "#ff5d5d" : "#20f878", fontWeight: "900" }}>{error ? "!" : "✓"}</Text>
           </View>
-          <Text style={{ color: "white", fontSize: 19, fontWeight: "800" }}>This is your BTC address</Text>
+          <Text style={{ color: "white", fontSize: 19, fontWeight: "800" }}>{error ? "Preview BTC address shown" : "This is your BTC address"}</Text>
         </View>
         <Text style={{ color: "#b9c5d6", fontSize: 16, marginTop: 12 }}>Share this address to receive payments</Text>
       </View>
@@ -94,11 +98,12 @@ function AddressPanel() {
       <View style={{ marginTop: 26, borderWidth: 1, borderColor: "#0a3862", borderRadius: 13, padding: 16, backgroundColor: "rgba(1,12,25,0.7)" }}>
         <Text style={{ color: "#b9c5d6", fontSize: 15, marginBottom: 14 }}>Your Bitcoin Address</Text>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ color: "white", fontSize: 20, flex: 1 }} numberOfLines={1}>{BTC_ADDRESS}</Text>
+          <Text style={{ color: "white", fontSize: 20, flex: 1 }} numberOfLines={1}>{displayAddress}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Copy bitcoin address" style={{ width: 48, height: 48, borderRadius: 9, borderWidth: 1, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", marginLeft: 10 }}>
             <Text style={{ color: "#1684ff", fontSize: 28 }}>▣</Text>
           </Pressable>
         </View>
+        {error ? <Text style={{ color: "#ffb703", fontSize: 13, marginTop: 10 }}>{error}</Text> : null}
       </View>
 
       <View style={{ flexDirection: "row", marginTop: 22, gap: 16 }}>
@@ -148,7 +153,7 @@ function BottomNav() {
     { icon: "✈", label: "Send", onPress: () => navigation.navigate("SendBitcoin") },
     { icon: "▦", label: "Receive", active: true },
     { icon: "⊞", label: "Travel", onPress: () => navigation.navigate("TravelMode") },
-    { icon: "◇", label: "Security" },
+    { icon: "◇", label: "Security", onPress: () => navigation.navigate("SecurityCenter") },
   ];
 
   return (
@@ -165,6 +170,30 @@ function BottomNav() {
 
 export const ReceiveBitcoinScreen = () => {
   const navigation = useNavigation<any>();
+  const { getReceiveAddress } = useNomadWallet();
+  const [address, setAddress] = useState(PREVIEW_BTC_ADDRESS);
+  const [addressLoading, setAddressLoading] = useState(true);
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAddress() {
+      try {
+        setAddressLoading(true);
+        setAddressError(null);
+        const nextAddress = await getReceiveAddress("BTC");
+        if (mounted) setAddress(nextAddress);
+      } catch (err) {
+        if (mounted) setAddressError(err instanceof Error ? err.message : "Unable to load BTC address from adapter.");
+      } finally {
+        if (mounted) setAddressLoading(false);
+      }
+    }
+
+    void loadAddress();
+    return () => { mounted = false; };
+  }, [getReceiveAddress]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#020812" }}>
@@ -186,7 +215,7 @@ export const ReceiveBitcoinScreen = () => {
         </View>
 
         <SegmentedTabs />
-        <AddressPanel />
+        <AddressPanel address={address} loading={addressLoading} error={addressError} />
         <TransactionHistoryCard />
       </ScrollView>
       <BottomNav />
