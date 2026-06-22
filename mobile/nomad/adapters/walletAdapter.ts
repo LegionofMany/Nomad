@@ -223,6 +223,63 @@ export type NomadSwapAdapter = {
   createSwapDraft(quote: NomadSwapQuote): Promise<NomadSignedTransaction>;
 };
 
+export type NomadProtocolRow = {
+  title: string;
+  subtitle: string;
+  detail: string;
+  uptime: string;
+  icon: string;
+  color: string;
+};
+
+export type NomadProtocolHealthItem = {
+  label: string;
+  value: string;
+  note: string;
+  icon: string;
+};
+
+export type NomadProtocolsState = {
+  status: 'active' | 'degraded' | 'offline';
+  activeProtocols: number;
+  totalProtocols: number;
+  networkUptime: string;
+  globalNodes: string;
+  countries: string;
+  protocols: NomadProtocolRow[];
+  health: NomadProtocolHealthItem[];
+  message: string;
+};
+
+export type NomadProtocolsAdapter = {
+  getProtocolsState(): Promise<NomadProtocolsState>;
+};
+
+export type NomadWatchEmergencyAction = 'emergency_lock' | 'pause_spending' | 'alert_authority' | 'panic_mode';
+
+export type NomadWatchState = {
+  connected: boolean;
+  deviceName: string;
+  firmware: string;
+  batteryPercent: number;
+  lastSyncedLabel: string;
+  securityStatus: 'secure' | 'warning' | 'locked';
+  travelRegion: string;
+  travelSubregion: string;
+  travelModeLabel: string;
+  timeSetLabel: string;
+  travelPocketBalance: string;
+  todaySpending: string;
+  dailyLimit: string;
+  ownerAuthorityAlertLabel: string;
+};
+
+export type NomadWatchAdapter = {
+  getWatchState(): Promise<NomadWatchState>;
+  syncNow(): Promise<NomadWatchState>;
+  triggerEmergencyAction(action: NomadWatchEmergencyAction): Promise<NomadWatchState>;
+};
+
 export type NomadSafetyAdapter = {
   scanAddress(address: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
   scanUrl(url: string): Promise<{ score: number; risk: 'low' | 'medium' | 'high'; summary: string }>;
@@ -235,6 +292,8 @@ export type NomadOverlayAdapters = {
   security?: NomadSecurityAdapter;
   insights?: NomadInsightsAdapter;
   swap?: NomadSwapAdapter;
+  protocols?: NomadProtocolsAdapter;
+  watch?: NomadWatchAdapter;
   safety?: NomadSafetyAdapter;
 };
 
