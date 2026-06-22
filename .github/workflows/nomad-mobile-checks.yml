@@ -1,0 +1,45 @@
+name: Nomad Mobile Checks
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "src/**"
+      - "travel/**"
+      - "package.json"
+      - ".github/workflows/nomad-mobile-checks.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "mobile/**"
+      - "src/**"
+      - "travel/**"
+      - "package.json"
+      - ".github/workflows/nomad-mobile-checks.yml"
+
+jobs:
+  typecheck:
+    name: TypeScript overlay audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install mobile dependencies
+        run: npm --prefix mobile install
+
+      - name: Typecheck root backend modules
+        run: npm run typecheck
+
+      - name: Typecheck Nomad mobile overlay
+        run: npm run mobile:typecheck
