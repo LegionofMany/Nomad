@@ -1,201 +1,154 @@
-import React from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadRecovery } from "../nomad";
+import { useNomadRecovery } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-const bg = "#020812";
-const border = "#0a3862";
-const green = "#35f883";
-const muted = "#b8c3d6";
-const blue = "#1684ff";
-const purple = "#8b5cff";
-const red = "#ff455c";
-
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return (
-    <View style={[{ borderWidth: 1, borderColor: border, borderRadius: 14, backgroundColor: "rgba(3,16,30,0.94)", overflow: "hidden" }, style]}>
-      {children}
-    </View>
-  );
-}
-
-function CircleIcon({ icon, color = green, size = 46 }: { icon: string; color?: string; size?: number }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1, borderColor: `${color}80`, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color, fontSize: size * 0.46, fontWeight: "900" }}>{icon}</Text>
-    </View>
-  );
-}
-
-function Header() {
+function AccessMethod({ icon, color, title, subtitle, route, last }: { icon: string; color: string; title: string; subtitle: string; route: string; last?: boolean }) {
   const navigation = useNavigation<any>();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-      <Pressable onPress={() => navigation.goBack()} style={{ marginRight: 16 }}>
-        <Text style={{ color: "white", fontSize: 40 }}>‹</Text>
-      </Pressable>
-      <CircleIcon icon="◷" size={56} />
-      <View style={{ flex: 1, marginLeft: 14 }}>
-        <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>Time Clock Access</Text>
-        <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>Your wallet. Your time. Your control.</Text>
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ color: green, fontSize: 18, fontWeight: "800", marginRight: 8 }}>Help</Text>
-        <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: green, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: green, fontSize: 18, fontWeight: "900" }}>?</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function ProgressStep({ label, sub, done }: { label: string; sub: string; done?: boolean }) {
-  return (
-    <View style={{ alignItems: "center", flex: 1 }}>
-      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: done ? green : "transparent", borderWidth: 2, borderColor: green, alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-        <Text style={{ color: done ? bg : green, fontSize: 15, fontWeight: "900" }}>{done ? "✓" : "•"}</Text>
-      </View>
-      <Text style={{ color: "white", fontSize: 14, fontWeight: "700" }}>{label}</Text>
-      <Text style={{ color: green, fontSize: 12, marginTop: 4 }}>{sub}</Text>
-    </View>
-  );
-}
-
-function InfoStat({ icon, title, value }: { icon: string; title: string; value: string }) {
-  return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 }}>
-      <Text style={{ color: green, fontSize: 25, marginRight: 12 }}>{icon}</Text>
-      <View>
-        <Text style={{ color: "white", fontSize: 15, fontWeight: "800" }}>{title}</Text>
-        <Text style={{ color: muted, fontSize: 13, marginTop: 4 }}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-function AccessMethod({ icon, color, title, subtitle, route }: { icon: string; color: string; title: string; subtitle: string; route: string }) {
-  const navigation = useNavigation<any>();
-  return (
-    <Pressable onPress={() => navigation.navigate(route)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(10,56,98,0.55)" }}>
-      <CircleIcon icon={icon} color={color} size={48} />
-      <View style={{ flex: 1, marginLeft: 16 }}>
-        <Text style={{ color: "white", fontSize: 18, fontWeight: "800" }}>{title}</Text>
-        <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>{subtitle}</Text>
-      </View>
-      <Text style={{ color: "#d7e8ff", fontSize: 30 }}>›</Text>
+    <Pressable onPress={() => navigation.navigate(route)} style={[styles.methodRow, !last && styles.rowBorder]}>
+      <RoundIcon symbol={icon} color={color} size={44} filled />
+      <View style={styles.methodCopy}><Text style={styles.methodTitle}>{title}</Text><Text style={styles.methodSub}>{subtitle}</Text></View>
+      <Text style={styles.chevron}>›</Text>
     </Pressable>
-  );
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items = [
-    { label: "Home", icon: "⌂", route: "Portfolio" },
-    { label: "Wallets", icon: "▣", route: "Wallets" },
-    { label: "Travel", icon: "✈", route: "TravelMode" },
-    { label: "Security", icon: "♢", route: "SecurityCenter" },
-    { label: "Recovery", icon: "↻", route: "RecoveryCenter", active: true },
-  ];
-
-  return (
-    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-      {items.map((item) => (
-        <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}>
-          <Text style={{ color: item.active ? green : "#c9d2e3", fontSize: 28 }}>{item.icon}</Text>
-          <Text style={{ color: item.active ? green : "#c9d2e3", fontSize: 14, marginTop: 4 }}>{item.label}</Text>
-        </Pressable>
-      ))}
-    </View>
   );
 }
 
 export default function TimeClockAccessScreen() {
   const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   const { recovery, error, requestOwnerAuthority } = useNomadRecovery();
-  const isUnlocked = recovery.walletStatus === "unlocked";
+  const [requesting, setRequesting] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const isUnlocked = recovery.walletStatus === 'unlocked';
 
   const handleEarlyAccess = async () => {
-    await requestOwnerAuthority("Request early Time Clock access");
-    navigation.navigate("OwnerAuthorityApproval");
+    try {
+      setRequesting(true);
+      setFeedback('');
+      const request = await requestOwnerAuthority('Request early Time Clock access');
+      setFeedback(`Owner Authority request ${request.status}.`);
+      navigation.navigate('OwnerAuthorityApproval');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to request early access.');
+    } finally {
+      setRequesting(false);
+    }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <Header />
-        {error ? <Text style={{ color: red, marginBottom: 10 }}>{error}</Text> : null}
+    <NomadPage maxWidth={880}>
+      <PageHeader title="Time Clock Access" subtitle="Your wallet. Your time. Your control." icon="◷" color={C.green} help />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Card style={{ borderColor: "#0b8f3c", backgroundColor: "rgba(2,34,24,0.65)" }}>
-          <View style={{ alignItems: "center", padding: 24 }}>
-            <CircleIcon icon="▣" size={56} />
-            <Text style={{ color: "white", fontSize: 32, fontWeight: "900", marginTop: 16 }}>{isUnlocked ? "Wallet Time Set Complete" : "Wallet is Time Locked"}</Text>
-            <Text style={{ color: muted, fontSize: 16, lineHeight: 22, textAlign: "center", marginTop: 10 }}>
-              Your wallet is protected by the Nomad Time Set. It will unlock when the clock completes its cycle.
-            </Text>
+      <Panel tone="green" style={styles.clockPanel}>
+        <View style={styles.clockHeading}><RoundIcon symbol="▣" color={C.green} size={53} filled /><Text style={styles.clockTitle}>{isUnlocked ? 'Wallet Time Set Complete' : 'Wallet is Time Locked'}</Text><Text style={styles.clockIntro}>The owner-configured clock controls when the normal wallet access window opens.</Text></View>
 
-            <View style={{ width: 300, height: 300, borderRadius: 150, borderWidth: 14, borderColor: green, backgroundColor: "rgba(4,29,26,0.86)", alignItems: "center", justifyContent: "center", marginTop: 28, shadowColor: green, shadowOpacity: 0.5, shadowRadius: 24 }}>
-              <Text style={{ color: green, fontSize: 14, fontWeight: "900", marginBottom: 14 }}>{isUnlocked ? "READY" : "TIME REMAINING"}</Text>
-              <Text style={{ color: "white", fontSize: 46, fontWeight: "900", letterSpacing: -1 }}>{recovery.timeRemainingLabel}</Text>
-              <View style={{ flexDirection: "row", marginTop: 12 }}>
-                <Text style={{ color: green, fontSize: 12, marginHorizontal: 10 }}>HOURS</Text>
-                <Text style={{ color: green, fontSize: 12, marginHorizontal: 10 }}>MINUTES</Text>
-                <Text style={{ color: green, fontSize: 12, marginHorizontal: 10 }}>SECONDS</Text>
-              </View>
-            </View>
+        <View style={[styles.timerRing, { width: compact ? 220 : 285, height: compact ? 220 : 285, borderRadius: compact ? 110 : 143 }]}>
+          <Text style={styles.timerLabel}>{isUnlocked ? 'READY' : 'TIME REMAINING'}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.timerValue, { fontSize: compact ? 38 : 48 }]}>{recovery.timeRemainingLabel}</Text>
+          <View style={styles.timerUnits}><Text style={styles.timerUnit}>HOURS</Text><Text style={styles.timerUnit}>MINUTES</Text><Text style={styles.timerUnit}>SECONDS</Text></View>
+        </View>
 
-            <Card style={{ marginTop: 22, width: "100%", backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.25)" }}>
-              <View style={{ flexDirection: "row", paddingVertical: 16 }}>
-                <InfoStat icon="◷" title="Time Set" value={recovery.cycleLabel} />
-                <InfoStat icon="▦" title="Started" value={recovery.cycleStartedLabel} />
-                <InfoStat icon="♢" title="Purpose" value={recovery.purpose} />
-              </View>
-            </Card>
-          </View>
+        <View style={[styles.clockStats, compact && styles.clockStatsCompact]}>
+          {[
+            ['◷', 'Time Set', recovery.cycleLabel],
+            ['▦', 'Started', recovery.cycleStartedLabel],
+            ['◇', 'Purpose', recovery.purpose],
+          ].map(([icon, title, value]) => <View key={title} style={styles.clockStat}><Text style={styles.clockStatIcon}>{icon}</Text><View style={styles.clockStatCopy}><Text style={styles.clockStatTitle}>{title}</Text><Text style={styles.clockStatValue}>{value}</Text></View></View>)}
+        </View>
 
-          <View style={{ padding: 22, borderTopWidth: 1, borderTopColor: "rgba(53,248,131,0.22)" }}>
-            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginBottom: 20 }}>TIME SET PROGRESS</Text>
-            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-              <ProgressStep label="6 Hours" sub="Completed" done />
-              <ProgressStep label="12 Hours" sub="Completed" done />
-              <ProgressStep label="18 Hours" sub="Completed" done />
-              <ProgressStep label="24 Hours" sub={isUnlocked ? "Complete" : "Unlock"} done={isUnlocked} />
-            </View>
-          </View>
+        <View style={styles.progressSection}>
+          <Text style={styles.progressTitle}>TIME SET PROGRESS</Text>
+          <ProgressBar value={isUnlocked ? 100 : 75} color={C.green} height={8} />
+          <View style={styles.progressSteps}>{[
+            ['6 Hours', true], ['12 Hours', true], ['18 Hours', true], ['24 Hours', isUnlocked],
+          ].map(([label, done]) => <View key={String(label)} style={styles.progressStep}><Text style={[styles.progressMark, done && { color: C.green }]}>{done ? '✓' : '•'}</Text><Text style={styles.progressStepLabel}>{label}</Text><Text style={[styles.progressStepSub, done && { color: C.green }]}>{done ? 'Completed' : 'Unlock'}</Text></View>)}</View>
+        </View>
 
-          <Card style={{ margin: 16, marginTop: 0, padding: 18, borderColor: "rgba(10,56,98,0.8)", backgroundColor: "rgba(3,16,30,0.75)", flexDirection: "row", alignItems: "center" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "white", fontSize: 20, fontWeight: "900" }}>Need Access Now?</Text>
-              <Text style={{ color: muted, fontSize: 15, lineHeight: 22, marginTop: 8 }}>You can request early access using your Owner Authority.</Text>
-            </View>
-            <Pressable onPress={() => { void handleEarlyAccess(); }} style={{ borderWidth: 1, borderColor: green, borderRadius: 9, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ color: green, fontSize: 15, fontWeight: "900", marginRight: 8 }}>Request Early Access</Text>
-              <Text style={{ color: green, fontSize: 25 }}>›</Text>
-            </Pressable>
-          </Card>
-        </Card>
+        <Panel style={styles.earlyPanel}>
+          <View style={styles.earlyCopy}><Text style={styles.earlyTitle}>{isUnlocked ? 'Access Window Open' : 'Need Access Now?'}</Text><Text style={styles.earlySub}>{isUnlocked ? 'Continue to the wallet unlock confirmation.' : 'Request protected early access from your Owner Authority.'}</Text></View>
+          <Pressable disabled={requesting} onPress={() => isUnlocked ? navigation.navigate('UnlockWallet') : void handleEarlyAccess()} style={styles.earlyButton}><Text style={styles.earlyButtonText}>{isUnlocked ? 'Continue  ›' : requesting ? 'Requesting…' : 'Request Early Access  ›'}</Text></Pressable>
+        </Panel>
+        {feedback ? <Text style={[styles.feedback, feedback.toLowerCase().includes('unable') && { color: C.red }]}>{feedback}</Text> : null}
+      </Panel>
 
-        <Card style={{ marginTop: 18, padding: 18 }}>
-          <Text style={{ color: "white", fontSize: 17, fontWeight: "900", marginBottom: 10 }}>ALTERNATE ACCESS METHODS</Text>
-          <AccessMethod icon="♙" color={green} title="Owner Authority Approval" subtitle="Request approval from your Owner Authority" route="OwnerAuthorityApproval" />
-          <AccessMethod icon="⌕" color={blue} title="Emergency Access" subtitle="Use your emergency recovery method" route="RecoverLostWallet" />
-          <AccessMethod icon="◷" color={purple} title="Restore from Backup" subtitle="Restore wallet using recovery backup" route="RecoverLostWallet" />
-        </Card>
+      <Panel style={styles.methodsPanel}>
+        <Text style={styles.sectionTitle}>ALTERNATE ACCESS METHODS</Text>
+        <AccessMethod icon="♙" color={C.green} title="Owner Authority Approval" subtitle="Request approval from the designated authority" route="OwnerAuthorityApproval" />
+        <AccessMethod icon="⌕" color={C.blue} title="Emergency Recovery" subtitle="Start the protected lost-wallet flow" route="RecoverLostWallet" />
+        <AccessMethod icon="◷" color={C.purple} title="Verify Recovery Sequence" subtitle="Use the time-set verification process" route="VerifyRecoverySequence" last />
+      </Panel>
 
-        <Card style={{ marginTop: 18, padding: 18, borderColor: "#0b8f3c", backgroundColor: "rgba(2,34,24,0.7)", flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ color: green, fontSize: 42, marginRight: 16 }}>♧</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: green, fontSize: 18, fontWeight: "900" }}>Why Time Sets?</Text>
-            <Text style={{ color: muted, fontSize: 14, lineHeight: 21, marginTop: 6 }}>Time Sets protect you by preventing impulsive actions, reducing risk, and giving you full control.</Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate("RecoveryCenter")} style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginRight: 8 }}>Learn More</Text>
-            <Text style={{ color: green, fontSize: 26 }}>›</Text>
-          </Pressable>
-        </Card>
-      </ScrollView>
+      <Panel tone="green" style={styles.whyPanel}>
+        <RoundIcon symbol="♧" color={C.green} size={47} />
+        <View style={styles.whyCopy}><Text style={styles.whyTitle}>Why Time Sets?</Text><Text style={styles.whyText}>Time Sets create a deliberate access window that can reduce impulsive or coerced wallet actions while preserving owner-controlled recovery.</Text></View>
+        <Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.chevron}>›</Text></Pressable>
+      </Panel>
 
-      <BottomNav />
-    </View>
+      <BottomNav
+        active="Recovery"
+        items={[
+          ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['↻', 'Recovery', 'RecoveryCenter'],
+        ]}
+      />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  clockPanel: { padding: 19, alignItems: 'center' },
+  clockHeading: { alignItems: 'center', maxWidth: 640 },
+  clockTitle: { color: '#fff', fontSize: 21, fontWeight: '900', textAlign: 'center', marginTop: 12 },
+  clockIntro: { color: C.muted, fontSize: 11, lineHeight: 18, textAlign: 'center', marginTop: 7 },
+  timerRing: { borderWidth: 13, borderColor: C.green, backgroundColor: 'rgba(4,29,26,.86)', alignItems: 'center', justifyContent: 'center', marginTop: 24, shadowColor: C.green, shadowOpacity: .4, shadowRadius: 20 },
+  timerLabel: { color: C.green, fontSize: 10, fontWeight: '900' },
+  timerValue: { color: '#fff', fontWeight: '900', letterSpacing: -1, marginTop: 10, maxWidth: '82%' },
+  timerUnits: { flexDirection: 'row', gap: 17, marginTop: 10 },
+  timerUnit: { color: C.green, fontSize: 8 },
+  clockStats: { width: '100%', flexDirection: 'row', marginTop: 22, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 14 },
+  clockStatsCompact: { flexWrap: 'wrap', gap: 13 },
+  clockStat: { flex: 1, minWidth: 155, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  clockStatIcon: { color: C.green, fontSize: 22, marginRight: 10 },
+  clockStatCopy: { flex: 1, minWidth: 0 },
+  clockStatTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  clockStatValue: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  progressSection: { width: '100%', marginTop: 20, borderTopWidth: 1, borderTopColor: C.borderSoft, paddingTop: 16 },
+  progressTitle: { color: C.green, fontSize: 12, fontWeight: '900', marginBottom: 13 },
+  progressSteps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  progressStep: { alignItems: 'center', flex: 1 },
+  progressMark: { color: C.muted, fontSize: 18 },
+  progressStepLabel: { color: '#fff', fontSize: 9, marginTop: 4 },
+  progressStepSub: { color: C.muted, fontSize: 8, marginTop: 3 },
+  earlyPanel: { width: '100%', minHeight: 82, marginTop: 18, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  earlyCopy: { flex: 1, minWidth: 0 },
+  earlyTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  earlySub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  earlyButton: { borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, marginLeft: 10 },
+  earlyButtonText: { color: C.green, fontSize: 9, fontWeight: '900' },
+  feedback: { alignSelf: 'flex-start', color: C.green, fontSize: 9, marginTop: 9 },
+  methodsPanel: { marginTop: 17, padding: 16 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900', marginBottom: 7 },
+  methodRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  methodCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  methodTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  methodSub: { color: C.muted, fontSize: 9, marginTop: 4 },
+  chevron: { color: '#b8c5d7', fontSize: 27, marginLeft: 8 },
+  whyPanel: { minHeight: 88, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  whyCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  whyTitle: { color: C.green, fontSize: 13, fontWeight: '900' },
+  whyText: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+});
