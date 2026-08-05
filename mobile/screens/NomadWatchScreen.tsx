@@ -1,158 +1,201 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { useNomadWatch } from '../nomad';
-import type { NomadWatchEmergencyAction, NomadWatchState } from '../nomad';
+import { useNomadTravel, useNomadWatch } from '../nomad';
+import type { NomadWatchEmergencyAction } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-type NavItem = { label: string; icon: string; active?: boolean; route?: string };
-type EmergencyAction = { label: string; detail: string; icon: string; color: string; action: NomadWatchEmergencyAction };
+const emergencyActions: Array<{ label: string; detail: string; icon: string; color: string; action: NomadWatchEmergencyAction }> = [
+  { label: 'Emergency Lock', detail: 'Lock wallet now', icon: '▣', color: C.red, action: 'emergency_lock' },
+  { label: 'Pause Spending', detail: 'Pause Travel Pocket', icon: 'Ⅱ', color: C.yellow, action: 'pause_spending' },
+  { label: 'Alert Authority', detail: 'Notify Owner Authority', icon: '♙', color: C.blue, action: 'alert_authority' },
+  { label: 'Panic Mode', detail: 'Lock and hide wallet', icon: '◇', color: C.purple, action: 'panic_mode' },
+];
 
-const bg = '#020812';
-const panel = 'rgba(4,18,28,0.94)';
-const border = '#183242';
-const green = '#20f36b';
-const muted = '#b9c0cd';
-
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[{ borderWidth: 1, borderColor: border, backgroundColor: panel, borderRadius: 16, padding: 18, marginBottom: 16 }, style]}>{children}</View>;
-}
-
-function Header({ connected }: { connected: boolean }) {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-      <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={{ color: 'white', fontSize: 40 }}>‹</Text></Pressable>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 10 }}>
-        <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: green, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: green, fontSize: 26, fontWeight: '900' }}>⌚</Text></View>
-        <View style={{ marginLeft: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: 'white', fontSize: 28, fontWeight: '900' }}>Nomad Watch</Text>
-            <View style={{ marginLeft: 12, borderWidth: 1, borderColor: connected ? '#147b2e' : '#754a18', backgroundColor: connected ? 'rgba(18,90,37,0.35)' : 'rgba(117,74,24,0.35)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 18 }}>
-              <Text style={{ color: connected ? green : '#ffcc33', fontSize: 14, fontWeight: '800' }}>{connected ? '● Connected' : '● Ready'}</Text>
-            </View>
-          </View>
-          <Text style={{ color: muted, fontSize: 16, marginTop: 4 }}>Your travel. Your wallet. Your watch.</Text>
-        </View>
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Watch settings"><Text style={{ color: green, fontSize: 32 }}>⚙</Text></Pressable>
-    </View>
-  );
-}
-
-function WatchHero({ watch, onSync }: { watch: NomadWatchState; onSync: () => void }) {
-  const secure = watch.securityStatus === 'secure';
-  return (
-    <Card style={{ padding: 24 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ width: 170, alignItems: 'center' }}>
-          <View style={{ width: 126, height: 190, borderRadius: 40, backgroundColor: '#111', borderWidth: 1, borderColor: '#2a2d32', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ width: 116, height: 116, borderRadius: 58, borderWidth: 3, borderColor: green, backgroundColor: '#020812', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: green, fontSize: 36, fontWeight: '900' }}>N</Text>
-              <Text style={{ color: 'white', fontSize: 32, fontWeight: '800', marginTop: 8 }}>{watch.lastSyncedLabel}</Text>
-              <Text style={{ color: 'white', fontSize: 12 }}>SYNC</Text>
-            </View>
-          </View>
-        </View>
-        <View style={{ flex: 1, marginLeft: 18 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: 'white', fontSize: 26, fontWeight: '900' }}>{watch.deviceName}</Text><Text style={{ color: muted, fontSize: 22, marginLeft: 8 }}>✎</Text></View>
-          <Text style={{ color: muted, fontSize: 16, marginTop: 18 }}>Firmware {watch.firmware}</Text>
-          <Text style={{ color: 'white', fontSize: 16, marginTop: 12 }}>Battery {watch.batteryPercent}% <Text style={{ color: green }}>▰</Text></Text>
-          <Text style={{ color: muted, fontSize: 16, marginTop: 12 }}>Last synced: {watch.lastSyncedLabel}</Text>
-          <View style={{ flexDirection: 'row', marginTop: 28 }}>
-            {[
-              ['⌚', 'Find Watch', green, undefined],
-              ['⟳', 'Sync Now', green, onSync],
-              ['∞', 'Unpair Watch', '#ff5757', undefined],
-            ].map(([icon, label, color, handler]) => (
-              <Pressable key={String(label)} onPress={typeof handler === 'function' ? handler : undefined} style={{ flex: 1, borderWidth: 1, borderColor: border, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginRight: label === 'Unpair Watch' ? 0 : 10 }}>
-                <Text style={{ color: String(color), fontSize: 24 }}>{String(icon)}</Text><Text style={{ color: 'white', fontSize: 14, marginTop: 8 }}>{String(label)}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <View style={{ width: 142, alignItems: 'center', marginLeft: 14 }}>
-          <View style={{ width: 132, height: 132, borderRadius: 66, borderWidth: 4, borderColor: secure ? '#6ce143' : '#ffcc33', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: secure ? green : '#ffcc33', fontSize: 34 }}>♢</Text>
-            <Text style={{ color: secure ? '#8cff6b' : '#ffcc33', textAlign: 'center', fontSize: 18, marginTop: 6 }}>All Systems</Text>
-            <Text style={{ color: secure ? green : '#ffcc33', textAlign: 'center', fontSize: 18, marginTop: 2 }}>{secure ? 'Secure' : 'Review'}</Text>
-          </View>
-        </View>
-      </View>
-    </Card>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) { return <Text style={{ color: green, fontSize: 20, fontWeight: '900', marginBottom: 14 }}>{title}</Text>; }
-
-function TravelStatus({ watch }: { watch: NomadWatchState }) {
-  const items = [
-    { icon: '◎', title: 'Current Region', main: watch.travelRegion, sub: watch.travelSubregion },
-    { icon: '✈', title: 'Travel Mode', main: watch.travelModeLabel, sub: 'Nomad Travel Pocket' },
-    { icon: '◷', title: 'Time Set', main: 'Local Time Set', sub: watch.timeSetLabel },
-  ];
-  return (
-    <Card>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><SectionHeader title="TRAVEL STATUS" /><Text style={{ color: '#c6b5bd', fontSize: 28 }}>›</Text></View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>{items.map((item) => <View key={item.title} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingRight: 12 }}><View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(32,243,107,0.12)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#72e34b', fontSize: 30 }}>{item.icon}</Text></View><View style={{ marginLeft: 14 }}><Text style={{ color: muted, fontSize: 14 }}>{item.title}</Text><Text style={{ color: 'white', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{item.main}</Text><Text style={{ color: muted, fontSize: 13, marginTop: 4 }}>{item.sub}</Text></View></View>)}</View>
-    </Card>
-  );
-}
-
-function SecurityStatus({ status }: { status: NomadWatchState['securityStatus'] }) {
-  const items = [['♢', 'Device Integrity', status === 'secure' ? 'Secure' : 'Review'], ['♜', 'Connection', 'Secure'], ['🔑', 'Time Set Lock', 'Active'], ['♢', 'Watch Lock', status === 'locked' ? 'Locked' : 'Enabled']];
-  return <Card><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><SectionHeader title="SECURITY STATUS" /><Text style={{ color: '#c6b5bd', fontSize: 28 }}>›</Text></View><View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>{items.map(([icon, label, value]) => <View key={label} style={{ alignItems: 'center', width: '24%' }}><View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(32,243,107,0.12)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#8cff6b', fontSize: 26 }}>{icon}</Text></View><Text style={{ color: 'white', textAlign: 'center', fontSize: 13, marginTop: 10 }}>{label}</Text><Text style={{ color: green, textAlign: 'center', fontSize: 14, fontWeight: '800', marginTop: 6 }}>{value}</Text></View>)}</View></Card>;
-}
-
-function TravelPocketOverview({ watch }: { watch: NomadWatchState }) {
-  return (
-    <Card>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ width: 78, height: 78, borderRadius: 39, backgroundColor: 'rgba(160,59,229,0.18)', borderWidth: 1, borderColor: '#7833a7', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#bf58ff', fontSize: 34 }}>▣</Text></View>
-        <View style={{ flex: 1, marginLeft: 20 }}><SectionHeader title="TRAVEL POCKET OVERVIEW" /><Text style={{ color: muted, fontSize: 16 }}>Travel Pocket Balance</Text><Text style={{ color: 'white', fontSize: 28, fontWeight: '900', marginTop: 6 }}>{watch.travelPocketBalance} <Text style={{ fontSize: 16 }}>USD</Text></Text><Text style={{ color: muted, fontSize: 15, marginTop: 4 }}>≈ Nomad stable-value pocket</Text></View>
-        <View style={{ width: 260, borderLeftWidth: 1, borderLeftColor: border, paddingLeft: 28 }}><Text style={{ color: muted, fontSize: 16 }}>Today's Spending</Text><Text style={{ color: 'white', fontSize: 26, fontWeight: '900', marginTop: 6 }}>{watch.todaySpending} <Text style={{ fontSize: 14 }}>USD</Text></Text><View style={{ height: 7, borderRadius: 7, backgroundColor: '#30353d', marginTop: 16, overflow: 'hidden' }}><View style={{ width: '37%', height: 7, borderRadius: 7, backgroundColor: '#c04dff' }} /></View><Text style={{ color: muted, fontSize: 14, marginTop: 8 }}>Daily Limit: {watch.dailyLimit}</Text></View>
-        <Text style={{ color: '#c6b5bd', fontSize: 28, marginLeft: 10 }}>›</Text>
-      </View>
-    </Card>
-  );
-}
-
-function EmergencyActions({ onAction }: { onAction: (action: NomadWatchEmergencyAction) => void }) {
-  const actions: EmergencyAction[] = [
-    { label: 'Emergency Lock', detail: 'Lock wallet now', icon: '🔒', color: '#ff5757', action: 'emergency_lock' },
-    { label: 'Pause Spending', detail: 'Pause Travel Pocket', icon: 'Ⅱ', color: '#ffcc33', action: 'pause_spending' },
-    { label: 'Alert Authority', detail: 'Notify now', icon: '🔔', color: '#31a0ff', action: 'alert_authority' },
-    { label: 'Panic Mode', detail: 'Lock & hide wallet', icon: '♢', color: '#b454ff', action: 'panic_mode' },
-  ];
-  return <Card><Text style={{ color: '#ff5757', fontSize: 20, fontWeight: '900', marginBottom: 18 }}>EMERGENCY ACTIONS</Text><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>{actions.map((action) => <Pressable key={action.label} onPress={() => onAction(action.action)} style={{ width: '23%', borderWidth: 1, borderColor: border, borderRadius: 12, padding: 15, alignItems: 'center' }}><View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: `${action.color}22`, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: action.color, fontSize: 28 }}>{action.icon}</Text></View><Text style={{ color: action.color, fontSize: 15, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>{action.label}</Text><Text style={{ color: muted, fontSize: 12, textAlign: 'center', marginTop: 6 }}>{action.detail}</Text></Pressable>)}</View></Card>;
-}
-
-function OwnerAuthorityAlerts({ label }: { label: string }) {
-  const pending = label !== 'No new alerts';
-  return <Card><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><SectionHeader title="OWNER AUTHORITY ALERTS" /><Text style={{ color: green, fontSize: 18, fontWeight: '800' }}>View All</Text></View><View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: pending ? 'rgba(255,204,51,0.14)' : 'rgba(32,243,107,0.14)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: pending ? '#ffcc33' : green, fontSize: 36 }}>♙</Text></View><View style={{ flex: 1, marginLeft: 20 }}><Text style={{ color: 'white', fontSize: 21, fontWeight: '800' }}>{label}</Text><Text style={{ color: muted, fontSize: 16, marginTop: 5 }}>{pending ? 'Review the pending owner authority workflow.' : 'All clear. You have no pending approvals or alerts.'}</Text></View><Text style={{ color: '#c6b5bd', fontSize: 32 }}>›</Text></View></Card>;
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items: NavItem[] = [{ label: 'Home', icon: '⌂', route: 'Portfolio' }, { label: 'Wallets', icon: '▣', route: 'Wallets' }, { label: 'Travel', icon: '✈', route: 'TravelMode' }, { label: 'Security', icon: '♢', route: 'SecurityCenter' }, { label: 'Nomad Watch', icon: '⌚', active: true }];
-  return <View style={{ position: 'absolute', left: 14, right: 14, bottom: 14, height: 82, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: 'rgba(3,16,24,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>{items.map((item) => <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: 'center', width: '20%' }}><Text style={{ color: item.active ? green : '#d7d3df', fontSize: 28 }}>{item.icon}</Text><Text style={{ color: item.active ? green : '#d7d3df', fontSize: 14, marginTop: 6 }}>{item.label}</Text></Pressable>)}</View>;
+function StatusMetric({ icon, label, value, sub, color = C.green }: { icon: string; label: string; value: string; sub: string; color?: string }) {
+  return <View style={styles.metric}><RoundIcon symbol={icon} color={color} size={45} filled /><View style={styles.metricCopy}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricSub}>{sub}</Text></View></View>;
 }
 
 export default function NomadWatchScreen() {
-  const { watch, error, syncNow, triggerEmergencyAction } = useNomadWatch();
+  const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
+  const { watch, loading, error, syncNow, triggerEmergencyAction } = useNomadWatch();
+  const { travelPocket } = useNomadTravel();
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
+
+  const region = travelPocket.regionInput || watch.travelRegion;
+  const pocketBalance = travelPocket.pocketBalanceLocal || travelPocket.pocketBalanceFiat || watch.travelPocketBalance;
+  const securityColor = watch.securityStatus === 'secure' ? C.green : watch.securityStatus === 'locked' ? C.red : C.yellow;
+
+  const handleSync = async () => {
+    try {
+      setBusy(true);
+      setFeedback('Syncing Nomad Watch…');
+      await syncNow();
+      setFeedback('Nomad Watch synced successfully.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to sync Nomad Watch.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEmergency = async (action: NomadWatchEmergencyAction, label: string) => {
+    try {
+      setBusy(true);
+      setFeedback(`Requesting ${label.toLowerCase()}…`);
+      await triggerEmergencyAction(action);
+      setFeedback(`${label} requested through the connected watch adapter.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : `Unable to request ${label.toLowerCase()}.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <Header connected={watch.connected} />
-        {error ? <Text style={{ color: '#ff5757', marginBottom: 10 }}>{error}</Text> : null}
-        <WatchHero watch={watch} onSync={() => { void syncNow(); }} />
-        <TravelStatus watch={watch} />
-        <SecurityStatus status={watch.securityStatus} />
-        <TravelPocketOverview watch={watch} />
-        <EmergencyActions onAction={(action) => { void triggerEmergencyAction(action); }} />
-        <OwnerAuthorityAlerts label={watch.ownerAuthorityAlertLabel} />
-      </ScrollView>
-      <BottomNav />
-    </View>
+    <NomadPage maxWidth={960}>
+      <PageHeader
+        title="Nomad Watch"
+        subtitle="Your travel. Your wallet. Your watch."
+        icon="⌚"
+        color={C.green}
+        right={<Text style={[styles.connectionBadge, { color: watch.connected ? C.green : C.yellow, borderColor: watch.connected ? C.green : C.yellow }]}>{watch.connected ? '● CONNECTED' : '● READY'}</Text>}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Panel style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={styles.watchArt}><View style={styles.watchCase}><View style={[styles.watchFace, { borderColor: securityColor }]}><Text style={[styles.watchN, { color: securityColor }]}>N</Text><Text style={styles.watchSync}>{watch.lastSyncedLabel}</Text><Text style={styles.watchSyncLabel}>SYNC</Text></View></View></View>
+        <View style={styles.deviceCopy}>
+          <View style={styles.deviceTitleRow}><Text style={styles.deviceName}>{watch.deviceName}</Text><Pressable onPress={() => navigation.navigate('Settings')}><Text style={styles.edit}>✎</Text></Pressable></View>
+          <Text style={styles.deviceDetail}>Firmware {watch.firmware}</Text>
+          <View style={styles.batteryRow}><Text style={styles.deviceDetail}>Battery {watch.batteryPercent}%</Text><View style={styles.batteryTrack}><View style={[styles.batteryFill, { width: `${watch.batteryPercent}%` }]} /></View></View>
+          <Text style={styles.deviceDetail}>Last synced: {watch.lastSyncedLabel}</Text>
+          <View style={styles.deviceActions}>
+            <Pressable onPress={() => setFeedback('Find Watch signal requested. Use the paired device to confirm the alert.')} style={styles.deviceButton}><Text style={styles.deviceButtonIcon}>⌚</Text><Text style={styles.deviceButtonText}>Find Watch</Text></Pressable>
+            <Pressable disabled={busy} onPress={() => void handleSync()} style={styles.deviceButton}><Text style={styles.deviceButtonIcon}>⟳</Text><Text style={styles.deviceButtonText}>{busy ? 'Syncing…' : 'Sync Now'}</Text></Pressable>
+            <Pressable onPress={() => navigation.navigate('Settings')} style={styles.deviceButton}><Text style={[styles.deviceButtonIcon, { color: C.red }]}>∞</Text><Text style={styles.deviceButtonText}>Unpair</Text></Pressable>
+          </View>
+        </View>
+        <View style={[styles.securityRing, { borderColor: securityColor }]}><Text style={[styles.securityIcon, { color: securityColor }]}>◇</Text><Text style={styles.securityAll}>All Systems</Text><Text style={[styles.securityStatus, { color: securityColor }]}>{watch.securityStatus.toUpperCase()}</Text></View>
+      </Panel>
+      {feedback ? <Text style={[styles.feedback, /unable/i.test(feedback) && { color: C.red }]}>{feedback}</Text> : null}
+
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>TRAVEL STATUS</Text><Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.link}>Travel Pocket  ›</Text></Pressable></View>
+        <View style={styles.metricGrid}>
+          <StatusMetric icon="◎" label="Current Region" value={region} sub={watch.travelSubregion || 'Selected destination'} />
+          <StatusMetric icon="✈" label="Travel Mode" value={travelPocket.enabled ? 'Active' : watch.travelModeLabel} sub={travelPocket.localCurrency || 'Nomad Travel Pocket'} />
+          <StatusMetric icon="◷" label="Time Set" value="Local Time Set" sub={watch.timeSetLabel} />
+        </View>
+      </Panel>
+
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>SECURITY STATUS</Text><Pressable onPress={() => navigation.navigate('SecurityCenter')}><Text style={styles.link}>Security Center  ›</Text></Pressable></View>
+        <View style={styles.securityGrid}>{[
+          ['◇', 'Device Integrity', watch.securityStatus === 'secure' ? 'Secure' : 'Review'],
+          ['♜', 'Connection', watch.connected ? 'Secure' : 'Ready'],
+          ['⚿', 'Time Set Lock', 'Active'],
+          ['▣', 'Watch Lock', watch.securityStatus === 'locked' ? 'Locked' : 'Enabled'],
+        ].map(([icon, label, value]) => <View key={label} style={styles.securityItem}><RoundIcon symbol={icon} color={securityColor} size={49} filled /><Text style={styles.securityItemLabel}>{label}</Text><Text style={[styles.securityItemValue, { color: securityColor }]}>{value}</Text></View>)}</View>
+      </Panel>
+
+      <Panel style={styles.pocketPanel}>
+        <RoundIcon symbol="▰" color={C.purple} size={64} filled />
+        <View style={styles.pocketCopy}><Text style={styles.sectionTitle}>TRAVEL POCKET OVERVIEW</Text><Text style={styles.pocketLabel}>Travel Pocket Balance</Text><Text style={styles.pocketBalance}>{pocketBalance}</Text><Text style={styles.pocketSub}>{travelPocket.localCurrency || 'Nomad stable-value pocket'}</Text></View>
+        <View style={styles.spendingCopy}><Text style={styles.pocketLabel}>Today's Spending</Text><Text style={styles.todaySpending}>{watch.todaySpending}</Text><ProgressBar value={37} color={C.purple} height={7} /><Text style={styles.pocketSub}>Daily Limit: {watch.dailyLimit}</Text></View>
+        <Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.chevron}>›</Text></Pressable>
+      </Panel>
+
+      <Panel style={styles.emergencyPanel}>
+        <Text style={[styles.sectionTitle, { color: C.red }]}>EMERGENCY ACTIONS</Text>
+        <View style={styles.emergencyGrid}>{emergencyActions.map((action) => <Pressable key={action.label} disabled={busy} onPress={() => void handleEmergency(action.action, action.label)} style={styles.emergencyCard}><RoundIcon symbol={action.icon} color={action.color} size={52} filled /><Text style={[styles.emergencyTitle, { color: action.color }]}>{action.label}</Text><Text style={styles.emergencySub}>{action.detail}</Text></Pressable>)}</View>
+      </Panel>
+
+      <Pressable onPress={() => navigation.navigate('OwnerAuthorityApproval')}>
+        <Panel tone={watch.ownerAuthorityAlertLabel === 'No new alerts' ? 'green' : 'yellow'} style={styles.alertPanel}>
+          <RoundIcon symbol="♙" color={watch.ownerAuthorityAlertLabel === 'No new alerts' ? C.green : C.yellow} size={58} filled />
+          <View style={styles.alertCopy}><Text style={styles.alertTitle}>OWNER AUTHORITY ALERTS</Text><Text style={styles.alertValue}>{watch.ownerAuthorityAlertLabel}</Text><Text style={styles.alertSub}>{watch.ownerAuthorityAlertLabel === 'No new alerts' ? 'No pending approvals or watch alerts.' : 'Review the pending Owner Authority workflow.'}</Text></View>
+          <Text style={styles.chevron}>›</Text>
+        </Panel>
+      </Pressable>
+
+      <BottomNav active="Watch" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['⌚', 'Watch', 'NomadWatch'],
+      ]} />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  connectionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 8, fontWeight: '900' },
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  hero: { minHeight: 235, padding: 19, flexDirection: 'row', alignItems: 'center', gap: 19 },
+  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  watchArt: { width: 155, alignItems: 'center' },
+  watchCase: { width: 116, height: 188, borderRadius: 37, backgroundColor: '#111', borderWidth: 1, borderColor: '#2a2d32', alignItems: 'center', justifyContent: 'center' },
+  watchFace: { width: 101, height: 101, borderRadius: 51, borderWidth: 3, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
+  watchN: { fontSize: 31, fontWeight: '900' },
+  watchSync: { color: '#fff', fontSize: 11, fontWeight: '800', textAlign: 'center', marginTop: 5 },
+  watchSyncLabel: { color: '#fff', fontSize: 7 },
+  deviceCopy: { flex: 1, minWidth: 0 },
+  deviceTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  deviceName: { color: '#fff', fontSize: 21, fontWeight: '900' },
+  edit: { color: C.muted, fontSize: 19, marginLeft: 8 },
+  deviceDetail: { color: C.muted, fontSize: 10, marginTop: 10 },
+  batteryRow: { flexDirection: 'row', alignItems: 'center' },
+  batteryTrack: { width: 70, height: 7, borderRadius: 7, backgroundColor: '#30353d', overflow: 'hidden', marginLeft: 10, marginTop: 10 },
+  batteryFill: { height: '100%', backgroundColor: C.green },
+  deviceActions: { flexDirection: 'row', gap: 8, marginTop: 18 },
+  deviceButton: { flex: 1, minHeight: 67, borderWidth: 1, borderColor: C.border, borderRadius: 11, alignItems: 'center', justifyContent: 'center', padding: 6 },
+  deviceButtonIcon: { color: C.green, fontSize: 20 },
+  deviceButtonText: { color: '#fff', fontSize: 8, marginTop: 5, textAlign: 'center' },
+  securityRing: { width: 126, height: 126, borderRadius: 63, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
+  securityIcon: { fontSize: 27 },
+  securityAll: { color: '#fff', fontSize: 10, marginTop: 4 },
+  securityStatus: { fontSize: 10, fontWeight: '900', marginTop: 3 },
+  feedback: { color: C.green, fontSize: 10, marginTop: 10 },
+  sectionPanel: { marginTop: 16, padding: 16 },
+  emergencyPanel: { marginTop: 16, padding: 16 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900' },
+  link: { color: C.green, fontSize: 9, fontWeight: '900' },
+  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 11, marginTop: 14 },
+  metric: { flexGrow: 1, flexBasis: 190, minHeight: 75, flexDirection: 'row', alignItems: 'center' },
+  metricCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
+  metricLabel: { color: C.muted, fontSize: 8 },
+  metricValue: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 4 },
+  metricSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  securityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 14 },
+  securityItem: { flexGrow: 1, flexBasis: 130, minHeight: 110, borderWidth: 1, borderColor: C.border, borderRadius: 11, alignItems: 'center', justifyContent: 'center', padding: 9 },
+  securityItemLabel: { color: '#fff', fontSize: 9, textAlign: 'center', marginTop: 7 },
+  securityItemValue: { fontSize: 9, fontWeight: '900', marginTop: 5 },
+  pocketPanel: { minHeight: 112, marginTop: 16, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  pocketCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  pocketLabel: { color: C.muted, fontSize: 9, marginTop: 7 },
+  pocketBalance: { color: '#fff', fontSize: 19, fontWeight: '900', marginTop: 4 },
+  pocketSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  spendingCopy: { width: 180, borderLeftWidth: 1, borderLeftColor: C.borderSoft, paddingLeft: 17, marginLeft: 12 },
+  todaySpending: { color: '#fff', fontSize: 17, fontWeight: '900', marginVertical: 6 },
+  chevron: { color: '#c6b5bd', fontSize: 28, marginLeft: 8 },
+  emergencyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 14 },
+  emergencyCard: { flexGrow: 1, flexBasis: 145, minHeight: 124, borderWidth: 1, borderColor: C.border, borderRadius: 11, alignItems: 'center', justifyContent: 'center', padding: 10 },
+  emergencyTitle: { fontSize: 10, fontWeight: '900', textAlign: 'center', marginTop: 8 },
+  emergencySub: { color: C.muted, fontSize: 8, textAlign: 'center', marginTop: 4 },
+  alertPanel: { minHeight: 91, marginTop: 16, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  alertCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  alertTitle: { color: C.green, fontSize: 11, fontWeight: '900' },
+  alertValue: { color: '#fff', fontSize: 13, fontWeight: '800', marginTop: 5 },
+  alertSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+});
