@@ -1,255 +1,181 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useNomadSafety } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-type BottomItem = { label: string; icon: string; route?: string; active?: boolean };
-type SummaryRow = { label: string; value: string; accent?: string; dot?: boolean };
-type RiskRow = { label: string; value: string; risk?: 'low' | 'medium' | 'high' };
-type ScanRisk = 'low' | 'medium' | 'high';
+type Risk = 'low' | 'medium' | 'high';
+type AddressResult = { score: number; risk: Risk; summary: string };
 
-type AddressScanResult = {
-  score: number;
-  risk: ScanRisk;
-  summary: string;
-};
+const previewAddress = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+const previewResult: AddressResult = { score: 92, risk: 'low', summary: 'Preview state: no local safety flags are shown. Run a live scan before sending.' };
 
-const BLUE = '#1494ff';
-const GREEN = '#22f36d';
-const YELLOW = '#ffb000';
-const RED = '#ff4d5e';
-const BG = '#02070d';
-const CARD = 'rgba(3, 18, 25, 0.94)';
-const BORDER = '#0d332d';
-const MUTED = '#c5c7d1';
-const DEFAULT_ADDRESS = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-
-function riskColor(risk: ScanRisk) {
-  if (risk === 'high') return RED;
-  if (risk === 'medium') return YELLOW;
-  return GREEN;
+function riskColor(risk: Risk) {
+  return risk === 'high' ? C.red : risk === 'medium' ? C.yellow : C.green;
 }
 
-function riskLabel(risk: ScanRisk) {
-  if (risk === 'high') return 'High Risk';
-  if (risk === 'medium') return 'Medium Risk';
-  return 'Low Risk';
+function riskLabel(risk: Risk) {
+  return risk === 'high' ? 'High Risk' : risk === 'medium' ? 'Medium Risk' : 'Low Risk';
 }
 
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return (
-    <View
-      style={[
-        {
-          borderWidth: 1,
-          borderColor: BORDER,
-          backgroundColor: CARD,
-          borderRadius: 16,
-          padding: 18,
-          marginBottom: 14,
-          shadowColor: GREEN,
-          shadowOpacity: 0.12,
-          shadowRadius: 18,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
+function SummaryRow({ label, value, color = '#fff', last }: { label: string; value: string; color?: string; last?: boolean }) {
+  return <View style={[styles.summaryRow, !last && styles.rowBorder]}><Text style={styles.summaryLabel}>{label}</Text><Text style={[styles.summaryValue, { color }]}>{value}</Text></View>;
 }
 
-function Header() {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-      <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
-        <Text style={{ color: 'white', fontSize: 40 }}>‹</Text>
-      </Pressable>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 10 }}>
-        <View style={{ width: 64, height: 64, borderRadius: 18, borderWidth: 3, borderColor: GREEN, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: GREEN, fontSize: 34 }}>🌐</Text>
-        </View>
-        <View style={{ marginLeft: 16 }}>
-          <Text style={{ color: 'white', fontSize: 30, fontWeight: '900' }}>Address Safety Detail</Text>
-          <Text style={{ color: MUTED, fontSize: 19, marginTop: 3 }}>BlockPages</Text>
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: GREEN, fontSize: 22, marginRight: 12 }}>Help</Text>
-        <View style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: GREEN, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: GREEN, fontWeight: '900', fontSize: 22 }}>?</Text>
-        </View>
-      </View>
-    </View>
-  );
+function RiskRow({ icon, label, value, color, last }: { icon: string; label: string; value: string; color: string; last?: boolean }) {
+  return <View style={[styles.riskRow, !last && styles.rowBorder]}><RoundIcon symbol={icon} color={color} size={40} filled /><Text style={styles.riskLabel}>{label}</Text><Text style={[styles.riskValue, { color }]}>{value}</Text></View>;
 }
 
-function AddressHero({ address, result, loading }: { address: string; result: AddressScanResult; loading: boolean }) {
-  const tint = riskColor(result.risk);
-  const isSafe = result.risk === 'low';
-
-  return (
-    <Card style={{ borderColor: tint, flexDirection: 'row', alignItems: 'center' }}>
-      <View style={{ width: 150, alignItems: 'center' }}>
-        <View style={{ width: 120, height: 145, borderWidth: 8, borderColor: tint, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: tint, fontSize: 66, fontWeight: '900' }}>{isSafe ? '✓' : '!'}</Text>
-        </View>
-      </View>
-      <View style={{ flex: 1, marginLeft: 18 }}>
-        <Text style={{ color: 'white', fontSize: 30, fontWeight: '900' }}>{isSafe ? 'This address is safe' : 'Review this address'}</Text>
-        <Text style={{ color: tint, fontSize: 24, marginTop: 10 }}>{loading ? 'Scanning address...' : result.summary}</Text>
-        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 16 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: 'white', fontSize: 24, lineHeight: 34, flex: 1 }}>{address}</Text>
-          <Text style={{ color: 'white', fontSize: 32, marginLeft: 12 }}>▣</Text>
-        </View>
-        <View style={{ flexDirection: 'row', marginTop: 18 }}>
-          <View style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-            <Text style={{ fontSize: 24, marginRight: 8 }}>₿</Text>
-            <Text style={{ color: 'white', fontSize: 19 }}>Bitcoin</Text>
-          </View>
-          <View style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', borderRadius: 24, paddingHorizontal: 18, paddingVertical: 8 }}>
-            <Text style={{ color: 'white', fontSize: 19 }}>Address</Text>
-          </View>
-        </View>
-      </View>
-    </Card>
-  );
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <Text style={{ color: GREEN, fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{children}</Text>;
-}
-
-function SafetySummary({ rows }: { rows: SummaryRow[] }) {
-  return (
-    <Card>
-      <SectionTitle>SAFETY SUMMARY</SectionTitle>
-      {rows.map((row, index) => (
-        <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 13, borderTopWidth: index === 0 ? 1 : 0, borderBottomWidth: index < rows.length - 1 ? 1 : 0, borderColor: 'rgba(255,255,255,0.08)' }}>
-          <Text style={{ color: 'white', fontSize: 23 }}>{row.label}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: row.accent || 'white', fontSize: 23 }}>{row.value}</Text>
-            {row.dot ? <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: row.accent || GREEN, marginLeft: 12 }} /> : null}
-          </View>
-        </View>
-      ))}
-    </Card>
-  );
-}
-
-function RiskChecks({ rows }: { rows: RiskRow[] }) {
-  return (
-    <Card>
-      <SectionTitle>RISK CHECKS</SectionTitle>
-      {rows.map((row, index) => {
-        const tint = row.risk ? riskColor(row.risk) : GREEN;
-        return (
-          <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderTopWidth: index === 0 ? 1 : 0, borderBottomWidth: index < rows.length - 1 ? 1 : 0, borderColor: 'rgba(255,255,255,0.08)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: tint, fontSize: 30, marginRight: 18 }}>{row.risk === 'high' ? '!' : '✓'}</Text>
-              <Text style={{ color: 'white', fontSize: 22 }}>{row.label}</Text>
-            </View>
-            <Text style={{ color: 'white', fontSize: 22 }}>{row.value}</Text>
-          </View>
-        );
-      })}
-    </Card>
-  );
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items: BottomItem[] = [
-    { label: 'Home', icon: '⌂', route: 'Portfolio' },
-    { label: 'Wallets', icon: '▣', route: 'Wallets' },
-    { label: 'Travel', icon: '✈', route: 'TravelMode' },
-    { label: 'Security', icon: '♢', route: 'SecurityCenter' },
-    { label: 'BlockPages', icon: '🌐', route: 'BlockPagesSafety', active: true },
-  ];
-  return (
-    <View style={{ height: 86, borderRadius: 18, borderWidth: 1, borderColor: '#12303a', backgroundColor: 'rgba(3,16,25,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginTop: 6 }}>
-      {items.map((item) => (
-        <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: 'center', width: '20%' }}>
-          <Text style={{ color: item.active ? GREEN : '#e5dce7', fontSize: 31 }}>{item.icon}</Text>
-          <Text style={{ color: item.active ? GREEN : '#e5dce7', fontSize: 17, marginTop: 5 }}>{item.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-export const AddressSafetyDetailScreen = () => {
+export default function AddressSafetyDetailScreen() {
+  const { compact } = useNomadLayout();
   const { scanAddress } = useNomadSafety();
-  const [result, setResult] = useState<AddressScanResult>({ score: 92, risk: 'low', summary: 'No local safety flags detected. Ready for BlockPages live scan integration.' });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [address, setAddress] = useState(previewAddress);
+  const [scannedAddress, setScannedAddress] = useState(previewAddress);
+  const [result, setResult] = useState<AddressResult>(previewResult);
+  const [loading, setLoading] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
-  const runScan = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const tint = riskColor(result.risk);
+  const score = Math.max(0, Math.min(100, result.score));
+
+  const riskRows = useMemo(() => [
+    ['♢', 'Drainer Detection', result.risk === 'high' ? 'Potential threat' : 'No threat signals', result.risk === 'high' ? C.red : C.green],
+    ['☣', 'Malicious Activity', result.risk === 'low' ? 'No malicious activity' : 'Review recommended', tint],
+    ['▤', 'Sanction Check', 'Not flagged', C.green],
+    ['♚', 'Scam Reports', result.risk === 'low' ? 'No reports' : 'Reports require review', tint],
+    ['▽', 'Phishing / Fake', result.risk === 'low' ? 'Not detected' : 'Possible pattern', tint],
+    ['⌘', 'Contract Safety', 'Check at signing', C.blue],
+  ] as const, [result.risk, tint]);
+
+  const runScan = async () => {
+    const target = address.trim();
+    if (!target) {
+      setError('Enter a wallet address before scanning.');
+      return;
+    }
     try {
-      const next = await scanAddress(DEFAULT_ADDRESS);
+      setLoading(true);
+      setError('');
+      const next = await scanAddress(target);
       setResult(next);
-    } catch (scanError) {
-      setError(scanError instanceof Error ? scanError.message : 'Unable to scan address right now.');
+      setScannedAddress(target);
+      setHasScanned(true);
+      setSaved(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to scan the address right now.');
     } finally {
       setLoading(false);
     }
-  }, [scanAddress]);
-
-  useEffect(() => {
-    void runScan();
-  }, []);
-
-  const tint = riskColor(result.risk);
-  const summaryRows = useMemo<SummaryRow[]>(() => [
-    { label: 'Overall Risk', value: riskLabel(result.risk), accent: tint, dot: true },
-    { label: 'BlockPages Score', value: `${result.score} / 100`, accent: tint },
-    { label: 'Last Scanned', value: loading ? 'Scanning now' : 'Live adapter check' },
-    { label: 'Source', value: 'Nomad Safety Adapter' },
-    { label: 'Community Reports', value: result.risk === 'low' ? '0 Negative' : 'Review Pending', accent: tint },
-  ], [loading, result.risk, result.score, tint]);
-
-  const riskRows = useMemo<RiskRow[]>(() => [
-    { label: 'Drainer Detection', value: result.risk === 'high' ? 'Potential threat' : 'No threats found', risk: result.risk === 'high' ? 'high' : 'low' },
-    { label: 'Malicious Activity', value: result.risk === 'low' ? 'No malicious activity' : 'Review recommended', risk: result.risk },
-    { label: 'Sanction Check', value: 'Not flagged', risk: 'low' },
-    { label: 'Scam Reports', value: result.risk === 'low' ? 'No reports' : 'Review pending', risk: result.risk },
-    { label: 'Phishing / Fake', value: result.risk === 'low' ? 'Not detected' : 'Possible pattern', risk: result.risk },
-    { label: 'Contract Safety', value: 'Safe (if applicable)', risk: 'low' },
-  ], [result.risk]);
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-        <Header />
-        <AddressHero address={DEFAULT_ADDRESS} result={result} loading={loading} />
-        {error ? <Text style={{ color: RED, marginBottom: 12 }}>{error}</Text> : null}
-        <SafetySummary rows={summaryRows} />
-        <RiskChecks rows={riskRows} />
+    <NomadPage maxWidth={900}>
+      <PageHeader title="Address Safety Detail" subtitle="Reqrium wallet protection" icon="R" color={C.green} help />
 
-        <Pressable accessibilityRole="button" onPress={runScan} style={{ borderWidth: 1, borderColor: GREEN, borderRadius: 10, paddingVertical: 20, alignItems: 'center', marginBottom: 14 }}>
-          <Text style={{ color: GREEN, fontSize: 25, fontWeight: '800' }}>{loading ? 'Scanning BlockPages...' : 'View on BlockPages.io'}</Text>
-        </Pressable>
+      <Panel style={styles.inputPanel}>
+        <Text style={styles.inputLabel}>Wallet address</Text>
+        <View style={styles.inputRow}><Text style={styles.inputIcon}>⌕</Text><TextInput value={address} onChangeText={setAddress} placeholder="Enter a wallet address" placeholderTextColor="#75859a" autoCapitalize="none" autoCorrect={false} style={styles.input} /><Pressable disabled={loading} onPress={() => void runScan()} style={styles.scanButton}><Text style={styles.scanText}>{loading ? 'Scanning…' : 'Scan'}</Text></Pressable></View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+      </Panel>
 
-        <Pressable accessibilityRole="button" style={{ backgroundColor: GREEN, borderRadius: 10, paddingVertical: 22, alignItems: 'center', marginBottom: 22 }}>
-          <Text style={{ color: '#001507', fontSize: 25, fontWeight: '900' }}>Add to Phonebook</Text>
-        </Pressable>
+      <Panel tone={result.risk === 'low' ? 'green' : result.risk === 'medium' ? 'yellow' : 'red'} style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={[styles.addressShield, { borderColor: tint }]}><Text style={[styles.shieldMark, { color: tint }]}>{result.risk === 'low' ? '✓' : '!'}</Text></View>
+        <View style={styles.heroCopy}>
+          <View style={styles.heroTitleRow}><Text style={styles.heroTitle}>{result.risk === 'low' ? 'This address has a low-risk result' : 'Review this address carefully'}</Text><Text style={[styles.scanBadge, { color: tint, borderColor: tint }]}>{hasScanned ? 'LIVE SCAN' : 'PREVIEW'}</Text></View>
+          <Text style={[styles.heroSummary, { color: tint }]}>{result.summary}</Text>
+          <Text selectable style={styles.addressText}>{scannedAddress}</Text>
+          <View style={styles.assetTags}><Text style={styles.assetTag}>₿  Bitcoin</Text><Text style={styles.assetTag}>Address</Text></View>
+        </View>
+      </Panel>
 
-        <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 3, borderColor: BLUE, alignItems: 'center', justifyContent: 'center', marginRight: 24 }}>
-            <Text style={{ color: BLUE, fontSize: 30, fontWeight: '900' }}>i</Text>
-          </View>
-          <Text style={{ color: 'white', fontSize: 23, lineHeight: 36, flex: 1 }}>BlockPages uses a decentralized network of scanners and community reports to assess address safety.</Text>
-        </Card>
+      <Panel style={styles.scorePanel}>
+        <View style={[styles.scoreRing, { borderColor: tint }]}><Text style={[styles.scoreValue, { color: tint }]}>{score}</Text><Text style={styles.scoreOut}>/100</Text></View>
+        <View style={styles.scoreCopy}><Text style={[styles.scoreName, { color: tint }]}>{riskLabel(result.risk)}</Text><Text style={styles.scoreText}>Reqrium safety scores are decision-support signals, not a guarantee. Confirm the address through a second trusted channel before sending.</Text><ProgressBar value={score} color={tint} height={9} /></View>
+      </Panel>
 
-        <BottomNav />
-      </ScrollView>
-    </View>
+      <Panel style={styles.summaryPanel}>
+        <Text style={styles.sectionTitle}>SAFETY SUMMARY</Text>
+        <SummaryRow label="Overall Risk" value={riskLabel(result.risk)} color={tint} />
+        <SummaryRow label="Reqrium Score" value={`${score} / 100`} color={tint} />
+        <SummaryRow label="Last Scanned" value={hasScanned ? 'Live adapter check' : 'Approved preview'} />
+        <SummaryRow label="Source" value="Nomad Safety Adapter" />
+        <SummaryRow label="Community Reports" value={result.risk === 'low' ? '0 negative' : 'Review pending'} color={tint} last />
+      </Panel>
+
+      <Panel style={styles.riskPanel}>
+        <Text style={styles.sectionTitle}>RISK CHECKS</Text>
+        {riskRows.map((row, index) => <RiskRow key={row[1]} icon={row[0]} label={row[1]} value={row[2]} color={row[3]} last={index === riskRows.length - 1} />)}
+      </Panel>
+
+      <View style={[styles.actions, compact && styles.actionsCompact]}>
+        <Pressable disabled={loading} onPress={() => void runScan()} style={styles.rescanButton}><Text style={styles.rescanText}>{loading ? 'Scanning…' : 'Run Another Scan'}</Text></Pressable>
+        <Pressable onPress={() => setSaved(true)} style={styles.saveButton}><Text style={styles.saveText}>{saved ? 'Saved to Phonebook ✓' : 'Add to Phonebook'}</Text></Pressable>
+      </View>
+
+      <Panel style={styles.infoPanel}><RoundIcon symbol="i" color={C.blue} size={44} /><Text style={styles.infoText}>Reqrium combines connected scanner results and available community signals. Never add a suspicious address to your phonebook merely because a single scan appears clear.</Text></Panel>
+
+      <BottomNav active="Safety" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['R', 'Safety', 'BlockPagesSafety'],
+      ]} />
+    </NomadPage>
   );
-};
+}
 
-export default AddressSafetyDetailScreen;
+const styles = StyleSheet.create({
+  inputPanel: { padding: 15 },
+  inputLabel: { color: C.green, fontSize: 11, fontWeight: '900', marginBottom: 8 },
+  inputRow: { minHeight: 58, borderWidth: 1, borderColor: C.border, borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingLeft: 12 },
+  inputIcon: { color: C.green, fontSize: 23, marginRight: 9 },
+  input: { flex: 1, minWidth: 0, color: '#fff', fontSize: 13, outlineStyle: 'none' } as any,
+  scanButton: { minHeight: 48, minWidth: 82, margin: 4, borderRadius: 7, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11 },
+  scanText: { color: C.bg, fontSize: 10, fontWeight: '900' },
+  error: { color: C.red, fontSize: 9, marginTop: 8 },
+  hero: { minHeight: 184, marginTop: 16, padding: 19, flexDirection: 'row', alignItems: 'center', gap: 19 },
+  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  addressShield: { width: 125, height: 145, borderRadius: 28, borderWidth: 7, backgroundColor: 'rgba(3,22,20,.75)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
+  shieldMark: { fontSize: 58, fontWeight: '900' },
+  heroCopy: { flex: 1, minWidth: 0 },
+  heroTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 9 },
+  heroTitle: { flex: 1, minWidth: 220, color: '#fff', fontSize: 20, fontWeight: '900' },
+  scanBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, fontSize: 8, fontWeight: '900' },
+  heroSummary: { fontSize: 11, lineHeight: 18, marginTop: 9 },
+  addressText: { color: '#fff', fontSize: 12, lineHeight: 18, marginTop: 15, paddingTop: 13, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  assetTags: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  assetTag: { color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,.18)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, fontSize: 8 },
+  scorePanel: { minHeight: 153, marginTop: 16, padding: 17, flexDirection: 'row', alignItems: 'center', gap: 18 },
+  scoreRing: { width: 115, height: 115, borderRadius: 58, borderWidth: 9, alignItems: 'center', justifyContent: 'center' },
+  scoreValue: { fontSize: 34, fontWeight: '900' },
+  scoreOut: { color: C.muted, fontSize: 8 },
+  scoreCopy: { flex: 1, minWidth: 0 },
+  scoreName: { fontSize: 18, fontWeight: '900' },
+  scoreText: { color: '#fff', fontSize: 9, lineHeight: 15, marginVertical: 10 },
+  summaryPanel: { marginTop: 16, padding: 17 },
+  riskPanel: { marginTop: 16, padding: 17 },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', marginBottom: 5 },
+  summaryRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  summaryLabel: { color: '#fff', fontSize: 11 },
+  summaryValue: { flex: 1, fontSize: 10, fontWeight: '700', textAlign: 'right' },
+  riskRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center' },
+  riskLabel: { flex: 1, color: '#fff', fontSize: 11, marginLeft: 11 },
+  riskValue: { maxWidth: 155, fontSize: 9, textAlign: 'right' },
+  actions: { flexDirection: 'row', gap: 11, marginTop: 16 },
+  actionsCompact: { flexDirection: 'column' },
+  rescanButton: { flex: 1, minHeight: 58, borderWidth: 1, borderColor: C.green, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  rescanText: { color: C.green, fontSize: 11, fontWeight: '900' },
+  saveButton: { flex: 1, minHeight: 58, borderRadius: 10, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  saveText: { color: C.bg, fontSize: 11, fontWeight: '900' },
+  infoPanel: { minHeight: 83, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  infoText: { flex: 1, minWidth: 0, color: '#fff', fontSize: 9, lineHeight: 15, marginLeft: 12 },
+});
