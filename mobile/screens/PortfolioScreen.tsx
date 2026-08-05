@@ -1,312 +1,410 @@
-import React, { useMemo } from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useMemo } from 'react';
+import {
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadWallet } from "../nomad/hooks";
-import { useAppState } from "../state/appState";
+import { useNomadWallet } from '../nomad/hooks';
+import { useAppState } from '../state/appState';
 
 type Asset = {
   symbol: string;
   amount: string;
   value: string;
-  badge: string;
+  mark: string;
   tint: string;
 };
 
-type Action = {
-  label: string;
-  icon: string;
-  onPress?: () => void;
-};
-
-type SecurityItem = {
-  label: string;
-  value: string;
-  icon: string;
-};
-
-type EcosystemItem = {
-  label: string;
-  icon: string;
-  tint: string;
-};
+type RouteName =
+  | 'Portfolio'
+  | 'Wallets'
+  | 'SendBitcoin'
+  | 'ReceiveBitcoin'
+  | 'Swap'
+  | 'TravelMode'
+  | 'SecurityCenter'
+  | 'Settings'
+  | 'VoltaireProtocols';
 
 const previewAssets: Asset[] = [
-  { symbol: "BTC", amount: "0.3567", value: "$22,123.10", badge: "₿", tint: "#ff9f1c" },
-  { symbol: "HBAR", amount: "3,250.00", value: "$1,250.25", badge: "H", tint: "#6c4dff" },
-  { symbol: "XRP", amount: "1,250.00", value: "$750.00", badge: "X", tint: "#151a20" },
-  { symbol: "XLM", amount: "5,200.00", value: "$310.40", badge: "S", tint: "#1684ff" },
-  { symbol: "More", amount: "", value: "", badge: "•••", tint: "#081f3d" },
+  { symbol: 'BTC', amount: '0.3567', value: '$22,123.10', mark: '₿', tint: '#ff9914' },
+  { symbol: 'HBAR', amount: '3,250.00', value: '$1,250.25', mark: 'H', tint: '#6844ef' },
+  { symbol: 'XRP', amount: '1,250.00', value: '$750.00', mark: 'X', tint: '#181c23' },
+  { symbol: 'XLM', amount: '5,200.00', value: '$310.40', mark: 'S', tint: '#147ff5' },
 ];
 
-const assetBadgeBySymbol: Record<string, { badge: string; tint: string }> = {
-  BTC: { badge: "₿", tint: "#ff9f1c" },
-  HBAR: { badge: "H", tint: "#6c4dff" },
-  XRP: { badge: "X", tint: "#151a20" },
-  XLM: { badge: "S", tint: "#1684ff" },
-  ETH: { badge: "Ξ", tint: "#627eea" },
-  USDC: { badge: "$", tint: "#2775ca" },
-  USDT: { badge: "₮", tint: "#26a17b" },
-  DAI: { badge: "D", tint: "#f5ac37" },
+const assetVisuals: Record<string, Pick<Asset, 'mark' | 'tint'>> = {
+  BTC: { mark: '₿', tint: '#ff9914' },
+  HBAR: { mark: 'H', tint: '#6844ef' },
+  XRP: { mark: 'X', tint: '#181c23' },
+  XLM: { mark: 'S', tint: '#147ff5' },
+  ETH: { mark: 'Ξ', tint: '#6574ca' },
+  USDC: { mark: '$', tint: '#2775ca' },
+  USDT: { mark: '₮', tint: '#26a17b' },
+  DAI: { mark: 'D', tint: '#f5ac37' },
 };
 
-const securityItems: SecurityItem[] = [
-  { label: "Secure Storage", value: "Secure", icon: "▣" },
-  { label: "Owner Authority", value: "Active", icon: "✓" },
-  { label: "Device Integrity", value: "Verified", icon: "▤" },
-  { label: "Recovery Status", value: "Ready", icon: "↻" },
-];
+const shieldSvg = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 96">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#25b9ff"/><stop offset="1" stop-color="#0064ff"/></linearGradient></defs>
+  <path d="M42 4 74 18v24c0 23-13 39-32 50C23 81 10 65 10 42V18Z" fill="#031120" stroke="url(#g)" stroke-width="6"/>
+  <path d="m19 48 10-10 8 8 9-11 8 10 12-9" fill="none" stroke="#138cff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`);
 
-const ecosystem: EcosystemItem[] = [
-  { label: "Nomad", icon: "ϟ", tint: "#0b84ff" },
-  { label: "AutoDeFi", icon: "∞", tint: "#0b84ff" },
-  { label: "BlockPages411", icon: "411", tint: "#7c4dff" },
-  { label: "Sovereign\nPayroll", icon: "$", tint: "#20e86b" },
-  { label: "Guardian\nTrader", icon: "♜", tint: "#20e86b" },
-  { label: "Quantum\nLottery", icon: "◉", tint: "#8b5cff" },
-  { label: "Decentralized\nRetirement", icon: "☼", tint: "#f5a20b" },
-];
+const chartSvg = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 180" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#148cff" stop-opacity=".38"/><stop offset="1" stop-color="#148cff" stop-opacity="0"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <path d="M10 158 C45 152 52 150 74 139 S117 145 139 128 S176 115 199 120 S228 102 250 88 S282 100 300 84 S331 66 351 73 S381 82 400 57 S435 61 455 37 S486 47 510 12 L510 180 L10 180Z" fill="url(#fill)"/>
+  <path d="M10 158 C45 152 52 150 74 139 S117 145 139 128 S176 115 199 120 S228 102 250 88 S282 100 300 84 S331 66 351 73 S381 82 400 57 S435 61 455 37 S486 47 510 12" fill="none" stroke="#148cff" stroke-width="4" filter="url(#glow)"/>
+</svg>`);
 
-function ShieldLogo() {
-  return (
-    <View style={{ width: 72, height: 72, borderRadius: 22, borderWidth: 5, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", shadowColor: "#1684ff", shadowOpacity: 0.7, shadowRadius: 18 }}>
-      <Text style={{ color: "#1684ff", fontSize: 26, fontWeight: "900" }}>⌁</Text>
-    </View>
-  );
-}
+const ShieldLogo = ({ size = 66 }: { size?: number }) => (
+  <Image
+    source={{ uri: `data:image/svg+xml;utf8,${shieldSvg}` }}
+    resizeMode="contain"
+    style={{ width: size, height: size * 1.14 }}
+    accessibilityLabel="Nomad shield"
+  />
+);
 
-function Capsule({ children, borderColor = "#07375f", backgroundColor = "#031321" }: { children: React.ReactNode; borderColor?: string; backgroundColor?: string }) {
-  return (
-    <View style={{ borderWidth: 1, borderColor, backgroundColor, borderRadius: 28, paddingVertical: 10, paddingHorizontal: 14 }}>
-      {children}
-    </View>
-  );
-}
+const Card = ({ children, style }: { children: React.ReactNode; style?: object }) => (
+  <View style={[styles.card, style]}>{children}</View>
+);
 
-function Card({ children, borderColor = "#0a3862", backgroundColor = "rgba(3,16,30,0.94)", style = {} as object }: { children: React.ReactNode; borderColor?: string; backgroundColor?: string; style?: object }) {
-  return (
-    <View style={[{ borderWidth: 1, borderColor, backgroundColor, borderRadius: 18, padding: 18, overflow: "hidden" }, style]}>
-      {children}
-    </View>
-  );
-}
+const Token = ({ asset, size = 44 }: { asset: Asset; size?: number }) => (
+  <View
+    style={[
+      styles.token,
+      {
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: asset.tint,
+      },
+    ]}
+  >
+    <Text style={{ color: '#fff', fontSize: size * 0.48, fontWeight: '900' }}>{asset.mark}</Text>
+  </View>
+);
 
-function AssetBadge({ asset }: { asset: Asset }) {
-  return (
-    <View style={{ alignItems: "center", width: 72 }}>
-      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: asset.tint, borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-        <Text style={{ color: "white", fontSize: asset.badge.length > 2 ? 15 : 22, fontWeight: "900" }}>{asset.badge}</Text>
+const ActionCard = ({ icon, label, onPress, compact }: { icon: string; label: string; onPress: () => void; compact: boolean }) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.actionCard,
+      { minHeight: compact ? 104 : 126, opacity: pressed ? 0.78 : 1 },
+    ]}
+  >
+    <Text style={[styles.actionIcon, { fontSize: compact ? 38 : 48 }]}>{icon}</Text>
+    <Text style={[styles.actionLabel, { fontSize: compact ? 14 : 17 }]}>{label}</Text>
+  </Pressable>
+);
+
+const Metric = ({ label, value, unit, sub, percent, last }: { label: string; value: string; unit?: string; sub?: string; percent?: number; last?: boolean }) => (
+  <View style={[styles.metric, last && styles.metricLast]}>
+    <Text style={styles.metricLabel}>{label}</Text>
+    <Text style={styles.metricValue}>{value}{unit ? <Text style={styles.metricUnit}> {unit}</Text> : null}</Text>
+    {sub ? <Text style={styles.metricSub}>{sub}</Text> : null}
+    {typeof percent === 'number' ? (
+      <View style={styles.progressRow}>
+        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
+        <Text style={styles.progressText}>{percent}%</Text>
       </View>
-      <Text style={{ color: "#f7fbff", fontWeight: "800", fontSize: 14 }}>{asset.symbol}</Text>
-      {asset.amount ? <Text style={{ color: "#f7fbff", fontSize: 13, marginTop: 4 }}>{asset.amount}</Text> : null}
-      {asset.value ? <Text style={{ color: "#b9c5d6", fontSize: 12, marginTop: 4 }}>{asset.value}</Text> : null}
-    </View>
-  );
-}
-
-function ActionButton({ action }: { action: Action }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={action.label} onPress={action.onPress} style={{ flex: 1, minWidth: 86, height: 98, borderWidth: 1, borderColor: "#0a3862", borderRadius: 16, backgroundColor: "rgba(3,17,31,0.96)", alignItems: "center", justifyContent: "center", marginRight: 10 }}>
-      <Text style={{ color: "#1684ff", fontSize: 36, fontWeight: "900", lineHeight: 40 }}>{action.icon}</Text>
-      <Text style={{ color: "#f7fbff", fontSize: 18, fontWeight: "800", marginTop: 8 }}>{action.label}</Text>
-    </Pressable>
-  );
-}
-
-function TravelPocketCard({ onPress }: { onPress: () => void }) {
-  return (
-    <Card borderColor="#0ba861" backgroundColor="rgba(0,43,27,0.9)" style={{ marginTop: 18 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ fontSize: 28, marginRight: 12 }}>✈</Text>
-          <Text style={{ color: "#35f883", fontSize: 20, fontWeight: "900" }}>Travel Pocket</Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Capsule borderColor="#0ba861" backgroundColor="rgba(0,80,45,0.45)"><Text style={{ color: "#35f883", fontWeight: "900" }}>ACTIVE</Text></Capsule>
-          <Text style={{ color: "#35f883", fontSize: 24, marginLeft: 12 }}>•••</Text>
-        </View>
-      </View>
-
-      <View style={{ height: 1, backgroundColor: "rgba(53,248,131,0.16)", marginHorizontal: -18, marginBottom: 18 }} />
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-        <View style={{ width: "50%", marginBottom: 16 }}>
-          <Text style={{ color: "#c8d4dd", fontSize: 14 }}>Balance</Text>
-          <Text style={{ color: "white", fontSize: 28, fontWeight: "800", marginTop: 4 }}>0.021 <Text style={{ fontSize: 18 }}>BTC</Text></Text>
-          <Text style={{ color: "#c8d4dd", fontSize: 14, marginTop: 6 }}>$1,312.21 USD</Text>
-        </View>
-        <View style={{ width: "50%", marginBottom: 16 }}>
-          <Text style={{ color: "#c8d4dd", fontSize: 14 }}>Daily Limit</Text>
-          <Text style={{ color: "white", fontSize: 22, fontWeight: "800", marginTop: 4 }}>0.050 <Text style={{ fontSize: 16 }}>BTC</Text></Text>
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
-            <View style={{ height: 9, width: 68, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.13)", overflow: "hidden", marginRight: 10 }}><View style={{ width: "42%", height: "100%", backgroundColor: "#35f883" }} /></View>
-            <Text style={{ color: "white" }}>42%</Text>
-          </View>
-        </View>
-        <View style={{ width: "50%" }}>
-          <Text style={{ color: "#c8d4dd", fontSize: 14 }}>Trip Limit</Text>
-          <Text style={{ color: "white", fontSize: 22, fontWeight: "800", marginTop: 4 }}>0.500 <Text style={{ fontSize: 16 }}>BTC</Text></Text>
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
-            <View style={{ height: 9, width: 68, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.13)", overflow: "hidden", marginRight: 10 }}><View style={{ width: "30%", height: "100%", backgroundColor: "#35f883" }} /></View>
-            <Text style={{ color: "white" }}>30%</Text>
-          </View>
-        </View>
-        <View style={{ width: "50%" }}>
-          <Text style={{ color: "#c8d4dd", fontSize: 14 }}>Expires</Text>
-          <Text style={{ color: "white", fontSize: 19, marginTop: 6 }}>May 20, 2025</Text>
-        </View>
-      </View>
-
-      <Pressable accessibilityRole="button" accessibilityLabel="Manage Travel Pocket" onPress={onPress} style={{ marginTop: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Text style={{ color: "#35f883", fontSize: 18, fontWeight: "700" }}>Manage Travel Pocket</Text>
-        <Text style={{ color: "#35f883", fontSize: 32 }}>›</Text>
-      </Pressable>
-    </Card>
-  );
-}
+    ) : null}
+  </View>
+);
 
 export const PortfolioScreen = () => {
   const navigation = useNavigation<any>();
-  const { walletStatus, travelModeEnabled, lockWallet } = useAppState();
-  const { totalBalance, assets: liveAssets, loading, error } = useNomadWallet();
+  const { width } = useWindowDimensions();
+  const compact = width < 560;
+  const desktop = width >= 980;
+  const { walletStatus, travelModeEnabled } = useAppState();
+  const { totalBalance, assets: liveAssets, loading } = useNomadWallet();
 
   const displayAssets = useMemo<Asset[]>(() => {
     const mapped = liveAssets.slice(0, 4).map((asset) => {
-      const visual = assetBadgeBySymbol[asset.symbol] ?? { badge: asset.symbol.slice(0, 1), tint: "#081f3d" };
+      const visual = assetVisuals[asset.symbol] ?? { mark: asset.symbol.slice(0, 1), tint: '#0a355d' };
       return {
         symbol: asset.symbol,
         amount: asset.balance,
         value: asset.fiatValueUsd,
-        badge: visual.badge,
+        mark: visual.mark,
         tint: visual.tint,
       };
     });
-
-    return mapped.length ? [...mapped, previewAssets[4]] : previewAssets;
+    return mapped.length ? mapped : previewAssets;
   }, [liveAssets]);
 
-  const displayBalance = liveAssets.length ? totalBalance : "$24,832.45";
+  const navigate = (route: RouteName) => navigation.navigate(route);
+  const portfolioValue = liveAssets.length ? totalBalance : '$24,832.45';
+  const systemLabel = walletStatus === 'unlocked' ? 'SECURE' : Platform.OS === 'web' ? 'SECURE' : 'LOCKED';
 
-  const actions: Action[] = [
-    { label: "Send", icon: "↑", onPress: () => navigation.navigate("SendBitcoin") },
-    { label: "Receive", icon: "↓", onPress: () => navigation.navigate("ReceiveBitcoin") },
-    { label: "Swap", icon: "⇄", onPress: () => navigation.navigate("Swap") },
-    { label: "Travel", icon: "▣", onPress: () => navigation.navigate("TravelMode") },
+  const navItems: Array<[string, string, RouteName]> = [
+    ['⌂', 'Home', 'Portfolio'],
+    ['▣', 'Wallets', 'Wallets'],
+    ['✈', 'Travel', 'TravelMode'],
+    ['◇', 'Security', 'SecurityCenter'],
+    ['⚙', 'Settings', 'Settings'],
   ];
 
-  const bottomNav = [
-    ["⌂", "Home", "#1684ff", "Portfolio"],
-    ["▣", "Wallets", "#b9c5d6", "Wallets"],
-    ["✈", "Travel", "#b9c5d6", "TravelMode"],
-    ["♢", "Security", "#b9c5d6", "SecurityCenter"],
-    ["⚙", "Settings", "#b9c5d6", "Settings"],
-  ] as const;
+  const ecosystem = [
+    ['⚡', 'Nomad', '#148cff'],
+    ['∞', 'AutoDeFi', '#148cff'],
+    ['R', 'Reqrium', '#8457ff'],
+    ['$', 'Sovereign\nPayroll', '#23f57a'],
+    ['♜', 'Guardian\nTrader', '#23f57a'],
+    ['◉', 'Quantum\nLottery', '#8457ff'],
+    ['☼', 'Decentralized\nRetirement', '#ffb22e'],
+  ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#020812" }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 116 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <ShieldLogo />
-            <View style={{ marginLeft: 16 }}>
-              <Text style={{ color: "white", fontSize: 31, fontWeight: "900", letterSpacing: 1 }}>NOMAD</Text>
-              <Text style={{ color: "white", fontSize: 14, marginTop: 3 }}>Built on <Text style={{ color: "#1684ff" }}>Voltaire Protocols</Text></Text>
+    <View style={styles.root}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.page,
+          { paddingHorizontal: compact ? 14 : 24, maxWidth: desktop ? 1120 : 860 },
+        ]}
+      >
+        <View style={[styles.header, compact && styles.headerCompact]}>
+          <View style={styles.brandRow}>
+            <ShieldLogo size={compact ? 50 : 66} />
+            <View style={styles.brandCopy}>
+              <Text style={[styles.brandTitle, { fontSize: compact ? 28 : 37 }]}>NOMAD</Text>
+              <Text style={[styles.brandSub, { fontSize: compact ? 12 : 15 }]}>Built on <Text style={styles.blue}>Voltaire Protocols</Text></Text>
             </View>
           </View>
-
-          <View style={{ alignItems: "flex-end" }}>
-            <Capsule>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ color: "#35f883", fontSize: 21, marginRight: 8 }}>▾</Text>
-                <View>
-                  <Text style={{ color: "#d7e8ff", fontSize: 13 }}>All Systems</Text>
-                  <Text style={{ color: "#35f883", fontWeight: "900", fontSize: 13 }}>{walletStatus === "unlocked" ? "SECURE" : "LOCKED"}</Text>
-                </View>
+          <View style={styles.headerActions}>
+            <View style={[styles.statusPill, compact && styles.statusPillCompact]}>
+              <Text style={styles.statusShield}>♢</Text>
+              <View>
+                <Text style={[styles.statusTop, { fontSize: compact ? 10 : 12 }]}>All Systems</Text>
+                <Text style={[styles.statusBottom, { fontSize: compact ? 11 : 13 }]}>{systemLabel}</Text>
               </View>
-            </Capsule>
+            </View>
+            {!compact ? <View style={styles.bell}><Text style={styles.bellText}>♧</Text></View> : null}
           </View>
         </View>
 
-        <Card>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ color: "#f7fbff", fontSize: 18 }}>Total Portfolio Value  ◎</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Lock wallet" onPress={async () => { await lockWallet(); navigation.navigate("ClockUnlock"); }}>
-              <Text style={{ color: "#8ba8ca", fontSize: 24 }}>⌁</Text>
-            </Pressable>
+        <Card style={[styles.heroCard, { padding: compact ? 18 : 28 }]}>
+          <View style={[styles.heroTop, compact && styles.heroTopCompact]}>
+            <View style={styles.balanceArea}>
+              <Text style={[styles.eyebrow, { fontSize: compact ? 14 : 18 }]}>Total Portfolio Value  ◎</Text>
+              <View style={styles.balanceLine}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[styles.balance, { fontSize: compact ? 43 : 65, maxWidth: compact ? 260 : undefined }]}
+                >
+                  {portfolioValue}
+                </Text>
+                <Text style={[styles.currency, { fontSize: compact ? 14 : 20 }]}>USD</Text>
+              </View>
+              <Text style={[styles.change, { fontSize: compact ? 15 : 19 }]}>{loading ? 'Syncing wallet data…' : '▲ 1.82% (24h)'}</Text>
+            </View>
+            <Image
+              source={{ uri: `data:image/svg+xml;utf8,${chartSvg}` }}
+              resizeMode="stretch"
+              style={[styles.chart, { height: compact ? 105 : 170 }]}
+              accessibilityLabel="Portfolio growth chart"
+            />
           </View>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: 16 }}>
-            <Text style={{ color: "white", fontSize: 54, lineHeight: 58, fontWeight: "900", letterSpacing: -1 }}>{displayBalance}</Text>
-            <Text style={{ color: "white", fontSize: 20, marginLeft: 10, marginBottom: 7 }}>USD</Text>
-          </View>
-          <Text style={{ color: loading ? "#8ba8ca" : "#35f883", marginTop: 12, fontSize: 18, fontWeight: "800" }}>{loading ? "Syncing wallet data..." : "▲ 1.82% (24h)"}</Text>
-          {error ? <Text style={{ color: "#ffcf5a", marginTop: 8, fontSize: 12 }}>Preview mode: {error}</Text> : null}
-          <View style={{ height: 86, marginTop: 8, alignItems: "flex-end", justifyContent: "center" }}>
-            <Text style={{ color: "#1684ff", fontSize: 54, fontWeight: "200" }}>⌁⌁⌁⌁⌁</Text>
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
-            {displayAssets.map((asset) => <AssetBadge key={asset.symbol} asset={asset} />)}
-          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.assetRow}>
+            {displayAssets.map((asset) => (
+              <View key={asset.symbol} style={[styles.asset, { width: compact ? 73 : 112 }]}>
+                <Token asset={asset} size={compact ? 42 : 48} />
+                <Text style={styles.assetSymbol}>{asset.symbol}</Text>
+                <Text style={styles.assetAmount}>{asset.amount}</Text>
+                <Text style={styles.assetValue}>{asset.value}</Text>
+              </View>
+            ))}
+            <View style={[styles.asset, { width: compact ? 73 : 112 }]}>
+              <View style={[styles.token, styles.moreToken, { width: compact ? 42 : 48, height: compact ? 42 : 48, borderRadius: compact ? 21 : 24 }]}>
+                <Text style={styles.moreText}>•••</Text>
+              </View>
+              <Text style={styles.assetSymbol}>More</Text>
+            </View>
+          </ScrollView>
         </Card>
 
-        <Text style={{ color: "white", fontSize: 21, fontWeight: "900", marginTop: 22, marginBottom: 14 }}>Quick Actions</Text>
-        <View style={{ flexDirection: "row" }}>{actions.map((action) => <ActionButton key={action.label} action={action} />)}</View>
+        <Text style={[styles.sectionTitle, { fontSize: compact ? 18 : 22 }]}>Quick Actions</Text>
+        <View style={styles.actionGrid}>
+          <ActionCard compact={compact} icon="↑" label="Send" onPress={() => navigate('SendBitcoin')} />
+          <ActionCard compact={compact} icon="↓" label="Receive" onPress={() => navigate('ReceiveBitcoin')} />
+          <ActionCard compact={compact} icon="⇄" label="Swap" onPress={() => navigate('Swap')} />
+          <ActionCard compact={compact} icon="▣" label="Travel" onPress={() => navigate('TravelMode')} />
+        </View>
 
-        <TravelPocketCard onPress={() => navigation.navigate("TravelMode")} />
-
-        <Card style={{ marginTop: 18 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open Security Center" onPress={() => navigation.navigate("SecurityCenter")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ color: "#1684ff", fontSize: 28, marginRight: 12 }}>♢</Text>
-              <Text style={{ color: "white", fontSize: 21, fontWeight: "900" }}>Security Center</Text>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Capsule><Text style={{ color: "#1684ff", fontWeight: "900" }}>{travelModeEnabled ? "TRAVEL" : "SECURE"}</Text></Capsule>
-              <Text style={{ color: "#1684ff", fontSize: 30, marginLeft: 12 }}>›</Text>
-            </View>
+        <Card style={styles.travelCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}><Text style={styles.travelIcon}>✈</Text><Text style={styles.travelTitle}>Travel Pocket</Text></View>
+            <View style={styles.cardHeaderRight}><Text style={styles.activePill}>{travelModeEnabled ? 'ACTIVE' : 'READY'}</Text><Text style={styles.dots}>•••</Text></View>
+          </View>
+          <View style={[styles.metrics, compact && styles.metricsCompact]}>
+            <Metric label="Balance" value="0.021" unit="BTC" sub="$1,312.21 USD" />
+            <Metric label="Daily Limit" value="0.050" unit="BTC" percent={42} />
+            <Metric label="Trip Limit" value="0.500" unit="BTC" percent={30} />
+            <Metric label="Expires" value="May 20, 2025" last />
+          </View>
+          <Pressable style={styles.manageLink} onPress={() => navigate('TravelMode')}>
+            <Text style={styles.manageText}>Manage Travel Pocket</Text><Text style={styles.manageArrow}>›</Text>
           </Pressable>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            {securityItems.map((item) => (
-              <View key={item.label} style={{ alignItems: "center", width: "24%" }}>
-                <Text style={{ color: "#35f883", fontSize: 28, fontWeight: "900" }}>{item.icon}</Text>
-                <Text style={{ color: "white", textAlign: "center", marginTop: 10, fontSize: 12 }}>{item.label}</Text>
-                <Text style={{ color: "#35f883", textAlign: "center", marginTop: 7, fontWeight: "900", fontSize: 12 }}>{item.value}</Text>
+        </Card>
+
+        <Card style={styles.securityCard}>
+          <Pressable style={styles.cardHeader} onPress={() => navigate('SecurityCenter')}>
+            <View style={styles.cardTitleRow}><Text style={styles.securityHeaderIcon}>◇</Text><Text style={styles.securityTitle}>Security Center</Text></View>
+            <View style={styles.cardHeaderRight}><Text style={styles.securePill}>SECURE</Text><Text style={styles.blueArrow}>›</Text></View>
+          </Pressable>
+          <View style={styles.securityGrid}>
+            {[
+              ['▣', 'Secure Storage', 'Secure'],
+              ['♙', 'Owner Authority', 'Active'],
+              ['▤', 'Device Integrity', 'Verified'],
+              ['◌', 'Recovery Status', 'Ready'],
+            ].map(([symbol, label, value], index) => (
+              <View key={label} style={[styles.securityItem, index === 3 && styles.securityItemLast]}>
+                <Text style={styles.securityIcon}>{symbol}</Text>
+                <Text style={styles.securityLabel}>{label}</Text>
+                <Text style={styles.securityValue}>{value}</Text>
               </View>
             ))}
           </View>
         </Card>
 
-        <Card style={{ marginTop: 18 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open Voltaire Protocols" onPress={() => navigation.navigate("VoltaireProtocols")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ color: "#8b5cff", fontSize: 28, marginRight: 12 }}>♛</Text>
-              <Text style={{ color: "#8b5cff", fontSize: 20, fontWeight: "900" }}>Voltaire Ecosystem</Text>
-            </View>
-            <Text style={{ color: "#1684ff", fontSize: 16, fontWeight: "800" }}>Explore All  ›</Text>
+        <Card style={styles.ecosystemCard}>
+          <Pressable style={styles.cardHeader} onPress={() => navigate('VoltaireProtocols')}>
+            <View style={styles.cardTitleRow}><Text style={styles.ecoHeaderIcon}>♛</Text><Text style={styles.ecoTitle}>Voltaire Ecosystem</Text></View>
+            <Text style={styles.exploreText}>Explore All  ›</Text>
           </Pressable>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {ecosystem.map((item) => (
-              <View key={item.label} style={{ width: 86, alignItems: "center", marginRight: 12 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: item.tint, backgroundColor: `${item.tint}33`, alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-                  <Text style={{ color: "white", fontWeight: "900", fontSize: item.icon.length > 2 ? 19 : 28 }}>{item.icon}</Text>
-                </View>
-                <Text style={{ color: "white", textAlign: "center", fontSize: 12, lineHeight: 16 }}>{item.label}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ecoRow}>
+            {ecosystem.map(([symbol, label, tint]) => (
+              <View key={label} style={styles.ecoItem}>
+                <View style={[styles.ecoIcon, { borderColor: tint, shadowColor: tint }]}><Text style={[styles.ecoMark, { color: tint }]}>{symbol}</Text></View>
+                <Text style={styles.ecoLabel}>{label}</Text>
               </View>
             ))}
           </ScrollView>
-          <View style={{ marginTop: 16, alignSelf: "center", flexDirection: "row" }}><View style={{ width: 38, height: 4, borderRadius: 4, backgroundColor: "#1684ff" }} /><View style={{ width: 80, height: 4, borderRadius: 4, backgroundColor: "#1d2a3c", marginLeft: 6 }} /></View>
         </Card>
-      </ScrollView>
 
-      <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-        {bottomNav.map(([icon, label, color, route]) => (
-          <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={() => navigation.navigate(route)} style={{ alignItems: "center", minWidth: 58 }}>
-            <Text style={{ color, fontSize: 27, fontWeight: "900" }}>{icon}</Text>
-            <Text style={{ color, fontSize: 12, marginTop: 4 }}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.bottomNav}>
+          {navItems.map(([symbol, label, route], index) => (
+            <Pressable key={label} onPress={() => navigate(route)} style={[styles.navItem, index === 0 && styles.navItemActive]}>
+              <Text style={[styles.navIcon, index === 0 && styles.navActive]}>{symbol}</Text>
+              <Text style={[styles.navLabel, index === 0 && styles.navActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#020812' },
+  page: { width: '100%', alignSelf: 'center', paddingTop: 20, paddingBottom: 24 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 20 },
+  headerCompact: { gap: 7 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  brandCopy: { marginLeft: 12, flexShrink: 1 },
+  brandTitle: { color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
+  brandSub: { color: '#fff', marginTop: 3 },
+  blue: { color: '#148cff' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#0c385d', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: 'rgba(2,15,27,0.92)' },
+  statusPillCompact: { paddingHorizontal: 9, paddingVertical: 7, gap: 6 },
+  statusShield: { color: '#23f57a', fontSize: 25, fontWeight: '900' },
+  statusTop: { color: '#dbe7f6' },
+  statusBottom: { color: '#23f57a', fontWeight: '900', marginTop: 1 },
+  bell: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#0c385d', alignItems: 'center', justifyContent: 'center' },
+  bellText: { color: '#adc1d9', fontSize: 24 },
+  card: { borderWidth: 1, borderColor: '#0a426d', backgroundColor: 'rgba(3,16,29,0.96)', borderRadius: 18, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0 16px 55px rgba(0,0,0,.32)' } as any, default: {} }) },
+  heroCard: { minHeight: 320 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  heroTopCompact: { gap: 3 },
+  balanceArea: { flex: 1.05, minWidth: 0 },
+  eyebrow: { color: '#f1f6fc' },
+  balanceLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 10 },
+  balance: { color: '#fff', fontWeight: '900', letterSpacing: -2.2, lineHeight: 70 },
+  currency: { color: '#fff', marginBottom: 6 },
+  change: { color: '#23f57a', fontWeight: '800', marginTop: 4 },
+  chart: { flex: 0.95, minWidth: 110 },
+  assetRow: { paddingTop: 25, paddingBottom: 3, alignItems: 'flex-start' },
+  asset: { alignItems: 'center' },
+  token: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,.17)', marginBottom: 8 },
+  moreToken: { backgroundColor: '#06172a', borderColor: '#164976' },
+  moreText: { color: '#e3edf9', fontSize: 18, fontWeight: '900' },
+  assetSymbol: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  assetAmount: { color: '#f4f8ff', marginTop: 4, fontSize: 12 },
+  assetValue: { color: '#a9b7ca', marginTop: 4, fontSize: 11 },
+  sectionTitle: { color: '#fff', fontWeight: '900', marginTop: 23, marginBottom: 13 },
+  actionGrid: { flexDirection: 'row', gap: 10 },
+  actionCard: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#0a426d', borderRadius: 16, backgroundColor: 'rgba(4,18,31,.94)', alignItems: 'center', justifyContent: 'center' },
+  actionIcon: { color: '#148cff', fontWeight: '900', textShadowColor: 'rgba(20,140,255,.6)', textShadowRadius: 10 },
+  actionLabel: { color: '#fff', fontWeight: '800', marginTop: 4 },
+  travelCard: { marginTop: 20, borderColor: '#0b9d58', backgroundColor: 'rgba(0,41,28,.91)' },
+  cardHeader: { minHeight: 64, paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(35,245,122,.12)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  travelIcon: { fontSize: 24 },
+  travelTitle: { color: '#23f57a', fontWeight: '900', fontSize: 18 },
+  activePill: { color: '#23f57a', fontWeight: '900', borderWidth: 1, borderColor: 'rgba(35,245,122,.45)', backgroundColor: 'rgba(0,105,50,.3)', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, fontSize: 12 },
+  dots: { color: '#23f57a', fontSize: 20 },
+  metrics: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 22 },
+  metricsCompact: { paddingHorizontal: 4 },
+  metric: { flex: 1, minWidth: 0, paddingHorizontal: 11, borderRightWidth: 1, borderRightColor: 'rgba(35,245,122,.2)' },
+  metricLast: { borderRightWidth: 0 },
+  metricLabel: { color: '#a9b7ca', fontSize: 11 },
+  metricValue: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 7 },
+  metricUnit: { fontSize: 11, fontWeight: '500' },
+  metricSub: { color: '#c4d0df', fontSize: 10, marginTop: 6 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 9 },
+  progressTrack: { flex: 1, maxWidth: 65, height: 7, borderRadius: 7, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,.12)' },
+  progressFill: { height: '100%', borderRadius: 7, backgroundColor: '#23f57a' },
+  progressText: { color: '#fff', fontSize: 10 },
+  manageLink: { minHeight: 57, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: 'rgba(35,245,122,.13)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  manageText: { color: '#23f57a', fontWeight: '800' },
+  manageArrow: { color: '#23f57a', fontSize: 28 },
+  securityCard: { marginTop: 20 },
+  securityHeaderIcon: { color: '#148cff', fontSize: 28, fontWeight: '900' },
+  securityTitle: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  securePill: { color: '#148cff', borderWidth: 1, borderColor: '#0b4e82', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, fontWeight: '900', fontSize: 11 },
+  blueArrow: { color: '#148cff', fontSize: 28 },
+  securityGrid: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 21 },
+  securityItem: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 7, borderRightWidth: 1, borderRightColor: 'rgba(20,140,255,.17)' },
+  securityItemLast: { borderRightWidth: 0 },
+  securityIcon: { color: '#23f57a', fontSize: 27, fontWeight: '900' },
+  securityLabel: { color: '#fff', textAlign: 'center', fontSize: 10, marginTop: 8 },
+  securityValue: { color: '#23f57a', textAlign: 'center', fontSize: 10, fontWeight: '800', marginTop: 6 },
+  ecosystemCard: { marginTop: 20 },
+  ecoHeaderIcon: { color: '#8457ff', fontSize: 25 },
+  ecoTitle: { color: '#8457ff', fontWeight: '900', fontSize: 18 },
+  exploreText: { color: '#148cff', fontWeight: '800', fontSize: 13 },
+  ecoRow: { paddingHorizontal: 14, paddingVertical: 20 },
+  ecoItem: { width: 92, alignItems: 'center' },
+  ecoIcon: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, backgroundColor: '#061526', alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.45, shadowRadius: 12 },
+  ecoMark: { fontSize: 23, fontWeight: '900' },
+  ecoLabel: { color: '#fff', textAlign: 'center', fontSize: 10, lineHeight: 14, marginTop: 9 },
+  bottomNav: { minHeight: 84, marginTop: 20, borderWidth: 1, borderColor: '#0a3559', borderRadius: 18, backgroundColor: 'rgba(3,14,25,.98)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 7 },
+  navItem: { flex: 1, minWidth: 0, minHeight: 66, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },
+  navItemActive: { backgroundColor: 'rgba(0,78,170,.12)' },
+  navIcon: { color: '#aebacc', fontSize: 26 },
+  navLabel: { color: '#aebacc', fontSize: 10, marginTop: 5 },
+  navActive: { color: '#148cff' },
+});
 
 export default PortfolioScreen;
