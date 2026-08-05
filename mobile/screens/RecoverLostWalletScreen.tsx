@@ -1,56 +1,192 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useNomadRecovery } from '../nomad';
+import {
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  PrimaryButton,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-const blueBlack = '#020812';
-const cardBg = 'rgba(3,16,30,0.96)';
-const border = '#12314a';
-const green = '#19f86a';
-const muted = '#aeb8c8';
-const danger = '#ff3b4f';
-
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[{ borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: cardBg, padding: 16 }, style]}>{children}</View>;
+function RecoveryStepper() {
+  const steps = [
+    ['1', 'Enter Time Sets', 'In Progress'], ['2', 'Verify Sequence', 'Pending'], ['3', 'Recover Wallet', 'Pending'], ['4', 'Complete', 'Pending'],
+  ];
+  return (
+    <Panel style={styles.stepper}>
+      {steps.map((step, index) => <React.Fragment key={step[0]}><View style={styles.step}><View style={[styles.stepCircle, index === 0 && styles.stepActive]}><Text style={[styles.stepNumber, index === 0 && styles.stepNumberActive]}>{step[0]}</Text></View><Text style={[styles.stepLabel, index === 0 && { color: C.green }]}>{step[1]}</Text><Text style={styles.stepSub}>{step[2]}</Text></View>{index < steps.length - 1 ? <Text style={styles.stepArrow}>→</Text> : null}</React.Fragment>)}
+    </Panel>
+  );
 }
 
-function IconBubble({ icon, tint = green }: { icon: string; tint?: string }) {
-  return <View style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: tint, backgroundColor: `${tint}22`, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: tint, fontSize: 25, fontWeight: '900' }}>{icon}</Text></View>;
-}
-
-function StepHeader() {
-  const steps = [['1', 'Enter 24 Time Sets', 'In Progress'], ['2', 'Verify Sequence', 'Pending'], ['3', 'Recover Wallet', 'Pending'], ['4', 'Complete', 'Pending']];
-  return <Card style={{ marginTop: 18, paddingVertical: 14 }}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>{steps.map((step, index) => <React.Fragment key={step[0]}><View style={{ alignItems: 'center', flex: 1 }}><View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: index === 0 ? green : '#718097', backgroundColor: index === 0 ? green : 'transparent', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: index === 0 ? '#011607' : '#dce6f4', fontWeight: '900' }}>{step[0]}</Text></View><Text style={{ color: index === 0 ? green : muted, textAlign: 'center', fontSize: 12, fontWeight: index === 0 ? '900' : '500', marginTop: 8 }}>{step[1]}</Text><Text style={{ color: index === 0 ? green : muted, textAlign: 'center', fontSize: 12, marginTop: 2 }}>{step[2]}</Text></View>{index < steps.length - 1 && <Text style={{ color: muted, fontSize: 28, marginHorizontal: 3 }}>→</Text>}</React.Fragment>)}</View></Card>;
-}
-
-function RecoveryClock({ timeLabel }: { timeLabel: string }) {
-  const dots = Array.from({ length: 24 }, (_, i) => i + 1);
-  return <View style={{ alignItems: 'center', justifyContent: 'center', width: 300, height: 300 }}><View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 2, borderColor: green, backgroundColor: 'rgba(0, 30, 20, 0.45)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: 'white', fontSize: 24, fontWeight: '900' }}>12</Text><Text style={{ color: green, fontSize: 42, marginTop: 28 }}>◷</Text><Text style={{ color: green, fontWeight: '900', fontSize: 18 }}>NOMAD</Text><Text style={{ color: muted, fontSize: 10, fontWeight: '800' }}>TIME RECOVERY</Text><Text style={{ color: 'white', fontSize: 30, fontWeight: '800', marginTop: 8 }}>{timeLabel}</Text><Text style={{ color: green, fontSize: 10, fontWeight: '800' }}>HOUR     MIN     SEC</Text></View>{dots.map((dot, i) => { const angle = (i / 24) * Math.PI * 2 - Math.PI / 2; const radius = 132; const x = Math.cos(angle) * radius + 150 - 13; const y = Math.sin(angle) * radius + 150 - 13; return <View key={dot} style={{ position: 'absolute', left: x, top: y, alignItems: 'center' }}><View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderStyle: 'dotted', borderColor: green }} /><Text style={{ color: 'white', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{dot}</Text></View>; })}</View>;
-}
-
-function PasswordCard() {
-  return <Card style={{ marginTop: 18 }}><Text style={{ color: green, fontWeight: '900', marginBottom: 10 }}>WALLET PASSWORD</Text><View style={{ borderRadius: 10, borderWidth: 1, borderColor: '#33465a', height: 54, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 }}><Text style={{ color: green, fontSize: 25, marginRight: 12 }}>▣</Text><Text style={{ color: muted, flex: 1, fontSize: 17 }}>Enter your wallet password</Text><Text style={{ color: '#dbe5f5', fontSize: 23 }}>◎</Text></View><Text style={{ color: muted, marginTop: 10, fontSize: 12 }}>This password is required to decrypt and recover your wallet.</Text></Card>;
-}
-
-function TimeGrid({ enteredSets, sampleTime }: { enteredSets: number; sampleTime: string }) {
-  const cells = Array.from({ length: 24 }, (_, i) => i + 1);
-  return <View style={{ marginTop: 18 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><Text style={{ color: green, fontSize: 17, fontWeight: '900' }}>ENTER YOUR 24 TIME SETS</Text><Text style={{ color: danger, fontSize: 16 }}>▥  Clear All</Text></View><View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>{cells.map((cell) => <View key={cell} style={{ width: '15.2%', height: 70, borderRadius: 8, borderWidth: 1, borderColor: cell <= Math.max(1, enteredSets) ? green : '#2a3b4b', backgroundColor: cell <= Math.max(1, enteredSets) ? 'rgba(0,255,100,0.08)' : 'rgba(0,0,0,0.18)', marginBottom: 10, padding: 10 }}><Text style={{ color: cell <= Math.max(1, enteredSets) ? green : '#d4d8e1', fontWeight: '700' }}>{cell}</Text><Text style={{ color: cell <= Math.max(1, enteredSets) ? green : muted, fontWeight: '900', marginTop: 14, fontSize: 12 }}>{cell <= Math.max(1, enteredSets) ? sampleTime : '--:--:--'}</Text></View>)}</View><View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}><Text style={{ color: muted }}>◷  Use 24 unique time positions (HH:MM:SS)</Text><Text style={{ color: green, fontWeight: '900' }}>{enteredSets} of 24 time sets entered</Text></View></View>;
-}
-
-function InfoPanels() {
-  return <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}><Card style={{ flex: 1 }}><Text style={{ color: green, fontWeight: '900', marginBottom: 10 }}>INSTRUCTIONS</Text>{['Enter the exact 24 time positions in the exact order you created them.', 'Each time must match one of the 24 hour positions on the clock.', 'Example times: 01:00:45, 13:30:22, 22:15:07, etc.', 'After all 24 are entered, tap “Verify Sequence”.'].map((line, i) => <Text key={line} style={{ color: '#d7dfec', fontSize: 12, lineHeight: 18 }}>{i + 1}.  {line}</Text>)}</Card><Card style={{ flex: 1 }}><Text style={{ color: green, fontWeight: '900', marginBottom: 10 }}>RECOVERY TIPS</Text>{[['☼', 'Make sure you are in a private, secure location.'], ['▣', 'Your data never leaves your device.'], ['♢', 'Too many incorrect attempts may result in permanent loss of access.']].map(([icon, text]) => <View key={text} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}><Text style={{ color: green, fontSize: 22, width: 30 }}>{icon}</Text><Text style={{ color: '#d7dfec', flex: 1, fontSize: 12, lineHeight: 16 }}>{text}</Text></View>)}</Card></View>;
-}
-
-function StrengthCard({ score, enteredSets }: { score: number; enteredSets: number }) {
-  return <Card style={{ marginTop: 14 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><IconBubble icon="♢" /><View style={{ marginLeft: 14, flex: 1 }}><Text style={{ color: green, fontWeight: '900' }}>RECOVERY STRENGTH</Text><Text style={{ color: 'white', fontSize: 28, fontWeight: '900', marginTop: 8 }}>{score || '---'} /100</Text><Text style={{ color: muted, marginTop: 5 }}>Enter all 24 time sets to calculate strength.</Text></View><View style={{ width: 220 }}>{['24 Unique Times', 'Correct Sequence', 'Complete Recovery'].map((item, index) => <View key={item} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 5 }}><View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: enteredSets >= 24 || index === 0 ? green : '#6d7888', marginRight: 10 }} /><Text style={{ color: muted }}>{item}</Text></View>)}</View><View style={{ width: 74, height: 74, borderRadius: 37, borderWidth: 1, borderStyle: 'dashed', borderColor: muted, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: muted }}>♢ {score || '--'}</Text></View></View></Card>;
+function TimeGrid({ entered, sample }: { entered: number; sample: string }) {
+  return (
+    <View style={styles.timeGrid}>
+      {Array.from({ length: 24 }, (_, index) => {
+        const active = index < entered;
+        return <View key={index} style={[styles.timeCell, active && styles.timeCellActive]}><Text style={[styles.cellNumber, active && { color: C.green }]}>{index + 1}</Text><Text style={[styles.cellTime, active && { color: C.green }]}>{active ? sample : '--:--:--'}</Text></View>;
+      })}
+    </View>
+  );
 }
 
 export default function RecoverLostWalletScreen() {
   const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   const { sequence, startSequence, error } = useNomadRecovery();
-  const sampleTime = `${String(sequence.sampleTime.hour).padStart(2, '0')}:${String(sequence.sampleTime.minute).padStart(2, '0')}:${String(sequence.sampleTime.second ?? 0).padStart(2, '0')}`;
-  const beginVerification = async () => { await startSequence(); navigation.navigate('VerifyRecoverySequence'); };
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
-  return <View style={{ flex: 1, backgroundColor: blueBlack }}><ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24 }} showsVerticalScrollIndicator={false}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Pressable onPress={() => navigation.goBack()}><Text style={{ color: 'white', fontSize: 42 }}>‹</Text></Pressable><View style={{ marginLeft: 14 }}><IconBubble icon="◷" /></View><View style={{ marginLeft: 14, flex: 1 }}><Text style={{ color: 'white', fontSize: 29, fontWeight: '900' }}>Recover Lost Wallet</Text><Text style={{ color: '#d8deea', marginTop: 4 }}>Enter your 24 Time Sets and password to recover your wallet.</Text></View><Text style={{ color: green, fontSize: 20, marginRight: 10 }}>Help</Text><View style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: green, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: green, fontWeight: '900' }}>?</Text></View></View>{error ? <Text style={{ color: danger, marginTop: 10 }}>{error}</Text> : null}<StepHeader /><Card style={{ marginTop: 18, borderColor: '#244052' }}><View style={{ flexDirection: 'row' }}><View style={{ flex: 1 }}><Text style={{ color: green, fontWeight: '900', fontSize: 18 }}>STEP 1 OF 4</Text><Text style={{ color: 'white', fontSize: 26, fontWeight: '900', marginTop: 18 }}>Enter Your 24 Time Sets</Text><Text style={{ color: '#d8deea', fontSize: 17, lineHeight: 25, marginTop: 14 }}>Enter the exact time positions including seconds in the order you created them.</Text><View style={{ marginTop: 28, borderWidth: 1, borderColor: green, borderRadius: 8, padding: 16, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: green, fontSize: 26, marginRight: 12 }}>♢</Text><Text style={{ color: '#e6edf7', flex: 1, lineHeight: 20 }}>Only you know your time sequence. Nomad never stores or sees your Time Sets.</Text></View></View><RecoveryClock timeLabel={sampleTime} /></View><PasswordCard /><TimeGrid enteredSets={sequence.enteredSets} sampleTime={sampleTime} /><InfoPanels /><StrengthCard score={sequence.strengthScore} enteredSets={sequence.enteredSets} /><Pressable accessibilityRole="button" accessibilityLabel="Verify Sequence" onPress={() => { void beginVerification(); }} style={{ marginTop: 14, borderRadius: 9, backgroundColor: green, paddingVertical: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: '#001706', fontSize: 28, marginRight: 16 }}>♢</Text><View style={{ flex: 1 }}><Text style={{ color: '#001706', fontSize: 20, fontWeight: '900' }}>Verify Sequence</Text><Text style={{ color: '#001706' }}>Verify your 24 time sets to recover wallet</Text></View><Text style={{ color: '#001706', fontSize: 36 }}>›</Text></Pressable><View style={{ marginTop: 14, borderRadius: 8, borderWidth: 1, borderColor: danger, padding: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,0,40,0.08)' }}><Text style={{ color: danger, fontSize: 22, marginRight: 14 }}>⚠</Text><Text style={{ color: '#e7edf5', flex: 1, lineHeight: 20 }}>Incorrect recovery information may permanently block access. Confirm each Time Set before continuing.</Text></View></Card></ScrollView></View>;
+  const sampleTime = `${String(sequence.sampleTime.hour).padStart(2, '0')}:${String(sequence.sampleTime.minute).padStart(2, '0')}:${String(sequence.sampleTime.second ?? 0).padStart(2, '0')}`;
+  const canContinue = password.length >= 6 && acknowledged;
+  const sequencePercent = Math.round((sequence.enteredSets / Math.max(1, sequence.totalSets)) * 100);
+
+  const beginVerification = async () => {
+    if (!canContinue) {
+      setFeedback('Enter the wallet password and confirm the private recovery warning.');
+      return;
+    }
+    try {
+      setBusy(true);
+      setFeedback('');
+      await startSequence();
+      navigation.navigate('VerifyRecoverySequence');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to start the recovery sequence.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <NomadPage maxWidth={920}>
+      <PageHeader title="Recover Lost Wallet" subtitle="Use the protected Time Set recovery sequence" icon="◷" color={C.green} help />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <RecoveryStepper />
+
+      <Panel style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={styles.heroCopy}>
+          <Text style={styles.eyebrow}>STEP 1 OF 4</Text>
+          <Text style={styles.heroTitle}>Prepare Your 24 Time Sets</Text>
+          <Text style={styles.heroText}>Recovery verifies the exact time positions and order configured by the wallet owner. Nomad does not receive or store the private sequence.</Text>
+          <View style={styles.privateBox}><Text style={styles.privateIcon}>◇</Text><Text style={styles.privateText}>Complete this process in a private location on a trusted device.</Text></View>
+        </View>
+        <View style={[styles.clock, { width: compact ? 210 : 270, height: compact ? 210 : 270, borderRadius: compact ? 105 : 135 }]}>
+          <Text style={styles.clockTwelve}>12</Text><Text style={styles.clockIcon}>◷</Text><Text style={styles.clockBrand}>NOMAD</Text><Text style={styles.clockSub}>TIME RECOVERY</Text><Text style={styles.clockTime}>{sampleTime}</Text>
+        </View>
+      </Panel>
+
+      <Panel style={styles.passwordPanel}>
+        <Text style={styles.sectionTitle}>WALLET PASSWORD</Text>
+        <View style={styles.passwordBox}><Text style={styles.passwordIcon}>▣</Text><TextInput value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="Enter your wallet password" placeholderTextColor="#718196" style={styles.passwordInput} /><Pressable onPress={() => setShowPassword((value) => !value)}><Text style={styles.eye}>{showPassword ? '◉' : '◎'}</Text></Pressable></View>
+        <Text style={styles.helper}>The password is used locally by the wallet recovery flow and is not stored by this screen.</Text>
+      </Panel>
+
+      <Panel style={styles.sequencePanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>24 TIME SET SEQUENCE</Text><Text style={styles.sectionSub}>Each set is verified individually on the next page</Text></View><Text style={styles.count}>{sequence.enteredSets}/{sequence.totalSets}</Text></View>
+        <ProgressBar value={sequencePercent} color={C.green} height={8} />
+        <TimeGrid entered={sequence.enteredSets} sample={sampleTime} />
+      </Panel>
+
+      <View style={[styles.infoColumns, compact && styles.infoColumnsCompact]}>
+        <Panel style={styles.infoPanel}><Text style={styles.sectionTitle}>INSTRUCTIONS</Text>{[
+          'Use the exact 24 time positions in their original order.',
+          'Verify hours, minutes and seconds before submitting each set.',
+          'Do not share screenshots, recordings or the full sequence.',
+          'Continue only from a trusted device and private location.',
+        ].map((line, index) => <Text key={line} style={styles.infoLine}>{index + 1}.  {line}</Text>)}</Panel>
+        <Panel style={styles.infoPanel}><Text style={styles.sectionTitle}>RECOVERY TIPS</Text>{[
+          ['☼', 'Use a private and secure location.'], ['▣', 'Keep the device connected and charged.'], ['◇', 'Pause if any recovery detail looks unfamiliar.'],
+        ].map(([icon, text]) => <View key={text} style={styles.tipRow}><Text style={styles.tipIcon}>{icon}</Text><Text style={styles.tipText}>{text}</Text></View>)}</Panel>
+      </View>
+
+      <Panel style={styles.strengthPanel}>
+        <RoundIcon symbol="◇" color={C.green} size={52} filled />
+        <View style={styles.strengthCopy}><Text style={styles.sectionTitle}>RECOVERY STRENGTH</Text><Text style={styles.strengthValue}>{sequence.strengthScore || '--'}<Text style={styles.strengthOut}> /100</Text></Text><Text style={styles.strengthSub}>Strength increases as the protected sequence is verified.</Text></View>
+        <View style={styles.strengthChecks}>{['24 unique times', 'Correct sequence', 'Owner completion'].map((item, index) => <Text key={item} style={[styles.strengthCheck, index === 0 && { color: C.green }]}>○ {item}</Text>)}</View>
+      </Panel>
+
+      <Pressable onPress={() => setAcknowledged((value) => !value)} style={styles.ackRow}><View style={[styles.checkbox, acknowledged && styles.checkboxActive]}><Text style={[styles.checkmark, acknowledged && { color: C.bg }]}>{acknowledged ? '✓' : ''}</Text></View><Text style={styles.ackText}>I am in a private location and understand that incorrect recovery information can block access.</Text></Pressable>
+      {feedback ? <Text style={[styles.feedback, feedback.toLowerCase().includes('unable') && { color: C.red }]}>{feedback}</Text> : null}
+
+      <PrimaryButton label={busy ? 'Starting Recovery…' : 'Begin Sequence Verification'} subtitle="Verify all 24 Time Sets before wallet recovery" icon="◇" tone="green" disabled={busy || !canContinue} onPress={() => void beginVerification()} />
+      <Panel tone="red" style={styles.warningPanel}><Text style={styles.warningIcon}>⚠</Text><Text style={styles.warningText}>Never enter Time Sets into a website, message or third-party support form. This recovery flow should remain inside the trusted Nomad application.</Text></Panel>
+    </NomadPage>
+  );
 }
+
+const styles = StyleSheet.create({
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  stepper: { minHeight: 94, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  step: { flex: 1, alignItems: 'center' },
+  stepCircle: { width: 31, height: 31, borderRadius: 16, borderWidth: 1, borderColor: '#718097', alignItems: 'center', justifyContent: 'center' },
+  stepActive: { borderColor: C.green, backgroundColor: C.green },
+  stepNumber: { color: '#dce6f4', fontWeight: '900' },
+  stepNumberActive: { color: C.bg },
+  stepLabel: { color: C.muted, fontSize: 8, textAlign: 'center', marginTop: 6 },
+  stepSub: { color: C.muted, fontSize: 7, textAlign: 'center', marginTop: 2 },
+  stepArrow: { color: C.muted, fontSize: 18 },
+  hero: { marginTop: 17, padding: 19, flexDirection: 'row', alignItems: 'center', gap: 20 },
+  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  heroCopy: { flex: 1, minWidth: 0 },
+  eyebrow: { color: C.green, fontSize: 11, fontWeight: '900' },
+  heroTitle: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 12 },
+  heroText: { color: '#d8e1ec', fontSize: 11, lineHeight: 18, marginTop: 9 },
+  privateBox: { minHeight: 60, marginTop: 18, borderWidth: 1, borderColor: C.green, borderRadius: 10, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  privateIcon: { color: C.green, fontSize: 23, marginRight: 11 },
+  privateText: { flex: 1, color: '#e6edf7', fontSize: 9, lineHeight: 14 },
+  clock: { alignSelf: 'center', borderWidth: 2, borderColor: C.green, backgroundColor: 'rgba(0,30,20,.45)', alignItems: 'center', justifyContent: 'center' },
+  clockTwelve: { color: '#fff', fontSize: 17, fontWeight: '900' },
+  clockIcon: { color: C.green, fontSize: 36, marginTop: 16 },
+  clockBrand: { color: C.green, fontSize: 14, fontWeight: '900' },
+  clockSub: { color: C.muted, fontSize: 7, fontWeight: '800' },
+  clockTime: { color: '#fff', fontSize: 21, fontWeight: '800', marginTop: 7 },
+  passwordPanel: { marginTop: 17, padding: 17 },
+  sectionTitle: { color: C.green, fontSize: 13, fontWeight: '900', letterSpacing: .3 },
+  passwordBox: { minHeight: 56, marginTop: 12, borderWidth: 1, borderColor: C.border, borderRadius: 10, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13 },
+  passwordIcon: { color: C.green, fontSize: 22, marginRight: 10 },
+  passwordInput: { flex: 1, color: '#fff', fontSize: 13, outlineStyle: 'none' } as any,
+  eye: { color: '#dbe5f5', fontSize: 20 },
+  helper: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 8 },
+  sequencePanel: { marginTop: 17, padding: 17 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionSub: { color: C.muted, fontSize: 8, marginTop: 3 },
+  count: { color: C.green, fontSize: 15, fontWeight: '900' },
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 14 },
+  timeCell: { width: '15%', minWidth: 75, flexGrow: 1, minHeight: 61, borderWidth: 1, borderColor: '#2a3b4b', borderRadius: 8, padding: 9 },
+  timeCellActive: { borderColor: C.green, backgroundColor: 'rgba(0,255,100,.06)' },
+  cellNumber: { color: '#d4d8e1', fontSize: 10, fontWeight: '700' },
+  cellTime: { color: C.muted, fontSize: 9, fontWeight: '900', marginTop: 12 },
+  infoColumns: { flexDirection: 'row', gap: 12, marginTop: 17 },
+  infoColumnsCompact: { flexDirection: 'column' },
+  infoPanel: { flex: 1, padding: 16 },
+  infoLine: { color: '#d7dfec', fontSize: 9, lineHeight: 15, marginTop: 8 },
+  tipRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  tipIcon: { color: C.green, fontSize: 19, width: 27 },
+  tipText: { color: '#d7dfec', flex: 1, fontSize: 9, lineHeight: 14 },
+  strengthPanel: { minHeight: 96, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  strengthCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  strengthValue: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 5 },
+  strengthOut: { color: C.muted, fontSize: 9 },
+  strengthSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  strengthChecks: { marginLeft: 10 },
+  strengthCheck: { color: C.muted, fontSize: 8, marginVertical: 3 },
+  ackRow: { marginTop: 17, flexDirection: 'row', alignItems: 'flex-start' },
+  checkbox: { width: 23, height: 23, borderRadius: 6, borderWidth: 1, borderColor: C.green, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  checkboxActive: { backgroundColor: C.green },
+  checkmark: { color: C.green, fontWeight: '900' },
+  ackText: { flex: 1, color: '#dbe4ed', fontSize: 9, lineHeight: 15 },
+  feedback: { color: C.yellow, fontSize: 10, marginTop: 10 },
+  warningPanel: { minHeight: 76, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  warningIcon: { color: C.red, fontSize: 25, marginRight: 12 },
+  warningText: { flex: 1, color: '#e7edf5', fontSize: 9, lineHeight: 15 },
+});
