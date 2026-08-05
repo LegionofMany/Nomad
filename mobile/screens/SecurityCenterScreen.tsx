@@ -1,191 +1,240 @@
-import React from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadSecurity } from "../nomad";
+import { useNomadSecurity, useNomadTravel } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-type NavItem = { label: string; icon: string; route?: string; active?: boolean };
-type SecurityModule = { title: string; subtitle: string; icon: string; route?: string };
+type SecurityModule = { title: string; subtitle: string; icon: string; route: string };
 type BackupItem = { title: string; subtitle: string; status: string; note: string; icon: string };
-type ActivityItem = { title: string; subtitle: string; time: string; icon: string; tint: string };
 
-const blue = "#1684ff";
-const green = "#35f883";
-const red = "#ff455c";
-const amber = "#ffb31a";
-const border = "#0a3862";
-const muted = "#b8c3d6";
-const bg = "#020812";
+type ActivityItem = {
+  title: string;
+  subtitle: string;
+  time: string;
+  icon: string;
+  color: string;
+};
 
 const modules: SecurityModule[] = [
-  { title: "Secure Storage", subtitle: "Your assets are encrypted and offline", icon: "▣", route: "Settings" },
-  { title: "Owner Authority", subtitle: "You have full control of your keys", icon: "♙", route: "OwnerAuthorityApproval" },
-  { title: "Device Integrity", subtitle: "This device is trusted and secure", icon: "▤", route: "NomadWatch" },
-  { title: "Recovery Status", subtitle: "Recovery methods are set and verified", icon: "⟳", route: "RecoveryCenter" },
-  { title: "Network Protection", subtitle: "Protected by Voltaire Security Layer", icon: "♢", route: "VoltaireProtocols" },
+  { title: 'Secure Storage', subtitle: 'Wallet data remains encrypted and owner-controlled', icon: '▣', route: 'Settings' },
+  { title: 'Owner Authority', subtitle: 'Approval authority and signer controls', icon: '♙', route: 'OwnerAuthorityApproval' },
+  { title: 'Device Integrity', subtitle: 'Review connected and trusted devices', icon: '▤', route: 'NomadWatch' },
+  { title: 'Recovery Status', subtitle: 'Recovery sequence, clock and verification', icon: '⟳', route: 'RecoveryCenter' },
+  { title: 'Network Protection', subtitle: 'Protected by the Arkrilium Security Layer', icon: '◇', route: 'VoltaireProtocols' },
 ];
 
 const backups: BackupItem[] = [
-  { title: "Recovery Phrase", subtitle: "12-word phrase", status: "Backed Up", note: "Time Set protected", icon: "⚿" },
-  { title: "Multi-Sig Wallet", subtitle: "2 of 3 required", status: "Active", note: "3 Signers Set", icon: "⬡" },
-  { title: "Cloud Backup", subtitle: "Encrypted & Private", status: "Active", note: "Adapter ready", icon: "☁" },
+  { title: 'Recovery Sequence', subtitle: 'Time-set recovery', status: 'Protected', note: 'Owner verified', icon: '⚿' },
+  { title: 'Multi-Sig Authority', subtitle: '2 of 3 required', status: 'Active', note: '3 signers set', icon: '⬡' },
+  { title: 'Encrypted Backup', subtitle: 'Private recovery data', status: 'Ready', note: 'Adapter protected', icon: '☁' },
 ];
 
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[{ borderWidth: 1, borderColor: border, borderRadius: 14, backgroundColor: "rgba(3,16,30,0.94)", shadowColor: blue, shadowOpacity: 0.2, shadowRadius: 12, overflow: "hidden" }, style]}>{children}</View>;
-}
-
-function ShieldLogo({ size = 68, color = blue }: { size?: number; color?: string }) {
-  return <View style={{ width: size, height: size, borderRadius: size * 0.22, borderWidth: 4, borderColor: color, alignItems: "center", justifyContent: "center", backgroundColor: `${color}1f` }}><Text style={{ color, fontSize: size * 0.42, fontWeight: "900" }}>⌁</Text></View>;
-}
-
-function SecurePill({ status }: { status: string }) {
-  const frozen = status === "frozen";
-  return (
-    <View style={{ borderWidth: 1, borderColor: frozen ? red : border, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 9, flexDirection: "row", alignItems: "center" }}>
-      <Text style={{ color: frozen ? red : green, fontSize: 22, marginRight: 9 }}>{frozen ? "❄" : "♢"}</Text>
-      <View>
-        <Text style={{ color: "#d7e8ff", fontSize: 13 }}>{frozen ? "Freeze" : "All Systems"}</Text>
-        <Text style={{ color: frozen ? red : green, fontSize: 13, fontWeight: "900" }}>{frozen ? "ACTIVE" : "SECURE"}</Text>
-      </View>
-    </View>
-  );
-}
-
-function ModuleRow({ item, isLast }: { item: SecurityModule; isLast?: boolean }) {
+function ModuleRow({ item, last }: { item: SecurityModule; last?: boolean }) {
   const navigation = useNavigation<any>();
   return (
-    <Pressable onPress={() => item.route && navigation.navigate(item.route)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 14, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: "#092b49" }}>
-      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(53,248,131,0.16)", borderWidth: 1, borderColor: "rgba(53,248,131,0.34)", alignItems: "center", justifyContent: "center", marginRight: 16 }}>
-        <Text style={{ color: green, fontSize: 25, fontWeight: "900" }}>{item.icon}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>{item.title}</Text>
-        <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>{item.subtitle}</Text>
-      </View>
-      <Text style={{ color: green, fontSize: 14, fontWeight: "900", marginRight: 14 }}>⊙ SECURE</Text>
-      <Text style={{ color: "#c7cfdf", fontSize: 32 }}>›</Text>
+    <Pressable onPress={() => navigation.navigate(item.route)} style={[styles.moduleRow, !last && styles.rowBorder]}>
+      <RoundIcon symbol={item.icon} color={C.green} size={45} filled />
+      <View style={styles.moduleCopy}><Text style={styles.moduleTitle}>{item.title}</Text><Text style={styles.moduleSub}>{item.subtitle}</Text></View>
+      <Text style={styles.secureText}>● SECURE</Text>
+      <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }
 
 function BackupCard({ item }: { item: BackupItem }) {
   return (
-    <View style={{ flex: 1, minHeight: 148, borderWidth: 1, borderColor: border, borderRadius: 10, marginHorizontal: 7, alignItems: "center", justifyContent: "center", padding: 12 }}>
-      <Text style={{ color: blue, fontSize: 44 }}>{item.icon}</Text>
-      <Text style={{ color: "white", fontSize: 16, fontWeight: "900", marginTop: 8, textAlign: "center" }}>{item.title}</Text>
-      <Text style={{ color: muted, fontSize: 13, marginTop: 2, textAlign: "center" }}>{item.subtitle}</Text>
-      <Text style={{ color: green, fontSize: 13, fontWeight: "900", marginTop: 12 }}>⊙ {item.status}</Text>
-      <Text style={{ color: muted, fontSize: 12, marginTop: 6, textAlign: "center" }}>{item.note}</Text>
+    <View style={styles.backupCard}>
+      <Text style={styles.backupIcon}>{item.icon}</Text>
+      <Text style={styles.backupTitle}>{item.title}</Text>
+      <Text style={styles.backupSub}>{item.subtitle}</Text>
+      <Text style={styles.backupStatus}>● {item.status}</Text>
+      <Text style={styles.backupNote}>{item.note}</Text>
     </View>
   );
 }
 
-function ActivityRow({ item, isLast }: { item: ActivityItem; isLast?: boolean }) {
+function ActivityRow({ item, last }: { item: ActivityItem; last?: boolean }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: "#092b49" }}>
-      <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: `${item.tint}22`, borderWidth: 1, borderColor: `${item.tint}55`, alignItems: "center", justifyContent: "center", marginRight: 14 }}>
-        <Text style={{ color: item.tint, fontSize: 23 }}>{item.icon}</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: "white", fontSize: 16, fontWeight: "800" }}>{item.title}</Text>
-        <Text style={{ color: muted, fontSize: 13, marginTop: 4 }}>{item.subtitle}</Text>
-      </View>
-      <View style={{ alignItems: "flex-end" }}>
-        <Text style={{ color: muted, fontSize: 14 }}>{item.time}</Text>
-        <Text style={{ color: green, fontSize: 16, marginTop: 4 }}>•</Text>
-      </View>
+    <View style={[styles.activityRow, !last && styles.rowBorder]}>
+      <RoundIcon symbol={item.icon} color={item.color} size={43} filled />
+      <View style={styles.activityCopy}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activitySub}>{item.subtitle}</Text></View>
+      <Text style={styles.activityTime}>{item.time}</Text>
     </View>
   );
 }
 
-function BottomNav() {
+export default function SecurityCenterScreen() {
   const navigation = useNavigation<any>();
-  const items: NavItem[] = [
-    { label: "Home", icon: "⌂", route: "Portfolio" },
-    { label: "Wallets", icon: "▣", route: "Wallets" },
-    { label: "Travel", icon: "✈", route: "TravelMode" },
-    { label: "Security", icon: "♢", active: true },
-    { label: "Settings", icon: "⚙", route: "Settings" },
-  ];
-  return <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>{items.map((item) => <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}><Text style={{ color: item.active ? blue : "#c7cfdf", fontSize: 27 }}>{item.icon}</Text><Text style={{ color: item.active ? blue : "#c7cfdf", fontSize: 13, marginTop: 4 }}>{item.label}</Text></Pressable>)}</View>;
-}
+  const { compact } = useNomadLayout();
+  const { security, loading, error, runScan } = useNomadSecurity();
+  const { travelPocket } = useNomadTravel();
+  const [scanState, setScanState] = useState<'idle' | 'running' | 'complete' | 'failed'>('idle');
+  const [scanFeedback, setScanFeedback] = useState('');
 
-export const SecurityCenterScreen = () => {
-  const navigation = useNavigation<any>();
-  const { security, error, runScan } = useNomadSecurity();
-  const frozen = security.status === "frozen";
-  const statusColor = frozen ? red : security.status === "warning" ? amber : green;
-  const activity: ActivityItem[] = security.freezeActivity.length > 0
-    ? security.freezeActivity.map((item) => ({ title: item.label, subtitle: item.scope.replace(/_/g, " "), time: new Date(item.requestedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), icon: item.status === "active" ? "❄" : "♙", tint: item.status === "active" ? red : green }))
-    : [
-        { title: "Successful login on this device", subtitle: "Adapter security state loaded", time: security.lastScanLabel, icon: "♢", tint: green },
-        { title: "Travel Pocket created", subtitle: "Japan (JPY Stable)", time: "Travel", icon: "⚑", tint: "#ffcc00" },
-      ];
+  const frozen = security.status === 'frozen';
+  const warning = security.status === 'warning';
+  const statusColor = frozen ? C.red : warning ? C.yellow : C.green;
+  const statusLabel = frozen ? 'FROZEN' : warning ? 'REVIEW' : 'SECURE';
+
+  const activity = useMemo<ActivityItem[]>(() => {
+    if (security.freezeActivity.length) {
+      return security.freezeActivity.map((item) => ({
+        title: item.label,
+        subtitle: item.scope.replace(/_/g, ' '),
+        time: new Date(item.requestedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+        icon: item.status === 'active' ? '❄' : '♙',
+        color: item.status === 'active' ? C.red : C.green,
+      }));
+    }
+    return [
+      { title: 'Security state verified', subtitle: 'Wallet adapter and owner authority available', time: security.lastScanLabel, icon: '◇', color: C.green },
+      { title: 'Travel Pocket context updated', subtitle: `${travelPocket.regionInput || 'Global'} • ${travelPocket.localCurrency || 'USD Stable'}`, time: 'Travel', icon: '✈', color: C.yellow },
+      { title: 'Reqrium protection available', subtitle: 'Address and URL safety tools are ready', time: 'Safety', icon: 'R', color: C.purple },
+    ];
+  }, [security.freezeActivity, security.lastScanLabel, travelPocket.localCurrency, travelPocket.regionInput]);
+
+  const handleScan = async () => {
+    try {
+      setScanState('running');
+      setScanFeedback('Running wallet, device and network checks…');
+      const next = await runScan();
+      setScanState('complete');
+      setScanFeedback(`Security scan complete: ${next.score}/100.`);
+    } catch (err) {
+      setScanState('failed');
+      setScanFeedback(err instanceof Error ? err.message : 'Unable to complete the security scan.');
+    }
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 22 }}>
-          <ShieldLogo size={72} color={statusColor === green ? blue : statusColor} />
-          <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={{ color: "white", fontSize: 31, fontWeight: "900" }}>Security Center</Text>
-            <Text style={{ color: muted, fontSize: 16, marginTop: 5 }}>Your assets. Your keys. Your sovereignty.</Text>
-          </View>
-          <SecurePill status={security.status} />
-          <Pressable onPress={() => navigation.navigate("EmergencyFreeze")} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: frozen ? red : border, alignItems: "center", justifyContent: "center", marginLeft: 10 }}>
-            <Text style={{ color: frozen ? red : "#d7e8ff", fontSize: 21, fontWeight: "800" }}>{frozen ? "❄" : "?"}</Text>
-          </Pressable>
-        </View>
-        {error ? <Text style={{ color: red, marginBottom: 10 }}>{error}</Text> : null}
+    <NomadPage maxWidth={940}>
+      <PageHeader
+        title="Security Center"
+        subtitle="Your assets. Your keys. Your sovereignty."
+        icon={frozen ? '❄' : '◇'}
+        color={statusColor}
+        back={false}
+        right={<Pressable onPress={() => navigation.navigate('EmergencyFreeze')} style={[styles.freezeShortcut, frozen && { borderColor: C.red }]}><Text style={[styles.freezeShortcutText, frozen && { color: C.red }]}>{frozen ? 'Freeze Active' : 'Emergency'}</Text></Pressable>}
+      />
 
-        <Card style={{ borderColor: `${statusColor}aa`, padding: 22, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row" }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: statusColor, fontSize: 16, fontWeight: "900" }}>SECURITY STATUS</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}>
-                <Text style={{ color: statusColor, fontSize: 48, fontWeight: "900" }}>{frozen ? "FROZEN" : security.status === "warning" ? "REVIEW" : "SECURE"}</Text>
-                <Text style={{ color: statusColor, fontSize: 42, marginLeft: 14 }}>{frozen ? "❄" : "⊙"}</Text>
-              </View>
-              <Text style={{ color: "white", fontSize: 16, marginTop: 8 }}>{frozen ? "Emergency freeze is active" : "All systems are operating normally"}</Text>
-              <View style={{ height: 1, backgroundColor: "#143556", marginTop: 20, marginBottom: 16 }} />
-              <View style={{ flexDirection: "row" }}>
-                <View style={{ flex: 1 }}><Text style={{ color: muted, fontSize: 12 }}>♢  Protected Since</Text><Text style={{ color: "white", fontSize: 17, fontWeight: "800", marginTop: 10 }}>{security.protectedSince}</Text><Text style={{ color: green, fontSize: 13, marginTop: 9 }}>{security.protectedDays}</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: muted, fontSize: 12 }}>▣  Last Scan</Text><Text style={{ color: "white", fontSize: 17, fontWeight: "800", marginTop: 10 }}>{security.lastScanLabel}</Text><Text style={{ color: muted, fontSize: 12, marginTop: 9 }}>{security.lastScanDetail}</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: muted, fontSize: 12 }}>Security Score</Text><Text style={{ color: "white", fontSize: 17, fontWeight: "800", marginTop: 10 }}>◯ {security.score}/100</Text><Text style={{ color: muted, fontSize: 12, marginTop: 9 }}>{security.score >= 90 ? "Excellent" : "Review"}</Text></View>
-              </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Panel tone={frozen ? 'red' : warning ? 'yellow' : 'green'} style={styles.hero}>
+        <View style={[styles.heroContent, compact && styles.heroContentCompact]}>
+          <View style={styles.heroCopy}>
+            <Text style={[styles.eyebrow, { color: statusColor }]}>SECURITY STATUS</Text>
+            <View style={styles.statusLine}><Text style={[styles.statusWord, { color: statusColor, fontSize: compact ? 42 : 54 }]}>{statusLabel}</Text><Text style={[styles.statusMark, { color: statusColor }]}>{frozen ? '❄' : '●'}</Text></View>
+            <Text style={styles.statusDescription}>{frozen ? 'Emergency protection is active' : warning ? 'One or more modules need review' : 'All systems are operating normally'}</Text>
+            <View style={styles.heroDivider} />
+            <View style={[styles.heroMetrics, compact && styles.heroMetricsCompact]}>
+              <View style={styles.heroMetric}><Text style={styles.metricLabel}>◇ Protected Since</Text><Text style={styles.metricValue}>{security.protectedSince}</Text><Text style={[styles.metricNote, { color: C.green }]}>{security.protectedDays}</Text></View>
+              <View style={styles.heroMetric}><Text style={styles.metricLabel}>▣ Last Scan</Text><Text style={styles.metricValue}>{security.lastScanLabel}</Text><Text style={styles.metricNote}>{security.lastScanDetail}</Text></View>
+              <View style={styles.heroMetric}><Text style={styles.metricLabel}>Security Score</Text><Text style={styles.metricValue}>{security.score}/100</Text><Text style={styles.metricNote}>{security.score >= 90 ? 'Excellent' : 'Review recommended'}</Text></View>
             </View>
-            <View style={{ width: 260, alignItems: "center", justifyContent: "center" }}><Text style={{ color: `${statusColor}55`, fontSize: 76 }}>◌◌◌</Text><ShieldLogo size={118} color={statusColor} /><Text style={{ color: `${statusColor}72`, fontSize: 34, marginTop: -8 }}>⌁⌁⌁</Text></View>
           </View>
-        </Card>
-
-        <Card style={{ padding: 12, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginLeft: 4 }}>
-            <Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>SECURITY MODULES</Text>
-            <Pressable onPress={() => { void runScan(); }}><Text style={{ color: blue, fontWeight: "900" }}>Run Scan  ›</Text></Pressable>
+          <View style={styles.scoreGraphic}>
+            <View style={[styles.scoreRing, { borderColor: statusColor }]}><Text style={[styles.scoreNumber, { color: statusColor }]}>{security.score}</Text><Text style={styles.scoreLabel}>SCORE</Text></View>
+            <View style={styles.scoreBar}><ProgressBar value={security.score} color={statusColor} height={8} /></View>
           </View>
-          <View style={{ borderWidth: 1, borderColor: "#092b49", borderRadius: 10, overflow: "hidden" }}>{modules.map((item, index) => <ModuleRow key={item.title} item={item} isLast={index === modules.length - 1} />)}</View>
-        </Card>
+        </View>
+      </Panel>
 
-        <Card style={{ padding: 18, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>RECOVERY & BACKUP</Text><Pressable onPress={() => navigation.navigate("RecoveryCenter")}><Text style={{ color: blue, fontSize: 16, fontWeight: "800" }}>Manage  ›</Text></Pressable></View>
-          <View style={{ flexDirection: "row", marginHorizontal: -7 }}>{backups.map((item) => <BackupCard key={item.title} item={item} />)}</View>
-        </Card>
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}>
+          <View><Text style={styles.sectionTitle}>SECURITY MODULES</Text><Text style={styles.sectionSub}>Review each protection layer</Text></View>
+          <Pressable disabled={scanState === 'running'} onPress={() => void handleScan()} style={styles.scanButton}><Text style={styles.scanButtonText}>{scanState === 'running' ? 'Scanning…' : 'Run Scan  ›'}</Text></Pressable>
+        </View>
+        {scanFeedback ? <Text style={[styles.scanFeedback, scanState === 'failed' && { color: C.red }]}>{scanFeedback}</Text> : null}
+        <View style={styles.moduleList}>{modules.map((item, index) => <ModuleRow key={item.title} item={item} last={index === modules.length - 1} />)}</View>
+      </Panel>
 
-        <Card style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4, marginBottom: 14 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>SECURITY ACTIVITY</Text><Pressable onPress={() => navigation.navigate("EmergencyFreeze")}><Text style={{ color: blue, fontSize: 16, fontWeight: "800" }}>Freeze Center ›</Text></Pressable></View>
-          {activity.map((item, index) => <ActivityRow key={`${item.title}-${index}`} item={item} isLast={index === activity.length - 1} />)}
-        </Card>
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>RECOVERY & BACKUP</Text><Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.link}>Manage  ›</Text></Pressable></View>
+        <View style={styles.backupGrid}>{backups.map((item) => <BackupCard key={item.title} item={item} />)}</View>
+      </Panel>
 
-        <Card style={{ padding: 22, flexDirection: "row", alignItems: "center" }}>
-          <ShieldLogo size={58} color={statusColor === green ? blue : statusColor} />
-          <View style={{ flex: 1, marginLeft: 18 }}><Text style={{ color: "white", fontSize: 21, fontWeight: "900" }}>You are in full control.</Text><Text style={{ color: muted, fontSize: 14, marginTop: 6 }}>Nomad is non-custodial. You own your keys. You own your future.</Text></View>
-          <Pressable onPress={() => navigation.navigate("EmergencyFreeze")} style={{ borderWidth: 1, borderColor: frozen ? red : blue, borderRadius: 8, paddingHorizontal: 22, paddingVertical: 13 }}><Text style={{ color: frozen ? red : blue, fontSize: 16, fontWeight: "800" }}>{frozen ? "Manage Freeze" : "Emergency Freeze"}</Text></Pressable>
-        </Card>
-      </ScrollView>
-      <BottomNav />
-    </View>
+      <Panel style={styles.activityPanel}>
+        <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>SECURITY ACTIVITY</Text><Pressable onPress={() => navigation.navigate('EmergencyFreeze')}><Text style={styles.link}>Freeze Center  ›</Text></Pressable></View>
+        {activity.map((item, index) => <ActivityRow key={`${item.title}-${index}`} item={item} last={index === activity.length - 1} />)}
+      </Panel>
+
+      <Panel style={styles.arkriliumPanel}>
+        <RoundIcon symbol="A" color={C.blue} size={54} filled />
+        <View style={styles.arkriliumCopy}><Text style={styles.arkriliumTitle}>Protected by Arkrilium</Text><Text style={styles.arkriliumSub}>Nomad combines owner authority, recovery, Reqrium safety and network protection without taking custody of wallet funds.</Text></View>
+        <Pressable onPress={() => navigation.navigate('VoltaireProtocols')}><Text style={styles.chevron}>›</Text></Pressable>
+      </Panel>
+
+      <BottomNav active="Security" />
+    </NomadPage>
   );
-};
+}
 
-export default SecurityCenterScreen;
+const styles = StyleSheet.create({
+  freezeShortcut: { minHeight: 38, borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  freezeShortcutText: { color: C.blue, fontSize: 10, fontWeight: '900' },
+  error: { color: C.red, fontSize: 11, marginBottom: 12 },
+  hero: { padding: 20 },
+  heroContent: { flexDirection: 'row', alignItems: 'center', gap: 22 },
+  heroContentCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  heroCopy: { flex: 1, minWidth: 0 },
+  eyebrow: { fontSize: 12, fontWeight: '900', letterSpacing: .5 },
+  statusLine: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  statusWord: { fontWeight: '900', letterSpacing: -1 },
+  statusMark: { fontSize: 31, marginLeft: 12 },
+  statusDescription: { color: '#fff', fontSize: 13, marginTop: 5 },
+  heroDivider: { height: 1, backgroundColor: C.borderSoft, marginVertical: 17 },
+  heroMetrics: { flexDirection: 'row' },
+  heroMetricsCompact: { flexWrap: 'wrap', gap: 15 },
+  heroMetric: { flex: 1, minWidth: 140, paddingRight: 12 },
+  metricLabel: { color: C.muted, fontSize: 9 },
+  metricValue: { color: '#fff', fontSize: 14, fontWeight: '800', marginTop: 7 },
+  metricNote: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 6 },
+  scoreGraphic: { width: 185, alignItems: 'center' },
+  scoreRing: { width: 125, height: 125, borderRadius: 63, borderWidth: 8, backgroundColor: 'rgba(2,12,21,.72)', alignItems: 'center', justifyContent: 'center' },
+  scoreNumber: { fontSize: 38, fontWeight: '900' },
+  scoreLabel: { color: C.muted, fontSize: 9, fontWeight: '800', marginTop: 2 },
+  scoreBar: { width: 145, marginTop: 13 },
+  sectionPanel: { marginTop: 17, padding: 15 },
+  activityPanel: { marginTop: 17, paddingHorizontal: 15, paddingTop: 15 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: .3 },
+  sectionSub: { color: C.muted, fontSize: 10, marginTop: 4 },
+  link: { color: C.blue, fontSize: 11, fontWeight: '800' },
+  scanButton: { borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9 },
+  scanButtonText: { color: C.blue, fontSize: 10, fontWeight: '900' },
+  scanFeedback: { color: C.green, fontSize: 10, marginTop: 10 },
+  moduleList: { marginTop: 13, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, overflow: 'hidden' },
+  moduleRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  moduleCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  moduleTitle: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  moduleSub: { color: C.muted, fontSize: 10, lineHeight: 14, marginTop: 4 },
+  secureText: { color: C.green, fontSize: 9, fontWeight: '900', marginLeft: 7 },
+  chevron: { color: '#b7c4d6', fontSize: 28, marginLeft: 7 },
+  backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  backupCard: { flexGrow: 1, flexBasis: 165, minHeight: 132, borderWidth: 1, borderColor: C.border, borderRadius: 11, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  backupIcon: { color: C.blue, fontSize: 34 },
+  backupTitle: { color: '#fff', fontSize: 12, fontWeight: '900', textAlign: 'center', marginTop: 7 },
+  backupSub: { color: C.muted, fontSize: 9, textAlign: 'center', marginTop: 3 },
+  backupStatus: { color: C.green, fontSize: 9, fontWeight: '900', marginTop: 9 },
+  backupNote: { color: C.muted, fontSize: 9, textAlign: 'center', marginTop: 4 },
+  activityRow: { minHeight: 67, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  activityCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
+  activityTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  activitySub: { color: C.muted, fontSize: 9, marginTop: 4 },
+  activityTime: { color: C.muted, fontSize: 9, textAlign: 'right', marginLeft: 8, maxWidth: 100 },
+  arkriliumPanel: { minHeight: 88, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  arkriliumCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  arkriliumTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  arkriliumSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+});
