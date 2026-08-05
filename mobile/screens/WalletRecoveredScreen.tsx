@@ -1,42 +1,102 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useNomadRecovery } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  PrimaryButton,
+  RoundIcon,
+} from '../ui/NomadShell';
 
-const navItems = [
-  { label: 'Home', icon: '⌂', route: 'Portfolio' },
-  { label: 'Wallets', icon: '▣', route: 'Wallets' },
-  { label: 'Travel', icon: '✈', route: 'TravelMode' },
-  { label: 'Security', icon: '♢', route: 'SecurityCenter' },
-  { label: 'Recovery', icon: '↻', active: true },
-];
-
-function Card({ children, style }: React.PropsWithChildren<{ style?: object }>) {
-  return <View style={[{ borderWidth: 1, borderColor: '#123345', backgroundColor: 'rgba(3,16,26,0.92)', borderRadius: 14, padding: 18 }, style]}>{children}</View>;
+function CompletionSteps() {
+  const steps = ['Enter Time Sets', 'Verify Sequence', 'Recover Wallet', 'Complete'];
+  return (
+    <Panel style={styles.stepper}>
+      {steps.map((step, index) => <React.Fragment key={step}><View style={styles.step}><View style={[styles.stepCircle, index === 3 && styles.stepCurrent]}><Text style={[styles.stepMark, index === 3 && styles.stepMarkCurrent]}>{index === 3 ? '4' : '✓'}</Text></View><Text style={[styles.stepText, index === 3 && { color: C.green }]}>{step}</Text></View>{index < steps.length - 1 ? <Text style={styles.stepArrow}>→</Text> : null}</React.Fragment>)}
+    </Panel>
+  );
 }
 
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  return <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingBottom: 12, paddingTop: 8, backgroundColor: '#02060d' }}><View style={{ height: 92, borderRadius: 16, borderWidth: 1, borderColor: '#123345', backgroundColor: 'rgba(3,16,26,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>{navItems.map((item) => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: 'center', width: 70 }}><Text style={{ color: item.active ? '#19ef5f' : '#d8d4df', fontSize: 31, fontWeight: '600' }}>{item.icon}</Text><Text style={{ color: item.active ? '#19ef5f' : '#d8d4df', marginTop: 5, fontSize: 16 }}>{item.label}</Text></Pressable>)}</View></View>;
+function SummaryRow({ label, value, accent, last }: { label: string; value: string; accent?: boolean; last?: boolean }) {
+  return <View style={[styles.summaryRow, !last && styles.rowBorder]}><Text style={styles.summaryLabel}>{label}</Text><Text style={[styles.summaryValue, accent && { color: C.green }]}>{value}</Text></View>;
 }
 
 export default function WalletRecoveredScreen() {
   const navigation = useNavigation<any>();
-  const { sequence, completeSequence } = useNomadRecovery();
+  const { sequence } = useNomadRecovery();
+  const complete = sequence.status === 'complete';
+  const recoveredAt = sequence.recoveredAt
+    ? new Date(sequence.recoveredAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : complete ? 'Just now' : 'Recovery not complete';
 
-  React.useEffect(() => {
-    if (sequence.status !== 'complete') void completeSequence();
-  }, [sequence.status, completeSequence]);
+  return (
+    <NomadPage maxWidth={820}>
+      <PageHeader title="Wallet Recovered" subtitle="Step 4 of 4" icon="◇" color={complete ? C.green : C.yellow} help />
+      <CompletionSteps />
 
-  const recoveredAt = sequence.recoveredAt ? new Date(sequence.recoveredAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Just now';
-  const summary = [
-    ['Wallet Name', 'My Nomad Wallet'],
-    ['Recovery Date', recoveredAt],
-    ['Recovery Method', '24 Time Sets'],
-    ['Time Sets Verified', `${sequence.verifiedSets} of ${sequence.totalSets}`],
-    ['Security Strength', `Strong (${sequence.strengthScore || 96} / 100)`],
-  ];
+      <Panel tone={complete ? 'green' : 'yellow'} style={styles.successPanel}>
+        <View style={[styles.successBadge, { borderColor: complete ? C.green : C.yellow }]}><Text style={[styles.successMark, { color: complete ? C.green : C.yellow }]}>{complete ? '✓' : '!'}</Text></View>
+        <Text style={[styles.successTitle, { color: complete ? C.green : C.yellow }]}>{complete ? 'Recovery Successful' : 'Recovery Confirmation Required'}</Text>
+        <Text style={styles.successText}>{complete ? 'The connected wallet recovery adapter reports that the owner-controlled sequence completed successfully.' : 'The recovery adapter has not reported completion. Return to sequence verification before opening the wallet.'}</Text>
+      </Panel>
 
-  return <View style={{ flex: 1, backgroundColor: '#02060d' }}><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 130 }}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}><Text style={{ color: 'white', fontSize: 40 }}>‹</Text></Pressable><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 18 }}><View style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#19ef5f', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#19ef5f', fontSize: 30 }}>♢</Text></View><View style={{ marginLeft: 14 }}><Text style={{ color: 'white', fontSize: 31, fontWeight: '900' }}>Wallet Recovered</Text><Text style={{ color: '#cdd3dc', fontSize: 18, marginTop: 4 }}>Step 4 of 4</Text></View></View><Text style={{ color: '#19ef5f', fontSize: 24 }}>Help  ?</Text></View><Card style={{ marginTop: 22, paddingVertical: 22 }}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>{['Enter 24\nTime Sets', 'Verify\nSequence', 'Recover\nWallet', 'Complete'].map((step, index) => <React.Fragment key={step}><View style={{ alignItems: 'center', width: 86 }}><View style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#19ef5f', backgroundColor: index === 3 ? '#19ef5f' : 'rgba(7,30,20,0.7)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: index === 3 ? '#06130a' : '#19ef5f', fontSize: 25, fontWeight: '900' }}>{index === 3 ? '4' : '✓'}</Text></View><Text style={{ color: index === 3 ? '#19ef5f' : '#ffffff', textAlign: 'center', marginTop: 10, fontSize: 16, lineHeight: 23 }}>{step}</Text></View>{index < 3 ? <Text style={{ color: '#65717a', fontSize: 34, marginHorizontal: -4 }}>→</Text> : null}</React.Fragment>)}</View></Card><Card style={{ marginTop: 18, minHeight: 390, borderColor: '#12602b', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#19ef5f', fontSize: 120, textShadowColor: '#19ef5f', textShadowRadius: 18 }}>✅</Text><Text style={{ color: '#19ef5f', fontSize: 39, fontWeight: '900', textAlign: 'center' }}>Recovery Successful!</Text><Text style={{ color: '#f5f7fa', fontSize: 22, lineHeight: 34, textAlign: 'center', marginTop: 18, maxWidth: 350 }}>Your Nomad wallet has been successfully restored and is now secure.</Text></Card><Card style={{ marginTop: 18 }}><Text style={{ color: '#19ef5f', fontSize: 20, fontWeight: '900', marginBottom: 14 }}>WALLET SUMMARY</Text>{summary.map(([label, value], index) => <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 13, borderTopWidth: index === 0 ? 1 : 0, borderBottomWidth: 1, borderColor: '#18303b' }}><Text style={{ color: '#f2f5f7', fontSize: 18 }}>{label}</Text><Text style={{ color: index === 4 ? '#19ef5f' : '#f2f5f7', fontSize: 18, fontWeight: index === 4 ? '900' : '500', textAlign: 'right', flex: 1, marginLeft: 14 }}>{value}</Text></View>)}</Card><Card style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: '#19ef5f', fontSize: 50, marginRight: 22 }}>▣</Text><Text style={{ color: '#f6f8fb', fontSize: 19, lineHeight: 29, flex: 1 }}>Your wallet, settings, and local protections have been restored. You can now manage your funds securely.</Text></Card><Pressable accessibilityRole="button" accessibilityLabel="Open Wallet" onPress={() => navigation.navigate('Portfolio')} style={{ height: 74, borderRadius: 10, backgroundColor: '#19d946', marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#041108', fontSize: 31, fontWeight: '900', marginRight: 18 }}>▣</Text><Text style={{ color: '#041108', fontSize: 26, fontWeight: '900' }}>Open Wallet</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Go to Home" onPress={() => navigation.navigate('Portfolio')} style={{ alignItems: 'center', paddingVertical: 14 }}><Text style={{ color: '#19ef5f', fontSize: 21 }}>Go to Home</Text></Pressable></ScrollView><BottomNav /></View>;
+      <Panel style={styles.summaryPanel}>
+        <Text style={styles.sectionTitle}>WALLET SUMMARY</Text>
+        <SummaryRow label="Wallet" value="My Nomad Wallet" />
+        <SummaryRow label="Recovery Date" value={recoveredAt} />
+        <SummaryRow label="Recovery Method" value="24 Time Sets" />
+        <SummaryRow label="Time Sets Verified" value={`${sequence.verifiedSets} of ${sequence.totalSets}`} />
+        <SummaryRow label="Recovery Strength" value={`${sequence.strengthScore || '--'} / 100`} accent last />
+      </Panel>
+
+      <Panel tone="green" style={styles.protectionPanel}>
+        <RoundIcon symbol="▣" color={C.green} size={54} filled />
+        <View style={styles.protectionCopy}><Text style={styles.protectionTitle}>Local protections restored</Text><Text style={styles.protectionText}>Wallet settings, Time Sets and owner-authority controls remain subject to the connected wallet engine. Review Security Center after opening the wallet.</Text></View>
+      </Panel>
+
+      {complete ? (
+        <PrimaryButton label="Open Wallet" subtitle="Return to the Nomad Portfolio" icon="▣" tone="green" onPress={() => navigation.navigate('Portfolio')} />
+      ) : (
+        <PrimaryButton label="Return to Verification" subtitle="Complete the protected recovery sequence" icon="◷" tone="green" onPress={() => navigation.navigate('VerifyRecoverySequence')} />
+      )}
+      <Pressable onPress={() => navigation.navigate('RecoveryCenter')} style={styles.secondaryAction}><Text style={styles.secondaryText}>Recovery Center</Text></Pressable>
+
+      <BottomNav active="Recovery" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['↻', 'Recovery', 'RecoveryCenter'],
+      ]} />
+    </NomadPage>
+  );
 }
+
+const styles = StyleSheet.create({
+  stepper: { minHeight: 90, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  step: { flex: 1, alignItems: 'center' },
+  stepCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: C.green, backgroundColor: 'rgba(32,239,112,.08)', alignItems: 'center', justifyContent: 'center' },
+  stepCurrent: { backgroundColor: C.green },
+  stepMark: { color: C.green, fontWeight: '900' },
+  stepMarkCurrent: { color: C.bg },
+  stepText: { color: '#fff', fontSize: 8, textAlign: 'center', marginTop: 6 },
+  stepArrow: { color: C.muted, fontSize: 17 },
+  successPanel: { minHeight: 325, marginTop: 17, padding: 23, alignItems: 'center', justifyContent: 'center' },
+  successBadge: { width: 128, height: 128, borderRadius: 64, borderWidth: 7, backgroundColor: 'rgba(2,18,12,.72)', alignItems: 'center', justifyContent: 'center' },
+  successMark: { fontSize: 65, fontWeight: '900' },
+  successTitle: { fontSize: 29, fontWeight: '900', textAlign: 'center', marginTop: 20 },
+  successText: { color: '#f2f6fa', fontSize: 11, lineHeight: 18, textAlign: 'center', maxWidth: 520, marginTop: 10 },
+  summaryPanel: { marginTop: 17, padding: 17 },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', marginBottom: 5 },
+  summaryRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 15 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  summaryLabel: { color: '#eef3f7', fontSize: 11 },
+  summaryValue: { flex: 1, color: '#eef3f7', fontSize: 11, fontWeight: '700', textAlign: 'right' },
+  protectionPanel: { minHeight: 91, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  protectionCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  protectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  protectionText: { color: C.muted, fontSize: 9, lineHeight: 15, marginTop: 4 },
+  secondaryAction: { alignSelf: 'center', padding: 13 },
+  secondaryText: { color: C.green, fontSize: 11, fontWeight: '800' },
+});
