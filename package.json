@@ -4,9 +4,9 @@
   "private": true,
   "description": "Nomad Wallet monorepo with Vercel beta site, wallet modules, and Android-native scaffold",
   "scripts": {
-    "dev": "npm run build",
-    "build": "node -e \"console.log('Nomad beta static site ready')\"",
-    "start": "npm run build",
+    "dev": "npm --prefix mobile run web",
+    "build": "npm --prefix mobile ci && npm --prefix mobile run build:web",
+    "start": "npm --prefix mobile run web",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest --config jest.config.cjs --passWithNoTests",
     "mobile:start": "npm --prefix mobile run start",
