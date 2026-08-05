@@ -1,152 +1,92 @@
-/**
- * Mobile (Expo) screen
- *
- * Expo-ready. Keep this file at `mobile/screens/LockScreen.tsx` when
- * moving the UI into an Expo app. Do not change UI logic — only update
- * relative imports if you move the file inside a different folder.
- */
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { useTheme } from "../theme";
-import { useAppState } from "../state/appState";
+import { useAppState } from '../state/appState';
+import { C, NomadPage, Panel, RoundIcon, useNomadLayout } from '../ui/NomadShell';
 
-export const LockScreen = () => {
-  const colors = useTheme();
+export default function LockScreen() {
   const navigation = useNavigation<any>();
-  const { walletStatus, walletMeta, createWallet, restoreWallet, resetDemo } = useAppState();
+  const { compact } = useNomadLayout();
+  const { walletStatus, walletMeta, createWallet, resetDemo } = useAppState();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const [restorePhrase, setRestorePhrase] = useState("");
-  const [createdMnemonic, setCreatedMnemonic] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const statusLabel = useMemo(() => {
-    switch (walletStatus) {
-      case "no_wallet":
-        return "No wallet yet";
-      case "locked":
-        return "Wallet locked";
-      case "unlocked":
-        return "Wallet unlocked";
-      case "recovery":
-        return "Recovery required";
-      default:
-        return "";
-    }
+  const status = useMemo(() => {
+    if (walletStatus === 'no_wallet') return { label: 'WALLET SETUP', color: C.blue, text: 'Create a new owner-controlled wallet or start protected recovery.' };
+    if (walletStatus === 'locked') return { label: 'WALLET LOCKED', color: C.green, text: 'Use the configured Clock Unlock to access Nomad.' };
+    if (walletStatus === 'recovery') return { label: 'RECOVERY REQUIRED', color: C.yellow, text: 'Continue through the protected Time Set recovery sequence.' };
+    return { label: 'WALLET READY', color: C.green, text: 'The wallet session is ready to open.' };
   }, [walletStatus]);
 
+  const create = async () => {
+    try {
+      setBusy(true);
+      setMessage('Creating the local wallet…');
+      await createWallet();
+      setMessage('Wallet created. Continue to configure or use Clock Unlock.');
+      navigation.navigate('ClockUnlock');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Unable to create the wallet.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1, backgroundColor: colors.background, padding: 20, justifyContent: "center" }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={{ fontSize: 22, fontWeight: "700", color: colors.text, marginBottom: 6 }}>Nomad Wallet</Text>
-      <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 16 }}>{statusLabel}</Text>
+    <NomadPage maxWidth={760}>
+      <View style={styles.brand}><RoundIcon symbol="⌁" color={C.blue} size={compact ? 74 : 92} filled /><Text style={styles.brandTitle}>NOMAD</Text><Text style={styles.brandSub}>Built on <Text style={styles.arkrilium}>Arkrilium</Text></Text></View>
 
-      {walletMeta?.evmAddress ? (
-        <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 16 }}>EVM Address: {walletMeta.evmAddress}</Text>
-      ) : null}
+      <Panel tone={walletStatus === 'recovery' ? 'yellow' : 'green'} style={styles.statusPanel}>
+        <Text style={[styles.statusLabel, { color: status.color }]}>{status.label}</Text>
+        <Text style={styles.statusText}>{status.text}</Text>
+        {walletMeta?.evmAddress ? <Text selectable numberOfLines={1} style={styles.address}>EVM: {walletMeta.evmAddress}</Text> : null}
+      </Panel>
 
-      {walletStatus === "no_wallet" ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Create wallet"
-          onPress={async () => {
-            setError(null);
-            try {
-              const res = await createWallet();
-              setCreatedMnemonic(res.mnemonic);
-              navigation.navigate("ClockUnlock");
-            } catch (e: any) {
-              setError(e?.message ?? "Failed to create wallet");
-            }
-          }}
-          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
-        >
-          <Text style={{ color: colors.text, fontWeight: "700" }}>Create Wallet</Text>
-        </Pressable>
+      {walletStatus === 'no_wallet' ? (
+        <View style={[styles.actionGrid, compact && styles.actionGridCompact]}>
+          <Pressable disabled={busy} onPress={() => void create()} style={styles.primaryCard}><RoundIcon symbol="＋" color={C.green} size={55} filled /><Text style={styles.cardTitle}>{busy ? 'Creating Wallet…' : 'Create Wallet'}</Text><Text style={styles.cardSub}>Start a new non-custodial Nomad wallet on this device.</Text><Text style={styles.cardArrow}>›</Text></Pressable>
+          <Pressable onPress={() => navigation.navigate('RecoverLostWallet')} style={styles.secondaryCard}><RoundIcon symbol="↻" color={C.blue} size={55} filled /><Text style={styles.cardTitle}>Recover Wallet</Text><Text style={styles.cardSub}>Use the protected Time Set and Owner Authority recovery flow.</Text><Text style={styles.cardArrow}>›</Text></Pressable>
+        </View>
       ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go to unlock"
-          onPress={() => navigation.navigate("ClockUnlock")}
-          style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
-        >
-          <Text style={{ color: colors.text, fontWeight: "700" }}>Unlock Wallet</Text>
-        </Pressable>
+        <Pressable onPress={() => navigation.navigate(walletStatus === 'recovery' ? 'RecoveryCenter' : walletStatus === 'unlocked' ? 'Portfolio' : 'ClockUnlock')} style={styles.unlockButton}><RoundIcon symbol={walletStatus === 'recovery' ? '↻' : '◷'} color={C.green} size={51} filled /><View style={styles.unlockCopy}><Text style={styles.unlockTitle}>{walletStatus === 'recovery' ? 'Open Recovery Center' : walletStatus === 'unlocked' ? 'Open Wallet' : 'Continue to Clock Unlock'}</Text><Text style={styles.unlockSub}>Owner verification remains required before protected actions.</Text></View><Text style={styles.unlockArrow}>›</Text></Pressable>
       )}
 
-      <View style={{ height: 14 }} />
+      {message ? <Text style={[styles.message, /unable|failed/i.test(message) && { color: C.red }]}>{message}</Text> : null}
 
-      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text, marginBottom: 8 }}>Restore from seed phrase</Text>
-      <TextInput
-        accessibilityLabel="Seed phrase"
-        placeholder="Enter 12/24-word mnemonic"
-        placeholderTextColor={colors.muted}
-        value={restorePhrase}
-        onChangeText={setRestorePhrase}
-        autoCapitalize="none"
-        autoCorrect={false}
-        multiline
-        style={{
-          minHeight: 90,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 10,
-          padding: 10,
-          color: colors.text,
-        }}
-      />
+      <Panel style={styles.securityPanel}><RoundIcon symbol="◇" color={C.green} size={45} /><View style={styles.securityCopy}><Text style={styles.securityTitle}>Owner-controlled security</Text><Text style={styles.securityText}>Nomad does not display recovery secrets on this entry screen. Backup and recovery setup continue inside protected wallet flows.</Text></View></Panel>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Restore wallet"
-        onPress={async () => {
-          setError(null);
-          try {
-            await restoreWallet(restorePhrase.trim());
-            setRestorePhrase("");
-            setCreatedMnemonic(null);
-            navigation.navigate("ClockUnlock");
-          } catch (e: any) {
-            setError(e?.message ?? "Failed to restore wallet");
-          }
-        }}
-        style={{ marginTop: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
-      >
-        <Text style={{ color: colors.text, fontWeight: "700" }}>Restore Wallet</Text>
-      </Pressable>
-
-      {createdMnemonic ? (
-        <View style={{ marginTop: 16 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: 6 }}>Backup phrase (demo)</Text>
-          <Text style={{ fontSize: 12, color: colors.muted }}>
-            Save this somewhere safe. In this demo build it is shown once after creation.
-          </Text>
-          <Text style={{ marginTop: 8, color: colors.text }}>{createdMnemonic}</Text>
-        </View>
-      ) : null}
-
-      {error ? (
-        <Text style={{ marginTop: 14, color: "#d64545", fontSize: 13 }}>{error}</Text>
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Reset demo"
-        onPress={async () => {
-          await resetDemo();
-          setRestorePhrase("");
-          setCreatedMnemonic(null);
-          setError(null);
-        }}
-        style={{ marginTop: 18, paddingVertical: 8, paddingHorizontal: 14 }}
-      >
-        <Text style={{ color: colors.muted, fontSize: 13 }}>Reset demo</Text>
-      </Pressable>
-    </ScrollView>
+      <Pressable onPress={async () => { await resetDemo(); setMessage('Local preview state reset.'); }} style={styles.reset}><Text style={styles.resetText}>Reset local preview state</Text></Pressable>
+    </NomadPage>
   );
-};
+}
 
-export default LockScreen;
+const styles = StyleSheet.create({
+  brand: { alignItems: 'center', marginTop: 34, marginBottom: 25 },
+  brandTitle: { color: '#fff', fontSize: 36, fontWeight: '900', letterSpacing: 1, marginTop: 12 },
+  brandSub: { color: '#fff', fontSize: 12, marginTop: 4 },
+  arkrilium: { color: C.blue, fontWeight: '900' },
+  statusPanel: { minHeight: 135, padding: 20, alignItems: 'center', justifyContent: 'center' },
+  statusLabel: { fontSize: 13, fontWeight: '900', letterSpacing: .6 },
+  statusText: { color: '#fff', fontSize: 12, lineHeight: 19, textAlign: 'center', maxWidth: 510, marginTop: 9 },
+  address: { color: C.muted, fontSize: 9, marginTop: 12, maxWidth: '90%' },
+  actionGrid: { flexDirection: 'row', gap: 12, marginTop: 17 },
+  actionGridCompact: { flexDirection: 'column' },
+  primaryCard: { flex: 1, minHeight: 195, borderWidth: 1, borderColor: C.green, borderRadius: 16, backgroundColor: 'rgba(0,39,24,.72)', alignItems: 'center', justifyContent: 'center', padding: 18 },
+  secondaryCard: { flex: 1, minHeight: 195, borderWidth: 1, borderColor: C.blue, borderRadius: 16, backgroundColor: C.panel, alignItems: 'center', justifyContent: 'center', padding: 18 },
+  cardTitle: { color: '#fff', fontSize: 17, fontWeight: '900', textAlign: 'center', marginTop: 12 },
+  cardSub: { color: C.muted, fontSize: 10, lineHeight: 16, textAlign: 'center', marginTop: 7 },
+  cardArrow: { color: C.green, fontSize: 28, marginTop: 8 },
+  unlockButton: { minHeight: 93, marginTop: 17, borderWidth: 1, borderColor: C.green, borderRadius: 16, backgroundColor: 'rgba(0,39,24,.72)', padding: 15, flexDirection: 'row', alignItems: 'center' },
+  unlockCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  unlockTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  unlockSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  unlockArrow: { color: C.green, fontSize: 29 },
+  message: { color: C.green, fontSize: 10, textAlign: 'center', marginTop: 12 },
+  securityPanel: { minHeight: 83, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  securityCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  securityTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  securityText: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  reset: { alignSelf: 'center', padding: 14 },
+  resetText: { color: C.muted, fontSize: 9 },
+});
