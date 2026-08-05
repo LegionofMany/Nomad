@@ -1,186 +1,132 @@
-import React from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadRecovery } from "../nomad";
+import { useNomadRecovery } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-const bg = "#020812";
-const border = "#0a3862";
-const green = "#35f883";
-const muted = "#b8c3d6";
-const blue = "#1684ff";
-
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return (
-    <View style={[{ borderWidth: 1, borderColor: border, borderRadius: 14, backgroundColor: "rgba(3,16,30,0.94)", overflow: "hidden" }, style]}>
-      {children}
-    </View>
-  );
-}
-
-function CircleIcon({ icon, color = green, size = 48 }: { icon: string; color?: string; size?: number }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}20`, borderWidth: 1, borderColor: `${color}85`, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color, fontSize: size * 0.46, fontWeight: "900" }}>{icon}</Text>
-    </View>
-  );
-}
-
-function Header() {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
-      <Pressable onPress={() => navigation.goBack()} style={{ marginRight: 18 }}>
-        <Text style={{ color: "white", fontSize: 40 }}>‹</Text>
-      </Pressable>
-      <CircleIcon icon="▣" size={56} />
-      <View style={{ flex: 1, marginLeft: 14 }}>
-        <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>Unlock Wallet</Text>
-        <Text style={{ color: muted, fontSize: 16, marginTop: 4 }}>Time Set in progress...</Text>
-      </View>
-      <Pressable onPress={() => navigation.navigate("RecoveryCenter")}>
-        <Text style={{ color: green, fontSize: 20, fontWeight: "800" }}>Cancel</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function TopStat({ icon, title, value }: { icon: string; title: string; value: string }) {
-  return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", padding: 16 }}>
-      <Text style={{ color: green, fontSize: 30, marginRight: 14 }}>{icon}</Text>
-      <View>
-        <Text style={{ color: "white", fontSize: 17, fontWeight: "900" }}>{title}</Text>
-        <Text style={{ color: muted, fontSize: 15, marginTop: 5 }}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-function ProgressStep({ label, done, active }: { label: string; done?: boolean; active?: boolean }) {
-  return (
-    <View style={{ alignItems: "center", flex: 1 }}>
-      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: done ? green : "transparent", borderWidth: 3, borderColor: green, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-        <Text style={{ color: done ? bg : active ? "white" : green, fontSize: 16, fontWeight: "900" }}>{done ? "✓" : "●"}</Text>
-      </View>
-      <Text style={{ color: active ? green : "white", fontSize: 13, textAlign: "center" }}>{label}</Text>
-    </View>
-  );
-}
-
-function DetailRow({ icon, label, value, status }: { icon: string; label: string; value: string; status?: boolean }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: "rgba(10,56,98,0.55)" }}>
-      <Text style={{ color: green, fontSize: 24, width: 38 }}>{icon}</Text>
-      <Text style={{ color: "white", fontSize: 17, flex: 1 }}>{label}</Text>
-      <Text style={{ color: status ? green : muted, fontSize: 16, textAlign: "right" }}>{value}</Text>
-    </View>
-  );
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items = [
-    { label: "Home", icon: "⌂", route: "Portfolio" },
-    { label: "Wallets", icon: "▣", route: "Wallets" },
-    { label: "Travel", icon: "✈", route: "TravelMode" },
-    { label: "Security", icon: "♢", route: "SecurityCenter" },
-    { label: "Recovery", icon: "↻", route: "RecoveryCenter" },
-  ];
-
-  return (
-    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-      {items.map((item) => (
-        <Pressable key={item.label} onPress={() => navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}>
-          <Text style={{ color: "#c9d2e3", fontSize: 28 }}>{item.icon}</Text>
-          <Text style={{ color: "#c9d2e3", fontSize: 14, marginTop: 4 }}>{item.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+function DetailRow({ icon, label, value, color = C.muted, last }: { icon: string; label: string; value: string; color?: string; last?: boolean }) {
+  return <View style={[styles.detailRow, !last && styles.rowBorder]}><Text style={styles.detailIcon}>{icon}</Text><Text style={styles.detailLabel}>{label}</Text><Text style={[styles.detailValue, { color }]}>{value}</Text></View>;
 }
 
 export default function UnlockWalletScreen() {
   const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   const { recovery, error } = useNomadRecovery();
-  const isUnlocked = recovery.walletStatus === "unlocked";
-  const unlockLabel = isUnlocked ? "Wallet Unlocked!" : "Unlocking Wallet...";
-  const unlockSubtitle = isUnlocked ? "Access granted. Welcome back!" : "Please wait while we verify your Time Set.";
+  const isUnlocked = recovery.walletStatus === 'unlocked';
+  const unlockLabel = isUnlocked ? 'Wallet Unlocked' : 'Time Set Verification';
+  const unlockSubtitle = isUnlocked ? 'Access granted. Welcome back.' : 'The wallet remains protected until the owner access window completes.';
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <Header />
-        {error ? <Text style={{ color: "#ff4b5f", marginBottom: 10 }}>{error}</Text> : null}
+    <NomadPage maxWidth={860}>
+      <PageHeader
+        title="Unlock Wallet"
+        subtitle={isUnlocked ? 'Time Set complete' : 'Time Set in progress'}
+        icon="▣"
+        color={C.green}
+        status={false}
+        right={<Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.cancel}>Cancel</Text></Pressable>}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Card style={{ marginBottom: 22, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.18)" }}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TopStat icon="▦" title="Time Set" value={recovery.cycleLabel} />
-            <View style={{ width: 1, height: 70, backgroundColor: "rgba(255,255,255,0.1)" }} />
-            <TopStat icon="" title="Started" value={recovery.cycleStartedLabel} />
-            <Text style={{ color: green, fontSize: 42, paddingRight: 18 }}>♢</Text>
-          </View>
-        </Card>
+      <Panel style={styles.topStats}>
+        <View style={styles.topStat}><Text style={styles.topIcon}>◷</Text><View><Text style={styles.topTitle}>Time Set</Text><Text style={styles.topValue}>{recovery.cycleLabel}</Text></View></View>
+        <View style={styles.topDivider} />
+        <View style={styles.topStat}><Text style={styles.topIcon}>▦</Text><View><Text style={styles.topTitle}>Started</Text><Text style={styles.topValue}>{recovery.cycleStartedLabel}</Text></View></View>
+        <Text style={styles.topShield}>◇</Text>
+      </Panel>
 
-        <View style={{ alignItems: "center" }}>
-          <View style={{ width: 330, height: 330, borderRadius: 165, borderWidth: 14, borderColor: green, backgroundColor: "rgba(4,29,26,0.86)", alignItems: "center", justifyContent: "center", shadowColor: green, shadowOpacity: 0.55, shadowRadius: 30 }}>
-            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginBottom: 18 }}>{isUnlocked ? "UNLOCKED" : "TIME REMAINING"}</Text>
-            <Text style={{ color: "white", fontSize: 55, fontWeight: "900", letterSpacing: -1 }}>{recovery.timeRemainingLabel}</Text>
-            <View style={{ flexDirection: "row", marginTop: 14 }}>
-              <Text style={{ color: green, fontSize: 13, marginHorizontal: 12 }}>HOURS</Text>
-              <Text style={{ color: green, fontSize: 13, marginHorizontal: 12 }}>MINUTES</Text>
-              <Text style={{ color: green, fontSize: 13, marginHorizontal: 12 }}>SECONDS</Text>
-            </View>
-          </View>
-
-          <Text style={{ color: "white", fontSize: 34, fontWeight: "900", marginTop: 24 }}>{unlockLabel}</Text>
-          <Text style={{ color: muted, fontSize: 18, textAlign: "center", marginTop: 10 }}>{unlockSubtitle}</Text>
+      <View style={styles.timerSection}>
+        <View style={[styles.timer, { width: compact ? 225 : 300, height: compact ? 225 : 300, borderRadius: compact ? 113 : 150 }]}>
+          <Text style={styles.timerLabel}>{isUnlocked ? 'UNLOCKED' : 'TIME REMAINING'}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.timerValue, { fontSize: compact ? 38 : 52 }]}>{recovery.timeRemainingLabel}</Text>
+          <View style={styles.timerUnits}><Text style={styles.timerUnit}>HOURS</Text><Text style={styles.timerUnit}>MINUTES</Text><Text style={styles.timerUnit}>SECONDS</Text></View>
         </View>
+        <Text style={styles.unlockTitle}>{unlockLabel}</Text>
+        <Text style={styles.unlockSub}>{unlockSubtitle}</Text>
+      </View>
 
-        <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 34, marginBottom: 26 }}>
-          <ProgressStep label="Time Set Verified" done />
-          <ProgressStep label="Cycle Complete" done />
-          <ProgressStep label="Security Check" done />
-          <ProgressStep label="Unlocking Wallet" active={!isUnlocked} done={isUnlocked} />
-        </View>
+      <Panel style={styles.progressPanel}>
+        <ProgressBar value={isUnlocked ? 100 : 75} color={C.green} height={8} />
+        <View style={styles.steps}>{[
+          ['Time Set Verified', true], ['Cycle Complete', true], ['Security Check', true], ['Wallet Access', isUnlocked],
+        ].map(([label, done]) => <View key={String(label)} style={styles.step}><View style={[styles.stepCircle, done && styles.stepDone]}><Text style={[styles.stepMark, done && styles.stepMarkDone]}>{done ? '✓' : '•'}</Text></View><Text style={[styles.stepText, done && { color: C.green }]}>{label}</Text></View>)}</View>
+      </Panel>
 
-        <Card style={{ padding: 22, alignItems: "center", marginBottom: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
-            <CircleIcon icon="✓" size={72} />
-            <View style={{ flex: 1, marginLeft: 20 }}>
-              <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>{unlockLabel}</Text>
-              <Text style={{ color: muted, fontSize: 17, marginTop: 8 }}>{unlockSubtitle}</Text>
-            </View>
-          </View>
-          <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)", width: "100%", marginVertical: 18 }} />
-          <Pressable onPress={() => navigation.navigate("Portfolio")} style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ color: green, fontSize: 20, fontWeight: "900", marginRight: 12 }}>View Wallet</Text>
-            <Text style={{ color: green, fontSize: 30 }}>›</Text>
-          </Pressable>
-        </Card>
+      <Panel tone={isUnlocked ? 'green' : 'blue'} style={styles.resultPanel}>
+        <RoundIcon symbol={isUnlocked ? '✓' : '◷'} color={isUnlocked ? C.green : C.blue} size={62} filled />
+        <View style={styles.resultCopy}><Text style={styles.resultTitle}>{unlockLabel}</Text><Text style={styles.resultSub}>{unlockSubtitle}</Text></View>
+        <Pressable onPress={() => navigation.navigate(isUnlocked ? 'Portfolio' : 'TimeClockAccess')} style={styles.resultButton}><Text style={styles.resultButtonText}>{isUnlocked ? 'View Wallet' : 'View Clock'}  ›</Text></Pressable>
+      </Panel>
 
-        <Card style={{ paddingHorizontal: 20, paddingVertical: 12, marginBottom: 18 }}>
-          <Text style={{ color: "white", fontSize: 17, fontWeight: "900", marginBottom: 8 }}>DETAILS</Text>
-          <DetailRow icon="▦" label="Time Set" value={recovery.cycleLabel} />
-          <DetailRow icon="▦" label="Started" value={recovery.cycleStartedLabel} />
-          <DetailRow icon="▣" label="Unlocked" value={isUnlocked ? "Now" : "Pending Time Set"} />
-          <DetailRow icon="♢" label="Security Status" value={isUnlocked ? "All Clear" : "Verifying"} status={isUnlocked} />
-        </Card>
+      <Panel style={styles.detailsPanel}>
+        <Text style={styles.detailsTitle}>DETAILS</Text>
+        <DetailRow icon="◷" label="Time Set" value={recovery.cycleLabel} />
+        <DetailRow icon="▦" label="Started" value={recovery.cycleStartedLabel} />
+        <DetailRow icon="▣" label="Access" value={isUnlocked ? 'Open now' : 'Pending Time Set'} />
+        <DetailRow icon="◇" label="Security Status" value={isUnlocked ? 'All Clear' : 'Protected'} color={C.green} last />
+      </Panel>
 
-        <Card style={{ padding: 20, flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ color: green, fontSize: 48, marginRight: 18 }}>♢</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: "white", fontSize: 16, lineHeight: 23 }}>Your wallet is protected by Nomad Time Sets.</Text>
-            <Text style={{ color: muted, fontSize: 15, lineHeight: 22 }}>You're in control. Your time. Your freedom.</Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate("RecoveryCenter")} style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ color: green, fontSize: 16, fontWeight: "900", marginRight: 8 }}>Learn More</Text>
-            <Text style={{ color: green, fontSize: 26 }}>›</Text>
-          </Pressable>
-        </Card>
-      </ScrollView>
+      <Panel tone="green" style={styles.footerPanel}><RoundIcon symbol="◇" color={C.green} size={45} /><View style={styles.footerCopy}><Text style={styles.footerTitle}>Protected by owner-controlled Time Sets</Text><Text style={styles.footerText}>Nomad does not bypass the configured recovery clock or grant access independently.</Text></View><Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.chevron}>›</Text></Pressable></Panel>
 
-      <BottomNav />
-    </View>
+      <BottomNav active="Recovery" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['↻', 'Recovery', 'RecoveryCenter'],
+      ]} />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  cancel: { color: C.green, fontSize: 12, fontWeight: '800' },
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  topStats: { minHeight: 84, padding: 13, flexDirection: 'row', alignItems: 'center' },
+  topStat: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  topIcon: { color: C.green, fontSize: 25, marginRight: 11 },
+  topTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  topValue: { color: C.muted, fontSize: 9, marginTop: 4 },
+  topDivider: { width: 1, height: 55, backgroundColor: C.borderSoft, marginHorizontal: 12 },
+  topShield: { color: C.green, fontSize: 33, marginLeft: 10 },
+  timerSection: { alignItems: 'center', marginTop: 24 },
+  timer: { borderWidth: 13, borderColor: C.green, backgroundColor: 'rgba(4,29,26,.86)', alignItems: 'center', justifyContent: 'center', shadowColor: C.green, shadowOpacity: .45, shadowRadius: 25 },
+  timerLabel: { color: C.green, fontSize: 10, fontWeight: '900' },
+  timerValue: { color: '#fff', fontWeight: '900', letterSpacing: -1, marginTop: 11, maxWidth: '82%' },
+  timerUnits: { flexDirection: 'row', gap: 18, marginTop: 11 },
+  timerUnit: { color: C.green, fontSize: 8 },
+  unlockTitle: { color: '#fff', fontSize: 23, fontWeight: '900', textAlign: 'center', marginTop: 20 },
+  unlockSub: { color: C.muted, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 7, maxWidth: 520 },
+  progressPanel: { marginTop: 21, padding: 17 },
+  steps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
+  step: { flex: 1, alignItems: 'center' },
+  stepCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  stepDone: { backgroundColor: C.green },
+  stepMark: { color: C.green, fontWeight: '900' },
+  stepMarkDone: { color: C.bg },
+  stepText: { color: C.muted, fontSize: 8, textAlign: 'center', marginTop: 6 },
+  resultPanel: { minHeight: 91, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  resultCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  resultTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  resultSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  resultButton: { borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, marginLeft: 8 },
+  resultButtonText: { color: C.green, fontSize: 9, fontWeight: '900' },
+  detailsPanel: { marginTop: 17, padding: 16 },
+  detailsTitle: { color: '#fff', fontSize: 13, fontWeight: '900', marginBottom: 6 },
+  detailRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center' },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  detailIcon: { color: C.green, fontSize: 18, width: 30 },
+  detailLabel: { color: '#fff', fontSize: 11, flex: 1 },
+  detailValue: { fontSize: 10, textAlign: 'right' },
+  footerPanel: { minHeight: 82, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  footerCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  footerTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  footerText: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  chevron: { color: C.green, fontSize: 27, marginLeft: 8 },
+});
