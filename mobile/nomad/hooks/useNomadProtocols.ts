@@ -10,14 +10,14 @@ const fallbackProtocols: NomadProtocolsState = {
   networkUptime: '99.99%',
   globalNodes: '1,248',
   countries: '32',
-  message: 'The Voltaire Protocols are operating optimally.',
+  message: 'The Arkrilium protocols are operating optimally.',
   protocols: [
-    { title: 'Voltaire Security Layer', subtitle: 'Multi-layered security and threat protection', detail: 'ACTIVE  •  All systems secure', uptime: '99.99%', icon: '♢', color: '#35f883' },
-    { title: 'Voltaire Interoperability Protocol (VIP)', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  42 Chains Connected', uptime: '99.98%', icon: '⌘', color: '#00e5ff' },
-    { title: 'Voltaire Key Management Protocol (VKP)', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: '#9b4dff' },
-    { title: 'Voltaire Notary Protocol (VNP)', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  1,003 Notaries', uptime: '99.97%', icon: '▤', color: '#ffcc33' },
-    { title: 'Voltaire Data Transmission Protocol (VDTP)', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & Encrypted', uptime: '99.99%', icon: '⌁', color: '#00e5ff' },
-    { title: 'Voltaire Governance Protocol (VGP)', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Proposals Live', uptime: '100%', icon: '♙', color: '#9b4dff' },
+    { title: 'Arkrilium Security Layer', subtitle: 'Multi-layered security and threat protection', detail: 'ACTIVE  •  All systems secure', uptime: '99.99%', icon: '♢', color: '#35f883' },
+    { title: 'Arkrilium Interoperability Protocol', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  Connected networks', uptime: '99.98%', icon: '⌘', color: '#00e5ff' },
+    { title: 'Arkrilium Key Management Protocol', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: '#9b4dff' },
+    { title: 'Arkrilium Notary Protocol', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  Verification online', uptime: '99.97%', icon: '▤', color: '#ffcc33' },
+    { title: 'Arkrilium Data Transmission Protocol', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & encrypted', uptime: '99.99%', icon: '⌁', color: '#00e5ff' },
+    { title: 'Arkrilium Governance Protocol', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Governance available', uptime: '100%', icon: '♙', color: '#9b4dff' },
   ],
   health: [
     { label: 'Block Finality', value: '2.1 sec', note: 'Excellent', icon: '◷' },
@@ -27,6 +27,19 @@ const fallbackProtocols: NomadProtocolsState = {
     { label: 'Nodes Online', value: '1,248 / 1,300', note: '95.9%', icon: '◎' },
   ],
 };
+
+function normalizeBranding(state: NomadProtocolsState): NomadProtocolsState {
+  return {
+    ...state,
+    message: state.message.replace(/Voltaire Protocols?/gi, 'Arkrilium protocols').replace(/Voltaire/gi, 'Arkrilium'),
+    protocols: state.protocols.map((item) => ({
+      ...item,
+      title: item.title.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
+      subtitle: item.subtitle.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
+      detail: item.detail.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
+    })),
+  };
+}
 
 export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters) {
   const providerAdapters = useNomadAdapters();
@@ -46,9 +59,9 @@ export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters) {
     try {
       setLoading(true);
       setError(null);
-      setProtocols(await protocolAdapter.getProtocolsState());
+      setProtocols(normalizeBranding(await protocolAdapter.getProtocolsState()));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load Voltaire Protocol state.');
+      setError(err instanceof Error ? err.message : 'Unable to load Arkrilium protocol state.');
     } finally {
       setLoading(false);
     }
