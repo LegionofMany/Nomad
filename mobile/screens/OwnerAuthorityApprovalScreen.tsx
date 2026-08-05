@@ -1,153 +1,148 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useNomadRecovery } from '../nomad';
-
-const green = '#19ef5f';
-const muted = '#c9d0d8';
-const border = '#123345';
-const warning = '#ffb800';
-const red = '#ff4b5f';
-
-const navItems = [
-  { label: 'Home', icon: '⌂', route: 'Portfolio' },
-  { label: 'Wallets', icon: '▣', route: 'Wallets' },
-  { label: 'Travel', icon: '✈', route: 'TravelMode' },
-  { label: 'Security', icon: '♢', route: 'SecurityCenter' },
-  { label: 'Recovery', icon: '↻', active: true },
-];
-
-function Card({ children, style }: React.PropsWithChildren<{ style?: object }>) {
-  return (
-    <View style={[{ borderWidth: 1, borderColor: border, backgroundColor: 'rgba(3,16,26,0.94)', borderRadius: 14, padding: 18 }, style]}>
-      {children}
-    </View>
-  );
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingBottom: 12, paddingTop: 8, backgroundColor: '#02060d' }}>
-      <View style={{ height: 92, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: 'rgba(3,16,26,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
-        {navItems.map((item) => (
-          <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: 'center', width: 70 }}>
-            <Text style={{ color: item.active ? green : '#d8d4df', fontSize: 31, fontWeight: '600' }}>{item.icon}</Text>
-            <Text style={{ color: item.active ? green : '#d8d4df', marginTop: 5, fontSize: 16 }}>{item.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function DetailRow({ label, value, valueColor = '#f4f7fa' }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 22 }}>
-      <Text style={{ color: muted, fontSize: 23 }}>{label}</Text>
-      <Text style={{ color: valueColor, fontSize: 23, flex: 1, textAlign: 'right', marginLeft: 18 }}>{value}</Text>
-    </View>
-  );
-}
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  PrimaryButton,
+  RoundIcon,
+} from '../ui/NomadShell';
 
 function formatRequestTime(value?: string) {
-  if (!value) return 'Awaiting request';
+  if (!value) return 'Not requested';
   return new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function DetailRow({ label, value, color = '#fff', last }: { label: string; value: string; color?: string; last?: boolean }) {
+  return <View style={[styles.detailRow, !last && styles.rowBorder]}><Text style={styles.detailLabel}>{label}</Text><Text style={[styles.detailValue, { color }]}>{value}</Text></View>;
 }
 
 export default function OwnerAuthorityApprovalScreen() {
   const navigation = useNavigation<any>();
   const { ownerAuthorityRequest, requestOwnerAuthority, cancelOwnerAuthority, error } = useNomadRecovery();
-  const requestStatus = ownerAuthorityRequest.status === 'none' ? 'pending' : ownerAuthorityRequest.status;
-  const requestReason = ownerAuthorityRequest.reason ?? 'Wallet Recovery';
-  const requestedAt = formatRequestTime(ownerAuthorityRequest.requestedAt);
-  const requestedBy = ownerAuthorityRequest.requestedBy ?? 'You (Owner)';
-  const device = ownerAuthorityRequest.device ?? 'Android Device';
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
-  const ensureRequest = async () => {
-    if (ownerAuthorityRequest.status === 'none' || ownerAuthorityRequest.status === 'cancelled') {
-      await requestOwnerAuthority('Recover Wallet Access');
+  const requestStatus = ownerAuthorityRequest.status;
+  const pending = requestStatus === 'pending';
+  const approved = requestStatus === 'approved';
+  const statusColor = approved ? C.green : pending ? C.yellow : requestStatus === 'declined' ? C.red : C.muted;
+
+  const requestApproval = async () => {
+    try {
+      setBusy(true);
+      setFeedback('');
+      const next = await requestOwnerAuthority('Recover Wallet Access');
+      setFeedback(`Owner Authority request ${next.status}.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to request Owner Authority approval.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  React.useEffect(() => {
-    void ensureRequest();
-  }, []);
-
   const cancelRequest = async () => {
-    await cancelOwnerAuthority();
-    navigation.navigate('RecoveryCenter');
+    try {
+      setBusy(true);
+      const next = await cancelOwnerAuthority();
+      setFeedback(`Request ${next.status}.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to cancel the request.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#02060d' }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 130 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}><Text style={{ color: 'white', fontSize: 40 }}>‹</Text></Pressable>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 18 }}>
-            <View style={{ width: 58, height: 58, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: green, fontSize: 48 }}>♙</Text></View>
-            <View style={{ marginLeft: 14, flex: 1 }}>
-              <Text style={{ color: 'white', fontSize: 30, fontWeight: '900' }}>Owner Authority Approval</Text>
-              <Text style={{ color: muted, fontSize: 20, marginTop: 5 }}>Approval Required</Text>
-            </View>
-          </View>
-          <Text style={{ color: green, fontSize: 24 }}>Help  ?</Text>
+    <NomadPage maxWidth={860}>
+      <PageHeader title="Owner Authority Approval" subtitle="Approval required for protected actions" icon="♙" color={C.green} help />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Panel tone="green" style={styles.hero}>
+        <RoundIcon symbol="♙" color={C.green} size={92} filled />
+        <View style={styles.heroCopy}><Text style={styles.heroTitle}>Owner Authority Protection</Text><Text style={styles.heroText}>Sensitive recovery actions require approval from the authority designated by the wallet owner. Nomad cannot approve the request on the owner’s behalf.</Text></View>
+      </Panel>
+
+      <Panel style={styles.sectionPanel}>
+        <Text style={styles.sectionTitle}>ACTION REQUIRING APPROVAL</Text>
+        <DetailRow label="Action" value="Recover Wallet Access" />
+        <DetailRow label="Requested By" value={ownerAuthorityRequest.requestedBy || 'Wallet Owner'} />
+        <DetailRow label="Date & Time" value={formatRequestTime(ownerAuthorityRequest.requestedAt)} />
+        <DetailRow label="Device" value={ownerAuthorityRequest.device || 'Current Nomad device'} />
+        <DetailRow label="Reason" value={ownerAuthorityRequest.reason || 'Protected recovery action'} last />
+      </Panel>
+
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.authorityHeader}>
+          <View style={styles.authorityIdentity}><RoundIcon symbol="OA" color={C.green} size={62} /><View style={styles.authorityCopy}><Text style={styles.authorityTitle}>Owner Authority</Text><Text style={styles.authoritySub}>Primary recovery authority</Text></View></View>
+          <Pressable onPress={() => navigation.navigate('CreateOwnerAuthority')} style={styles.changeButton}><Text style={styles.changeText}>Change</Text></Pressable>
         </View>
+        <DetailRow label="Approval Method" value="Secure in-app authority request" />
+        <DetailRow label="Request Status" value={requestStatus === 'none' ? 'NOT REQUESTED' : requestStatus.toUpperCase()} color={statusColor} />
+        <DetailRow label="Owner Control" value="Required before recovery continues" color={C.green} last />
+      </Panel>
 
-        {error ? <Text style={{ color: red, fontSize: 18, marginTop: 16 }}>{error}</Text> : null}
+      <Panel tone={approved ? 'green' : pending ? 'yellow' : 'blue'} style={styles.statusPanel}>
+        <RoundIcon symbol={approved ? '✓' : pending ? '◷' : '♙'} color={statusColor} size={54} />
+        <View style={styles.statusCopy}>
+          <Text style={[styles.statusTitle, { color: statusColor }]}>{approved ? 'Approval Received' : pending ? 'Waiting for Approval' : 'Approval Not Requested'}</Text>
+          <Text style={styles.statusText}>{approved ? 'The protected recovery flow can continue.' : pending ? 'The designated authority must approve or decline the request.' : 'Start an approval request only when you are ready to continue recovery.'}</Text>
+        </View>
+      </Panel>
 
-        <Card style={{ marginTop: 24, borderColor: '#12602b', minHeight: 210, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: green, fontSize: 118, marginRight: 24 }}>♙</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: 'white', fontSize: 29, fontWeight: '900', marginBottom: 16 }}>Owner Authority Protection</Text>
-            <Text style={{ color: '#f3f7fb', fontSize: 24, lineHeight: 36 }}>This action requires approval from your designated Owner Authority. This adds an extra layer of security to your wallet.</Text>
-          </View>
-        </Card>
+      {feedback ? <Text style={[styles.feedback, feedback.toLowerCase().includes('unable') && { color: C.red }]}>{feedback}</Text> : null}
 
-        <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: green, fontSize: 23, fontWeight: '900', marginBottom: 10 }}>ACTION REQUIRING APPROVAL</Text>
-          <DetailRow label="Action" value="Recover Wallet Access" />
-          <DetailRow label="Requested By" value={requestedBy} />
-          <DetailRow label="Date & Time" value={requestedAt} />
-          <DetailRow label="Device" value={device} />
-          <DetailRow label="Reason" value={requestReason} />
-        </Card>
+      {approved ? (
+        <PrimaryButton label="Continue Recovery" subtitle="Proceed to the protected recovery sequence" icon="✓" tone="green" onPress={() => navigation.navigate('RecoverLostWallet')} />
+      ) : pending ? (
+        <Pressable disabled={busy} onPress={() => void cancelRequest()} style={styles.cancelRequest}><Text style={styles.cancelRequestText}>{busy ? 'Cancelling…' : 'Cancel Request'}</Text></Pressable>
+      ) : (
+        <PrimaryButton label={busy ? 'Requesting Approval…' : 'Request Owner Approval'} subtitle="Send a secure request to the designated authority" icon="♙" disabled={busy} tone="green" onPress={() => void requestApproval()} />
+      )}
 
-        <Card style={{ marginTop: 18 }}>
-          <Text style={{ color: green, fontSize: 23, fontWeight: '900', marginBottom: 22 }}>OWNER AUTHORITY CONTACT</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <View style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 1, borderColor: '#697080', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(60,43,65,0.35)', marginRight: 18 }}>
-                <Text style={{ color: 'white', fontSize: 30, fontWeight: '900' }}>OA</Text>
-              </View>
-              <View>
-                <Text style={{ color: 'white', fontSize: 27, fontWeight: '900' }}>Owner Authority</Text>
-                <Text style={{ color: muted, fontSize: 22, marginTop: 5 }}>Primary Authority</Text>
-              </View>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Change Owner Authority" onPress={() => navigation.navigate('CreateOwnerAuthority')} style={{ borderWidth: 1, borderColor: green, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 16 }}>
-              <Text style={{ color: green, fontSize: 23 }}>Change</Text>
-            </Pressable>
-          </View>
-          <DetailRow label="Email" value="owner@nomadauthority.com" />
-          <DetailRow label="Method" value="Secure In-App Approval" />
-          <DetailRow label="Status" value={`${requestStatus.toUpperCase()} ◷`} valueColor={requestStatus === 'cancelled' ? red : warning} />
-        </Card>
-
-        <Card style={{ marginTop: 18, borderColor: '#8f6500', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: warning, fontSize: 58, marginRight: 20 }}>◷</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: warning, fontSize: 27, fontWeight: '900', marginBottom: 12 }}>{requestStatus === 'cancelled' ? 'Request Cancelled' : 'Waiting for Approval'}</Text>
-            <Text style={{ color: '#f2f5f7', fontSize: 23, lineHeight: 34 }}>{requestStatus === 'cancelled' ? 'The owner authority request has been cancelled. You can start a new request from recovery or Time Clock Access.' : 'Your Owner Authority will be notified and must approve this request to continue. You will be notified once approved.'}</Text>
-          </View>
-        </Card>
-
-        <Pressable accessibilityRole="button" accessibilityLabel="Cancel Request" onPress={() => { void cancelRequest(); }} style={{ marginTop: 18, minHeight: 86, borderWidth: 1, borderColor: '#ff3347', borderRadius: 12, backgroundColor: 'rgba(55,8,16,0.38)', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: red, fontSize: 29, fontWeight: '800' }}>Cancel Request</Text>
-        </Pressable>
-      </ScrollView>
-      <BottomNav />
-    </View>
+      <BottomNav
+        active="Recovery"
+        items={[
+          ['⌂', 'Home', 'Portfolio'],
+          ['▣', 'Wallets', 'Wallets'],
+          ['✈', 'Travel', 'TravelMode'],
+          ['◇', 'Security', 'SecurityCenter'],
+          ['↻', 'Recovery', 'RecoveryCenter'],
+        ]}
+      />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  error: { color: C.red, fontSize: 11, marginBottom: 12 },
+  hero: { minHeight: 165, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 18 },
+  heroCopy: { flex: 1, minWidth: 0 },
+  heroTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  heroText: { color: '#eef4f8', fontSize: 12, lineHeight: 20, marginTop: 8 },
+  sectionPanel: { marginTop: 17, padding: 18 },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', marginBottom: 4 },
+  detailRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  detailLabel: { color: C.muted, fontSize: 11 },
+  detailValue: { flex: 1, color: '#fff', fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  authorityHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  authorityIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  authorityCopy: { marginLeft: 12 },
+  authorityTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  authoritySub: { color: C.muted, fontSize: 10, marginTop: 4 },
+  changeButton: { borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 9 },
+  changeText: { color: C.green, fontSize: 10, fontWeight: '900' },
+  statusPanel: { minHeight: 100, marginTop: 17, padding: 16, flexDirection: 'row', alignItems: 'center' },
+  statusCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  statusTitle: { fontSize: 16, fontWeight: '900' },
+  statusText: { color: '#eff4f8', fontSize: 10, lineHeight: 17, marginTop: 5 },
+  feedback: { color: C.green, fontSize: 11, marginTop: 12 },
+  cancelRequest: { minHeight: 66, marginTop: 18, borderWidth: 1, borderColor: C.red, borderRadius: 12, backgroundColor: 'rgba(55,8,16,.38)', alignItems: 'center', justifyContent: 'center' },
+  cancelRequestText: { color: C.red, fontSize: 15, fontWeight: '900' },
+});
