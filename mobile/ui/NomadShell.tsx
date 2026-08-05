@@ -83,6 +83,7 @@ export function PageHeader({
   back = true,
   status = true,
   help = false,
+  helpRoute = 'Settings',
   right,
 }: {
   title: string;
@@ -92,6 +93,7 @@ export function PageHeader({
   back?: boolean;
   status?: boolean;
   help?: boolean;
+  helpRoute?: string;
   right?: React.ReactNode;
 }) {
   const navigation = useNavigation<any>();
@@ -99,7 +101,7 @@ export function PageHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        {back ? <Pressable onPress={() => navigation.goBack()} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable> : null}
+        {back ? <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.back}><Text style={styles.backText}>‹</Text></Pressable> : null}
         <RoundIcon symbol={icon} color={color} size={compact ? 43 : 52} />
         <View style={styles.headerCopy}>
           <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, { fontSize: compact ? 24 : 31 }]}>{title}</Text>
@@ -109,7 +111,7 @@ export function PageHeader({
       <View style={styles.headerRight}>
         {right}
         {status ? <SystemPill compact={compact} /> : null}
-        {help ? <Pressable style={styles.help}><Text style={styles.helpText}>?</Text></Pressable> : null}
+        {help ? <Pressable accessibilityRole="button" accessibilityLabel="Open Help" onPress={() => navigation.navigate(helpRoute)} style={styles.help}><Text style={styles.helpText}>?</Text></Pressable> : null}
       </View>
     </View>
   );
@@ -126,9 +128,10 @@ export function ProgressBar({ value, color = C.green, height = 8 }: { value: num
 }
 
 export function PrimaryButton({ label, subtitle, icon, onPress, tone = 'blue', disabled = false }: { label: string; subtitle?: string; icon?: string; onPress?: () => void; tone?: 'blue' | 'green' | 'red'; disabled?: boolean }) {
+  const inactive = disabled || !onPress;
   const bg = tone === 'green' ? '#0bd34f' : tone === 'red' ? '#941f2b' : '#0b65f4';
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.primary, { backgroundColor: bg, opacity: disabled ? .45 : pressed ? .78 : 1 }]}>
+    <Pressable disabled={inactive} onPress={onPress} style={({ pressed }) => [styles.primary, { backgroundColor: bg, opacity: inactive ? .45 : pressed ? .78 : 1 }]}>
       {icon ? <Text style={styles.primaryIcon}>{icon}</Text> : null}
       <View style={{ flex: 1 }}><Text style={styles.primaryLabel}>{label}</Text>{subtitle ? <Text style={styles.primarySub}>{subtitle}</Text> : null}</View>
       <Text style={styles.primaryArrow}>›</Text>
@@ -152,7 +155,7 @@ export function BottomNav({ active, fifth, items }: { active: string; fifth?: re
       {nav.map(([icon, label, route]) => {
         const selected = label === active;
         return (
-          <Pressable key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, selected && styles.navItemActive]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, selected && styles.navItemActive]}>
             <Text style={[styles.navIcon, selected && styles.navSelected]}>{icon}</Text>
             <Text style={[styles.navLabel, selected && styles.navSelected]}>{label}</Text>
           </Pressable>
@@ -171,7 +174,7 @@ export function InfoRow({ icon, title, subtitle, value, color = C.green, onPress
       {onPress ? <Text style={styles.chevron}>›</Text> : null}
     </View>
   );
-  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
+  return onPress ? <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress}>{content}</Pressable> : content;
 }
 
 export function MiniMetric({ label, value, sub, color = C.green }: { label: string; value: string; sub?: string; color?: string }) {
