@@ -1,226 +1,229 @@
-import React, { useEffect, useState } from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadWallet } from "../nomad";
+import { useNomadWallet } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-type NavItem = {
-  icon: string;
-  label: string;
-  active?: boolean;
-  onPress?: () => void;
-};
+const PREVIEW_BTC_ADDRESS = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
 
-const PREVIEW_BTC_ADDRESS = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+type TabName = 'Address' | 'QR Code';
 
-function Card({ children, style = {} as object }: { children: React.ReactNode; style?: object }) {
-  return (
-    <View style={[{ borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.96)", borderRadius: 18, padding: 18, overflow: "hidden" }, style]}>
-      {children}
-    </View>
-  );
-}
-
-function StatusPill() {
-  return (
-    <View style={{ borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.96)", borderRadius: 30, paddingVertical: 10, paddingHorizontal: 18, flexDirection: "row", alignItems: "center" }}>
-      <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: "#20f878", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-        <Text style={{ color: "#20f878", fontSize: 18, fontWeight: "900" }}>✓</Text>
-      </View>
-      <View>
-        <Text style={{ color: "#d7e8ff", fontSize: 13 }}>All Systems</Text>
-        <Text style={{ color: "#20f878", fontSize: 15, fontWeight: "900" }}>SECURE</Text>
-      </View>
-    </View>
-  );
-}
-
-function SegmentedTabs() {
-  return (
-    <View style={{ marginTop: 26, borderWidth: 1, borderColor: "#0a3862", borderRadius: 12, overflow: "hidden", flexDirection: "row", backgroundColor: "rgba(2,10,20,0.9)" }}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Address tab" style={{ flex: 1, minHeight: 72, backgroundColor: "#0648ad", borderColor: "#1684ff", borderWidth: 1, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
-        <Text style={{ color: "#1684ff", fontSize: 26, fontWeight: "900", marginRight: 14 }}>▣</Text>
-        <Text style={{ color: "white", fontSize: 21, fontWeight: "900" }}>Address</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="QR Code tab" style={{ flex: 1, minHeight: 72, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
-        <Text style={{ color: "#b9c5d6", fontSize: 26, fontWeight: "900", marginRight: 14 }}>▦</Text>
-        <Text style={{ color: "white", fontSize: 21 }}>QR Code</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function FakeQrCode() {
-  const cells = Array.from({ length: 17 * 17 }, (_, index) => {
-    const row = Math.floor(index / 17);
-    const col = index % 17;
-    const finder =
-      (row < 5 && col < 5) ||
-      (row < 5 && col > 11) ||
-      (row > 11 && col < 5);
-    const innerFinder =
-      (row > 0 && row < 4 && col > 0 && col < 4) ||
-      (row > 0 && row < 4 && col > 12 && col < 16) ||
-      (row > 12 && row < 16 && col > 0 && col < 4);
-    const active = finder ? !innerFinder || (row % 4 === 0 || col % 4 === 0) : (row * 7 + col * 5 + row * col) % 3 !== 0;
-    return <View key={index} style={{ width: 12, height: 12, backgroundColor: active ? "#020202" : "white" }} />;
-  });
+function QrCode({ compact }: { compact: boolean }) {
+  const cell = compact ? 10 : 13;
+  const gridSize = cell * 21;
+  const cells = useMemo(() => Array.from({ length: 21 * 21 }, (_, index) => {
+    const row = Math.floor(index / 21);
+    const col = index % 21;
+    const inFinder =
+      (row <= 6 && col <= 6) ||
+      (row <= 6 && col >= 14) ||
+      (row >= 14 && col <= 6);
+    const finderBorder = inFinder && (
+      row === 0 || row === 6 || col === 0 || col === 6 ||
+      row === 14 || row === 20 || col === 14 || col === 20
+    );
+    const finderCore =
+      (row >= 2 && row <= 4 && col >= 2 && col <= 4) ||
+      (row >= 2 && row <= 4 && col >= 16 && col <= 18) ||
+      (row >= 16 && row <= 18 && col >= 2 && col <= 4);
+    const data = ((row * 11 + col * 7 + row * col) % 5) < 3;
+    const active = finderBorder || finderCore || (!inFinder && data);
+    return <View key={index} style={{ width: cell, height: cell, backgroundColor: active ? '#020202' : '#fff' }} />;
+  }), [cell]);
 
   return (
-    <View style={{ alignSelf: "center", marginTop: 12, width: 380, height: 380, borderRadius: 15, borderWidth: 12, borderColor: "white", backgroundColor: "white", shadowColor: "#1684ff", shadowOpacity: 0.95, shadowRadius: 20, alignItems: "center", justifyContent: "center" }}>
-      <View style={{ width: 204, flexDirection: "row", flexWrap: "wrap" }}>{cells}</View>
-      <View style={{ position: "absolute", width: 96, height: 96, borderRadius: 20, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 70, height: 70, borderRadius: 18, borderWidth: 5, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", backgroundColor: "#021222" }}>
-          <Text style={{ color: "#1684ff", fontSize: 24, fontWeight: "900" }}>⌁</Text>
+    <View style={[styles.qrFrame, { width: gridSize + 36, height: gridSize + 36 }]}>
+      <View style={{ width: gridSize, flexDirection: 'row', flexWrap: 'wrap' }}>{cells}</View>
+      <View style={[styles.qrLogoPlate, { width: compact ? 70 : 84, height: compact ? 70 : 84, borderRadius: compact ? 15 : 18 }]}>
+        <View style={[styles.qrShield, { width: compact ? 52 : 62, height: compact ? 58 : 68 }]}>
+          <Text style={[styles.qrWave, { fontSize: compact ? 24 : 29 }]}>⌁</Text>
         </View>
       </View>
     </View>
   );
 }
 
-function AddressPanel({ address, loading, error }: { address: string; loading: boolean; error: string | null }) {
-  const displayAddress = loading ? "Loading wallet address..." : address;
-
+function SegmentTabs({ active, onChange }: { active: TabName; onChange(value: TabName): void }) {
   return (
-    <Card style={{ marginTop: 18, padding: 24 }}>
-      <FakeQrCode />
-
-      <View style={{ alignItems: "center", marginTop: 28 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: error ? "#ff5d5d" : "#20f878", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-            <Text style={{ color: error ? "#ff5d5d" : "#20f878", fontWeight: "900" }}>{error ? "!" : "✓"}</Text>
-          </View>
-          <Text style={{ color: "white", fontSize: 19, fontWeight: "800" }}>{error ? "Preview BTC address shown" : "This is your BTC address"}</Text>
-        </View>
-        <Text style={{ color: "#b9c5d6", fontSize: 16, marginTop: 12 }}>Share this address to receive payments</Text>
-      </View>
-
-      <View style={{ marginTop: 26, borderWidth: 1, borderColor: "#0a3862", borderRadius: 13, padding: 16, backgroundColor: "rgba(1,12,25,0.7)" }}>
-        <Text style={{ color: "#b9c5d6", fontSize: 15, marginBottom: 14 }}>Your Bitcoin Address</Text>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ color: "white", fontSize: 20, flex: 1 }} numberOfLines={1}>{displayAddress}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Copy bitcoin address" style={{ width: 48, height: 48, borderRadius: 9, borderWidth: 1, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", marginLeft: 10 }}>
-            <Text style={{ color: "#1684ff", fontSize: 28 }}>▣</Text>
+    <View style={styles.tabs}>
+      {(['Address', 'QR Code'] as TabName[]).map((tab) => {
+        const selected = tab === active;
+        return (
+          <Pressable key={tab} onPress={() => onChange(tab)} style={[styles.tab, selected && styles.tabActive]}>
+            <Text style={[styles.tabIcon, selected && styles.tabIconActive]}>{tab === 'Address' ? '▣' : '▦'}</Text>
+            <Text style={[styles.tabText, selected && styles.tabTextActive]}>{tab}</Text>
           </Pressable>
-        </View>
-        {error ? <Text style={{ color: "#ffb703", fontSize: 13, marginTop: 10 }}>{error}</Text> : null}
-      </View>
-
-      <View style={{ flexDirection: "row", marginTop: 22, gap: 16 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Share address" style={{ flex: 1, minHeight: 66, borderWidth: 1, borderColor: "#1684ff", borderRadius: 12, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
-          <Text style={{ color: "#1684ff", fontSize: 27, marginRight: 14 }}>⌯</Text>
-          <Text style={{ color: "#1684ff", fontSize: 20, fontWeight: "800" }}>Share</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Copy Address" style={{ flex: 1, minHeight: 66, borderWidth: 1, borderColor: "#1684ff", borderRadius: 12, alignItems: "center", justifyContent: "center", flexDirection: "row" }}>
-          <Text style={{ color: "#1684ff", fontSize: 27, marginRight: 14 }}>▣</Text>
-          <Text style={{ color: "#1684ff", fontSize: 20, fontWeight: "800" }}>Copy Address</Text>
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: 24, borderWidth: 1, borderColor: "#0a3862", borderRadius: 13, padding: 18, backgroundColor: "rgba(1,12,25,0.7)", flexDirection: "row" }}>
-        <View style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "#1684ff", alignItems: "center", justifyContent: "center", marginRight: 16 }}>
-          <Text style={{ color: "#1684ff", fontSize: 24 }}>i</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: "#1684ff", fontSize: 20, fontWeight: "900" }}>Important</Text>
-          <Text style={{ color: "#d6dce8", fontSize: 16, lineHeight: 24, marginTop: 8 }}>Only send BTC to this address. Sending other assets may result in permanent loss.</Text>
-        </View>
-      </View>
-    </Card>
-  );
-}
-
-function TransactionHistoryCard() {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Transaction History" style={{ marginTop: 20, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.96)", borderRadius: 18, padding: 22, flexDirection: "row", alignItems: "center" }}>
-      <View style={{ width: 66, height: 66, borderRadius: 12, backgroundColor: "rgba(22,132,255,0.08)", borderWidth: 1, borderColor: "#0a3862", alignItems: "center", justifyContent: "center", marginRight: 18 }}>
-        <Text style={{ color: "#1684ff", fontSize: 30 }}>↺</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: "white", fontSize: 21, fontWeight: "900" }}>Transaction History</Text>
-        <Text style={{ color: "#b9c5d6", fontSize: 16, marginTop: 6 }}>View all incoming transactions</Text>
-      </View>
-      <Text style={{ color: "#b9c5d6", fontSize: 38 }}>›</Text>
-    </Pressable>
-  );
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items: NavItem[] = [
-    { icon: "⌂", label: "Home", onPress: () => navigation.navigate("Portfolio") },
-    { icon: "▣", label: "Wallets", onPress: () => navigation.navigate("Wallets") },
-    { icon: "✈", label: "Send", onPress: () => navigation.navigate("SendBitcoin") },
-    { icon: "▦", label: "Receive", active: true },
-    { icon: "⊞", label: "Travel", onPress: () => navigation.navigate("TravelMode") },
-    { icon: "◇", label: "Security", onPress: () => navigation.navigate("SecurityCenter") },
-  ];
-
-  return (
-    <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 82, borderRadius: 18, borderWidth: 1, borderColor: "#0a3862", backgroundColor: "rgba(3,16,30,0.99)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>
-      {items.map((item) => (
-        <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={item.onPress} style={{ alignItems: "center", minWidth: 48 }}>
-          <Text style={{ color: item.active ? "#1684ff" : "#b9c5d6", fontSize: 26, fontWeight: "900" }}>{item.icon}</Text>
-          <Text style={{ color: item.active ? "#1684ff" : "#b9c5d6", fontSize: 12, marginTop: 4 }}>{item.label}</Text>
-        </Pressable>
-      ))}
+        );
+      })}
     </View>
   );
 }
 
-export const ReceiveBitcoinScreen = () => {
+export default function ReceiveBitcoinScreen() {
   const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   const { getReceiveAddress } = useNomadWallet();
+  const [tab, setTab] = useState<TabName>('Address');
   const [address, setAddress] = useState(PREVIEW_BTC_ADDRESS);
-  const [addressLoading, setAddressLoading] = useState(true);
-  const [addressError, setAddressError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     let mounted = true;
-
     async function loadAddress() {
       try {
-        setAddressLoading(true);
-        setAddressError(null);
-        const nextAddress = await getReceiveAddress("BTC");
-        if (mounted) setAddress(nextAddress);
+        setLoading(true);
+        setError(null);
+        const next = await getReceiveAddress('BTC');
+        if (mounted && next) setAddress(next);
       } catch (err) {
-        if (mounted) setAddressError(err instanceof Error ? err.message : "Unable to load BTC address from adapter.");
+        if (mounted) setError(err instanceof Error ? err.message : 'Unable to load the BTC receive address.');
       } finally {
-        if (mounted) setAddressLoading(false);
+        if (mounted) setLoading(false);
       }
     }
-
     void loadAddress();
     return () => { mounted = false; };
   }, [getReceiveAddress]);
 
+  const copyAddress = async () => {
+    try {
+      const runtime = globalThis as unknown as { navigator?: { clipboard?: { writeText(value: string): Promise<void> } } };
+      if (Platform.OS === 'web' && runtime.navigator?.clipboard) {
+        await runtime.navigator.clipboard.writeText(address);
+        setFeedback('Bitcoin address copied');
+      } else {
+        setFeedback('Address ready to copy in the native wallet');
+      }
+    } catch {
+      setFeedback('Unable to copy automatically');
+    }
+  };
+
+  const shareAddress = async () => {
+    try {
+      await Share.share({ message: `My Nomad Bitcoin address: ${address}` });
+      setFeedback('Share sheet opened');
+    } catch {
+      setFeedback('Unable to open sharing');
+    }
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#020812" }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 20, paddingBottom: 126 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
-              <Text style={{ color: "white", fontSize: 40, lineHeight: 44 }}>‹</Text>
-            </Pressable>
-            <View>
-              <Text style={{ color: "white", fontSize: 29, fontWeight: "900" }}>Receive Bitcoin</Text>
-              <Text style={{ color: "#d6dce8", fontSize: 16, marginTop: 4 }}>Receive BTC to your wallet</Text>
-            </View>
+    <NomadPage>
+      <PageHeader
+        title="Receive Bitcoin"
+        subtitle="Receive BTC to your wallet"
+        icon="↓"
+        color={C.blue}
+        help
+      />
+
+      <SegmentTabs active={tab} onChange={setTab} />
+
+      <Panel style={[styles.receivePanel, { padding: compact ? 16 : 24 }]}>
+        <QrCode compact={compact} />
+
+        <View style={styles.verifiedRow}>
+          <RoundIcon symbol={error ? '!' : '✓'} color={error ? C.yellow : C.green} size={30} />
+          <Text style={styles.verifiedText}>{error ? 'Preview BTC address shown' : 'This is your BTC address'}</Text>
+        </View>
+        <Text style={styles.shareHint}>Share this address to receive payments</Text>
+
+        <View style={styles.addressBox}>
+          <Text style={styles.addressLabel}>Your Bitcoin Address</Text>
+          <View style={styles.addressLine}>
+            <Text selectable numberOfLines={compact ? 2 : 1} style={styles.addressText}>{loading ? 'Loading wallet address…' : address}</Text>
+            <Pressable onPress={copyAddress} style={styles.copySquare}><Text style={styles.copyIcon}>▣</Text></Pressable>
           </View>
-          <StatusPill />
-          <Pressable accessibilityRole="button" accessibilityLabel="Help" style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: "#395a7d", alignItems: "center", justifyContent: "center", marginLeft: 12 }}>
-            <Text style={{ color: "#d6dce8", fontSize: 23, fontWeight: "900" }}>?</Text>
-          </Pressable>
+          {error ? <Text style={styles.warningText}>{error}</Text> : null}
+          {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
         </View>
 
-        <SegmentedTabs />
-        <AddressPanel address={address} loading={addressLoading} error={addressError} />
-        <TransactionHistoryCard />
-      </ScrollView>
-      <BottomNav />
-    </View>
-  );
-};
+        <View style={[styles.actionRow, compact && styles.actionRowCompact]}>
+          <Pressable onPress={shareAddress} style={styles.outlineButton}><Text style={styles.outlineIcon}>⌯</Text><Text style={styles.outlineText}>Share</Text></Pressable>
+          <Pressable onPress={copyAddress} style={styles.outlineButton}><Text style={styles.outlineIcon}>▣</Text><Text style={styles.outlineText}>Copy Address</Text></Pressable>
+        </View>
 
-export default ReceiveBitcoinScreen;
+        <View style={styles.importantBox}>
+          <RoundIcon symbol="i" color={C.blue} size={42} />
+          <View style={styles.importantCopy}>
+            <Text style={styles.importantTitle}>Important</Text>
+            <Text style={styles.importantText}>Only send BTC to this address. Sending other assets may result in permanent loss.</Text>
+          </View>
+        </View>
+      </Panel>
+
+      <Pressable onPress={() => navigation.navigate('Wallets')} style={styles.historyCard}>
+        <RoundIcon symbol="↺" color={C.blue} size={54} filled />
+        <View style={styles.historyCopy}>
+          <Text style={styles.historyTitle}>Transaction History</Text>
+          <Text style={styles.historySub}>View all incoming transactions</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
+      <BottomNav
+        active="Receive"
+        items={[
+          ['⌂', 'Home', 'Portfolio'],
+          ['▣', 'Wallets', 'Wallets'],
+          ['✈', 'Send', 'SendBitcoin'],
+          ['▦', 'Receive', 'ReceiveBitcoin'],
+          ['⊞', 'Travel', 'TravelMode'],
+          ['◇', 'Security', 'SecurityCenter'],
+        ]}
+      />
+    </NomadPage>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabs: { minHeight: 68, marginBottom: 18, borderWidth: 1, borderColor: C.border, borderRadius: 14, overflow: 'hidden', flexDirection: 'row', backgroundColor: 'rgba(2,10,20,.92)' },
+  tab: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  tabActive: { borderWidth: 1, borderColor: C.blue, backgroundColor: 'rgba(11,76,178,.62)' },
+  tabIcon: { color: '#aebbd0', fontSize: 24 },
+  tabIconActive: { color: C.blue },
+  tabText: { color: '#d9e4f2', fontSize: 16 },
+  tabTextActive: { color: '#fff', fontWeight: '900' },
+  receivePanel: { alignItems: 'stretch' },
+  qrFrame: { alignSelf: 'center', borderRadius: 18, borderWidth: 10, borderColor: '#fff', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: C.blue, shadowOpacity: .85, shadowRadius: 20 },
+  qrLogoPlate: { position: 'absolute', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  qrShield: { borderWidth: 4, borderColor: C.blue, backgroundColor: '#021222', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  qrWave: { color: C.blue, fontWeight: '900' },
+  verifiedRow: { marginTop: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  verifiedText: { color: '#fff', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  shareHint: { color: C.muted, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  addressBox: { marginTop: 22, borderWidth: 1, borderColor: C.border, borderRadius: 13, backgroundColor: C.panel2, padding: 16 },
+  addressLabel: { color: C.muted, fontSize: 12, marginBottom: 12 },
+  addressLine: { flexDirection: 'row', alignItems: 'center' },
+  addressText: { flex: 1, minWidth: 0, color: '#fff', fontSize: 16, lineHeight: 22 },
+  copySquare: { width: 46, height: 46, borderRadius: 9, borderWidth: 1, borderColor: C.blue, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  copyIcon: { color: C.blue, fontSize: 25 },
+  warningText: { color: C.yellow, fontSize: 11, marginTop: 10 },
+  feedback: { color: C.green, fontSize: 11, marginTop: 8 },
+  actionRow: { flexDirection: 'row', gap: 14, marginTop: 20 },
+  actionRowCompact: { gap: 8 },
+  outlineButton: { flex: 1, minWidth: 0, minHeight: 58, borderWidth: 1, borderColor: C.blue, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 8 },
+  outlineIcon: { color: C.blue, fontSize: 23 },
+  outlineText: { color: C.blue, fontSize: 14, fontWeight: '800' },
+  importantBox: { marginTop: 22, borderWidth: 1, borderColor: C.border, borderRadius: 13, backgroundColor: C.panel2, padding: 16, flexDirection: 'row', alignItems: 'flex-start' },
+  importantCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  importantTitle: { color: C.blue, fontSize: 16, fontWeight: '900' },
+  importantText: { color: '#d5deeb', fontSize: 13, lineHeight: 20, marginTop: 6 },
+  historyCard: { minHeight: 80, marginTop: 18, borderWidth: 1, borderColor: C.border, borderRadius: 16, backgroundColor: C.panel, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  historyCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  historyTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  historySub: { color: C.muted, fontSize: 12, marginTop: 5 },
+  chevron: { color: '#b5c3d5', fontSize: 32 },
+});
