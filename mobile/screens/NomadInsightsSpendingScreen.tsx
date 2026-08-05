@@ -1,90 +1,181 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { useNomadInsights } from '../nomad';
-import type { NomadBudgetItem, NomadSpendingCategory, NomadSpendingTransaction } from '../nomad';
+import { useNomadInsights, useNomadTravel } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-function Card({ children, style }: { children: React.ReactNode; style?: object }) {
-  return <View style={[{ borderRadius: 16, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.95)', padding: 16 }, style]}>{children}</View>;
+type InsightTab = 'Spending' | 'Savings' | 'Portfolio' | 'Trends';
+
+function SpendingBars() {
+  const bars = [30, 50, 66, 40, 59, 43, 24, 32, 21, 41, 25, 29, 58, 72, 31, 39, 41, 55, 32, 24, 38, 22, 30, 51, 27, 50, 29];
+  return <View style={styles.barChart}>{bars.map((height, index) => <View key={`${height}-${index}`} style={[styles.bar, { height: `${height}%` }]} />)}</View>;
 }
 
-function SecurePill() {
-  return <View style={{ borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.95)', borderRadius: 28, paddingHorizontal: 14, paddingVertical: 9, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: '#35f883', fontSize: 24, marginRight: 9 }}>▾</Text><View><Text style={{ color: '#d7e8ff', fontSize: 13 }}>All Systems</Text><Text style={{ color: '#35f883', fontSize: 13, fontWeight: '900' }}>SECURE</Text></View></View>;
+function CategoryRow({ category }: { category: { label: string; icon?: string; percent: string; amount: string; color: string } }) {
+  const value = Number(category.percent.replace('%', '')) || 0;
+  return <View style={styles.categoryRow}><RoundIcon symbol={category.icon || '•'} color={category.color} size={36} filled /><View style={styles.categoryCopy}><View style={styles.categoryHeading}><Text style={styles.categoryLabel}>{category.label}</Text><Text style={styles.categoryAmount}>{category.amount}</Text></View><ProgressBar value={value} color={category.color} height={6} /></View><Text style={styles.categoryPercent}>{category.percent}</Text></View>;
 }
 
-function Header({ error }: { error: string | null }) {
+function BudgetCard({ budget }: { budget: { label: string; spent: string; total: string; percent: string; icon: string; color: string } }) {
+  const percent = Number(budget.percent.replace('%', '')) || 0;
+  return <View style={styles.budgetCard}><Text style={[styles.budgetIcon, { color: budget.color }]}>{budget.icon}</Text><Text style={styles.budgetLabel}>{budget.label}</Text><Text style={styles.budgetSpent}>{budget.spent} / {budget.total}</Text><View style={[styles.budgetRing, { borderColor: budget.color }]}><Text style={[styles.budgetPercent, { color: budget.color }]}>{budget.percent}</Text></View><ProgressBar value={percent} color={budget.color} height={5} /></View>;
+}
+
+export default function NomadInsightsSpendingScreen() {
   const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
+  const { insights, loading, error, refresh } = useNomadInsights();
+  const { travelPocket } = useNomadTravel();
+  const [activeTab, setActiveTab] = useState<InsightTab>('Spending');
+  const [period, setPeriod] = useState<'Month' | 'Week'>('Month');
+
+  const region = travelPocket.regionInput || 'Global';
+  const currentRows = useMemo(() => {
+    if (/global|japan/i.test(region)) return insights.recentSpending;
+    const genericNames = ['Local Dining', 'Regional Market', 'Public Transit', 'Local Services'];
+    return insights.recentSpending.map((row, index) => ({
+      ...row,
+      name: `${region} ${genericNames[index % genericNames.length]}`,
+      meta: `Recent activity • ${region}`,
+      amount: row.usd,
+      usd: travelPocket.localCurrency || travelPocket.preferredStablecoin || 'Local stable value',
+    }));
+  }, [insights.recentSpending, region, travelPocket.localCurrency, travelPocket.preferredStablecoin]);
+
+  const tabs: InsightTab[] = ['Spending', 'Savings', 'Portfolio', 'Trends'];
+  const summaryTitle = activeTab === 'Spending' ? 'SPENDING SUMMARY' : activeTab === 'Savings' ? 'SAVINGS SUMMARY' : activeTab === 'Portfolio' ? 'PORTFOLIO SUMMARY' : 'SPENDING TRENDS';
+
   return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={{ color: 'white', fontSize: 36, marginRight: 12 }}>‹</Text></Pressable><Text style={{ color: '#35f883', fontSize: 43, fontWeight: '900', marginRight: 12 }}>⌁</Text><View><Text style={{ color: 'white', fontSize: 28, fontWeight: '900' }}>Nomad Insights</Text><Text style={{ color: '#d7e8ff', fontSize: 15, marginTop: 4 }}>Your spending. Your savings. Your freedom.</Text></View></View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}><SecurePill /><Text style={{ color: '#d7e8ff', fontSize: 25, marginLeft: 12 }}>?</Text></View>
+    <NomadPage maxWidth={980}>
+      <PageHeader
+        title="Nomad Insights"
+        subtitle="Your spending. Your savings. Your freedom."
+        icon="⌁"
+        color={C.green}
+        right={<Pressable disabled={loading} onPress={() => void refresh()} style={styles.refreshButton}><Text style={styles.refreshText}>{loading ? 'Syncing…' : 'Refresh'}</Text></Pressable>}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <View style={styles.tabs}>
+        <Pressable onPress={() => navigation.navigate('NomadInsights')} style={styles.tab}><Text style={styles.tabText}>Overview</Text></Pressable>
+        {tabs.map((tab) => <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.tabActive]}><Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text></Pressable>)}
       </View>
-      {error ? <Text style={{ color: '#ff455c', marginTop: 10 }}>{error}</Text> : null}
-      <View style={{ height: 1, backgroundColor: '#0a263f', marginTop: 18 }} />
-    </View>
+
+      <Panel style={styles.summaryPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>{summaryTitle}</Text><Text style={styles.sectionSub}>{period === 'Month' ? 'Current month' : 'Current week'}</Text></View><Pressable onPress={() => setPeriod((value) => value === 'Month' ? 'Week' : 'Month')} style={styles.periodButton}><Text style={styles.periodText}>▣  This {period}  ⌄</Text></Pressable></View>
+
+        <View style={[styles.summaryBody, compact && styles.summaryCompact]}>
+          <View style={styles.totalCopy}><Text style={styles.totalLabel}>{activeTab === 'Savings' ? 'Estimated Savings' : activeTab === 'Portfolio' ? 'Portfolio Value' : 'Total Spent'}</Text><Text style={styles.totalValue}>{activeTab === 'Savings' ? insights.topSavings : activeTab === 'Portfolio' ? insights.totalPortfolioValue : insights.spendingTotal}</Text><Text style={styles.totalDelta}>{activeTab === 'Portfolio' ? insights.monthlyGrowthPercent : insights.spendingDelta}</Text></View>
+          <View style={styles.chartWrap}><SpendingBars /><View style={styles.chartLabels}><Text style={styles.chartLabel}>Start</Text><Text style={styles.chartLabel}>Mid</Text><Text style={styles.chartLabel}>Now</Text></View></View>
+        </View>
+
+        <View style={styles.categoryPanel}>
+          <Text style={styles.categoryTitle}>SPENDING BY CATEGORY</Text>
+          <View style={[styles.categoryBody, compact && styles.categoryCompact]}>
+            <View style={styles.donut}><Text style={styles.donutValue}>{insights.spendingTotal}</Text><Text style={styles.donutLabel}>TOTAL</Text></View>
+            <View style={styles.categories}>{insights.spendingCategories.map((category) => <CategoryRow key={category.label} category={category} />)}</View>
+          </View>
+        </View>
+      </Panel>
+
+      <Panel tone="green" style={styles.insightPanel}>
+        <RoundIcon symbol="✪" color={C.green} size={56} filled />
+        <View style={styles.insightCopy}><Text style={styles.insightLabel}>TOP INSIGHT</Text><Text style={styles.insightText}>{insights.topInsight}</Text></View>
+        <View style={styles.savingsCopy}><Text style={styles.savingsLabel}>You saved</Text><Text style={styles.savingsValue}>{insights.topSavings}</Text><Text style={styles.savingsNote}>Compared with your recent pattern</Text></View>
+      </Panel>
+
+      <Panel style={styles.recentPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>RECENT SPENDING</Text><Text style={styles.sectionSub}>{region} • {travelPocket.localCurrency || 'Local value'}</Text></View><Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.link}>Travel Activity  ›</Text></Pressable></View>
+        {currentRows.map((row, index) => <View key={`${row.name}-${index}`} style={[styles.transactionRow, index < currentRows.length - 1 && styles.rowBorder]}><RoundIcon symbol={row.icon} color={row.color} size={43} filled /><View style={styles.transactionCopy}><Text numberOfLines={1} style={styles.transactionName}>{row.name}</Text><Text style={styles.transactionMeta}>{row.meta}</Text></View><Text style={[styles.transactionCategory, { color: row.color }]}>{row.category}</Text><View style={styles.transactionAmount}><Text style={styles.transactionValue}>{row.amount}</Text><Text style={styles.transactionUsd}>{row.usd}</Text></View></View>)}
+      </Panel>
+
+      <Panel style={styles.budgetPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>MONTHLY BUDGET TRACKER</Text><Text style={styles.sectionSub}>Planning indicators only</Text></View><Text style={styles.link}>Manage in Settings</Text></View>
+        <View style={styles.budgetGrid}>{insights.budgets.map((budget) => <BudgetCard key={budget.label} budget={budget} />)}</View>
+      </Panel>
+
+      <BottomNav active="Insights" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['⌁', 'Insights', 'NomadInsightsSpending'],
+      ]} />
+    </NomadPage>
   );
 }
 
-function InsightsTabs() {
-  const navigation = useNavigation<any>();
-  const tabs = [{ label: 'Overview', route: 'NomadInsights' }, { label: 'Spending', route: 'NomadInsightsSpending' }, { label: 'Savings', route: 'NomadInsightsSpending' }, { label: 'Portfolio', route: 'NomadInsights' }, { label: 'Trends', route: 'NomadInsights' }];
-  return <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#0a263f', marginBottom: 12 }}>{tabs.map((tab) => { const active = tab.label === 'Spending'; return <Pressable key={tab.label} onPress={() => navigation.navigate(tab.route)} style={{ alignItems: 'center', paddingBottom: 11, flex: 1 }}><Text style={{ color: active ? '#35f883' : '#d7e8ff', fontSize: 17, fontWeight: active ? '900' : '500' }}>{tab.label}</Text>{active ? <View style={{ marginTop: 10, width: 92, height: 2, backgroundColor: '#35f883' }} /> : null}</Pressable>; })}</View>;
-}
-
-function BarChart() {
-  const bars = [210, 310, 390, 220, 335, 245, 135, 175, 115, 225, 145, 160, 325, 405, 165, 210, 220, 305, 170, 135, 205, 120, 160, 285, 145, 285, 160];
-  return <View style={{ flex: 1, height: 146, justifyContent: 'flex-end' }}><View style={{ position: 'absolute', left: 0, right: 0, top: 12, bottom: 26, justifyContent: 'space-between' }}>{[400, 300, 200, 100, 0].map((v) => <View key={v} style={{ borderTopWidth: 1, borderTopColor: '#123243', flexDirection: 'row', justifyContent: 'flex-end' }}><Text style={{ color: '#c8d4e6', fontSize: 12, marginTop: -8 }}>${v}</Text></View>)}</View><View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingRight: 42, height: 118 }}>{bars.map((height, index) => <View key={`${height}-${index}`} style={{ width: 9, height: height / 3, borderRadius: 4, backgroundColor: '#35f883', shadowColor: '#35f883', shadowOpacity: 0.45, shadowRadius: 8 }} />)}</View><View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingRight: 42, marginTop: 7 }}>{['May 1', 'May 8', 'May 15', 'May 22', 'May 29'].map((label) => <Text key={label} style={{ color: '#c8d4e6', fontSize: 12 }}>{label}</Text>)}</View></View>;
-}
-
-function DonutChart({ total }: { total: string }) {
-  return <View style={{ width: 142, height: 142, borderRadius: 71, borderWidth: 25, borderColor: '#24d481', alignItems: 'center', justifyContent: 'center', shadowColor: '#35f883', shadowOpacity: 0.25, shadowRadius: 16 }}><View style={{ position: 'absolute', width: 121, height: 121, borderRadius: 61, borderTopColor: '#1684ff', borderRightColor: '#8b5cff', borderBottomColor: '#ffb84d', borderLeftColor: '#cfd5dd', borderWidth: 15, transform: [{ rotate: '32deg' }] }} /><Text style={{ color: 'white', fontSize: 20, fontWeight: '900' }}>{total}</Text><Text style={{ color: 'white', fontSize: 13 }}>Total Spent</Text></View>;
-}
-
-function SpendingSummary({ total, delta, categories }: { total: string; delta: string; categories: NomadSpendingCategory[] }) {
-  return (
-    <Card>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>SPENDING SUMMARY  ⓘ</Text><View style={{ borderWidth: 1, borderColor: '#2b5b8d', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}><Text style={{ color: 'white' }}>▣  This Month   ⌄</Text></View></View>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ width: '32%' }}><Text style={{ color: '#d7e8ff', fontSize: 15 }}>Total Spent (This Month)</Text><Text style={{ color: 'white', fontSize: 37, fontWeight: '900', marginTop: 12 }}>{total}</Text><Text style={{ color: '#35f883', fontSize: 16, fontWeight: '900', marginTop: 8 }}>{delta}</Text></View><BarChart /></View>
-      <View style={{ borderRadius: 14, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(0,15,28,0.8)', padding: 14, marginTop: 20 }}><Text style={{ color: 'white', fontSize: 18, marginBottom: 16 }}>SPENDING BY CATEGORY  ⓘ</Text><View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ width: '38%', alignItems: 'center' }}><DonutChart total={total} /></View><View style={{ flex: 1 }}>{categories.map((item) => <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#0a263f', paddingVertical: 9 }}><Text style={{ color: item.color, fontSize: 20, width: 34 }}>{item.icon ?? '•'}</Text><Text style={{ color: 'white', flex: 1 }}>{item.label}</Text><Text style={{ color: 'white', width: 42, fontWeight: '900' }}>{item.percent}</Text><Text style={{ color: '#d7e8ff', width: 70, textAlign: 'right' }}>{item.amount}</Text><Text style={{ color: '#d7e8ff', fontSize: 24, marginLeft: 8 }}>›</Text></View>)}</View></View><Text style={{ color: '#35f883', textAlign: 'center', marginTop: 12, fontSize: 16, fontWeight: '800' }}>View All Categories   ›</Text></View>
-    </Card>
-  );
-}
-
-function TopInsight({ insight, savings }: { insight: string; savings: string }) {
-  return <Card style={{ borderColor: '#13b55b', backgroundColor: 'rgba(4,75,36,0.35)', marginTop: 14 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ width: 78, height: 78, borderRadius: 39, borderWidth: 1, borderColor: '#13b55b', backgroundColor: 'rgba(18,163,80,0.35)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}><Text style={{ color: '#35f883', fontSize: 36 }}>✪</Text></View><View style={{ flex: 1 }}><Text style={{ color: '#35f883', fontSize: 16, fontWeight: '900' }}>TOP INSIGHT</Text><Text style={{ color: 'white', fontSize: 18, marginTop: 6 }}>{insight}</Text></View><View style={{ width: 1, height: 74, backgroundColor: '#0a3862', marginRight: 20 }} /><View style={{ width: 190 }}><Text style={{ color: '#d7e8ff' }}>You saved</Text><Text style={{ color: '#35f883', fontSize: 22, fontWeight: '900', marginTop: 3 }}>{savings}</Text><Text style={{ color: 'white', marginTop: 3 }}>Great job!</Text></View><Text style={{ color: '#35f883', fontSize: 52, transform: [{ rotate: '-35deg' }] }}>⌁</Text></View></Card>;
-}
-
-function RecentSpending({ rows }: { rows: NomadSpendingTransaction[] }) {
-  return <Card style={{ marginTop: 14 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>RECENT SPENDING  ⓘ</Text><Text style={{ color: '#35f883', fontWeight: '900' }}>View All  ›</Text></View>{rows.map((row, index) => <View key={row.name} style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: index === rows.length - 1 ? 0 : 1, borderBottomColor: '#0a263f', paddingVertical: 10 }}><View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: `${row.color}22`, borderWidth: 1, borderColor: row.color, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}><Text style={{ color: row.color, fontSize: 20 }}>{row.icon}</Text></View><View style={{ flex: 1 }}><Text style={{ color: 'white', fontSize: 16, fontWeight: '800' }}>{row.name}</Text><Text style={{ color: '#c8d4e6', marginTop: 4 }}>{row.meta}</Text></View><Text style={{ color: row.color, width: 130 }}>{row.category}</Text><View style={{ width: 90, alignItems: 'flex-end' }}><Text style={{ color: 'white', fontSize: 20 }}>{row.amount}</Text><Text style={{ color: '#c8d4e6', marginTop: 3 }}>{row.usd}</Text></View></View>)}</Card>;
-}
-
-function BudgetTracker({ budgets }: { budgets: NomadBudgetItem[] }) {
-  return <Card style={{ marginTop: 14 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>MONTHLY BUDGET TRACKER  ⓘ</Text><Text style={{ color: '#35f883', fontWeight: '900' }}>Manage Budgets  ›</Text></View><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>{budgets.map((budget) => <View key={budget.label} style={{ width: '19%', alignItems: 'center' }}><Text style={{ color: budget.color, fontSize: 20 }}>{budget.icon} <Text style={{ color: 'white', fontSize: 12 }}>{budget.label}</Text></Text><Text style={{ color: '#c8d4e6', marginTop: 8 }}>{budget.spent} / {budget.total}</Text><View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 6, borderColor: budget.color, alignItems: 'center', justifyContent: 'center', marginTop: 12, backgroundColor: `${budget.color}11` }}><Text style={{ color: budget.color, fontSize: 18, fontWeight: '900' }}>{budget.percent}</Text></View></View>)}</View></Card>;
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items = [{ label: 'Home', icon: '⌂', route: 'Portfolio' }, { label: 'Wallets', icon: '▣', route: 'Wallets' }, { label: 'Travel', icon: '✈', route: 'TravelMode' }, { label: 'Security', icon: '♢', route: 'SecurityCenter' }, { label: 'Insights', icon: '▥', route: 'NomadInsightsSpending' }];
-  return <View style={{ position: 'absolute', left: 18, right: 18, bottom: 18, height: 82, borderRadius: 18, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>{items.map((item) => { const active = item.label === 'Insights'; return <Pressable key={item.label} onPress={() => navigation.navigate(item.route)} style={{ alignItems: 'center', width: '19%' }} accessibilityRole="button" accessibilityLabel={`Go to ${item.label}`}><Text style={{ color: active ? '#35f883' : '#d7e8ff', fontSize: 29 }}>{item.icon}</Text><Text style={{ color: active ? '#35f883' : '#d7e8ff', marginTop: 4, fontSize: 14 }}>{item.label}</Text></Pressable>; })}</View>;
-}
-
-export const NomadInsightsSpendingScreen = () => {
-  const { insights, error } = useNomadInsights();
-  return (
-    <View style={{ flex: 1, backgroundColor: '#020812' }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 20, paddingBottom: 118 }} showsVerticalScrollIndicator={false}>
-        <Header error={error} />
-        <InsightsTabs />
-        <SpendingSummary total={insights.spendingTotal} delta={insights.spendingDelta} categories={insights.spendingCategories} />
-        <TopInsight insight={insights.topInsight} savings={insights.topSavings} />
-        <RecentSpending rows={insights.recentSpending} />
-        <BudgetTracker budgets={insights.budgets} />
-      </ScrollView>
-      <BottomNav />
-    </View>
-  );
-};
-
-export default NomadInsightsSpendingScreen;
+const styles = StyleSheet.create({
+  refreshButton: { minHeight: 36, borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
+  refreshText: { color: C.green, fontSize: 9, fontWeight: '900' },
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  tabs: { minHeight: 57, borderBottomWidth: 1, borderBottomColor: C.borderSoft, flexDirection: 'row', marginBottom: 15 },
+  tab: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: C.green },
+  tabText: { color: '#d7e8ff', fontSize: 10 },
+  tabTextActive: { color: C.green, fontWeight: '900' },
+  summaryPanel: { padding: 17 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  sectionSub: { color: C.muted, fontSize: 9, marginTop: 4 },
+  periodButton: { borderWidth: 1, borderColor: C.border, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8 },
+  periodText: { color: '#fff', fontSize: 9 },
+  summaryBody: { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 17 },
+  summaryCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  totalCopy: { width: 215 },
+  totalLabel: { color: C.muted, fontSize: 10 },
+  totalValue: { color: '#fff', fontSize: 31, fontWeight: '900', marginTop: 8 },
+  totalDelta: { color: C.green, fontSize: 10, fontWeight: '900', marginTop: 6 },
+  chartWrap: { flex: 1, minWidth: 240 },
+  barChart: { height: 135, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  bar: { flex: 1, maxWidth: 12, minHeight: 6, marginHorizontal: 1, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: C.green, shadowColor: C.green, shadowOpacity: .3, shadowRadius: 6 },
+  chartLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  chartLabel: { color: C.muted, fontSize: 8 },
+  categoryPanel: { marginTop: 19, borderWidth: 1, borderColor: C.border, borderRadius: 13, backgroundColor: C.panel2, padding: 14 },
+  categoryTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  categoryBody: { flexDirection: 'row', alignItems: 'center', gap: 22, marginTop: 15 },
+  categoryCompact: { flexDirection: 'column' },
+  donut: { width: 140, height: 140, borderRadius: 70, borderWidth: 18, borderColor: C.green, borderTopColor: C.blue, borderRightColor: C.purple, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '18deg' }] },
+  donutValue: { color: '#fff', fontSize: 15, fontWeight: '900', transform: [{ rotate: '-18deg' }] },
+  donutLabel: { color: C.muted, fontSize: 7, marginTop: 2, transform: [{ rotate: '-18deg' }] },
+  categories: { flex: 1, width: '100%' },
+  categoryRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center' },
+  categoryCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  categoryHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
+  categoryLabel: { color: '#fff', fontSize: 9 },
+  categoryAmount: { color: C.muted, fontSize: 8 },
+  categoryPercent: { color: '#fff', fontSize: 9, fontWeight: '900', marginLeft: 9 },
+  insightPanel: { minHeight: 100, marginTop: 15, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  insightCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  insightLabel: { color: C.green, fontSize: 10, fontWeight: '900' },
+  insightText: { color: '#fff', fontSize: 11, lineHeight: 17, marginTop: 5 },
+  savingsCopy: { width: 150, borderLeftWidth: 1, borderLeftColor: C.borderSoft, paddingLeft: 15, marginLeft: 13 },
+  savingsLabel: { color: C.muted, fontSize: 8 },
+  savingsValue: { color: C.green, fontSize: 18, fontWeight: '900', marginTop: 4 },
+  savingsNote: { color: '#fff', fontSize: 8, marginTop: 4 },
+  recentPanel: { marginTop: 15, paddingHorizontal: 16, paddingTop: 16 },
+  link: { color: C.green, fontSize: 9, fontWeight: '900' },
+  transactionRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  transactionCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
+  transactionName: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  transactionMeta: { color: C.muted, fontSize: 8, marginTop: 4 },
+  transactionCategory: { width: 90, fontSize: 8, textAlign: 'right' },
+  transactionAmount: { width: 95, alignItems: 'flex-end', marginLeft: 8 },
+  transactionValue: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  transactionUsd: { color: C.muted, fontSize: 8, marginTop: 4 },
+  budgetPanel: { marginTop: 15, padding: 16 },
+  budgetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 15 },
+  budgetCard: { flexGrow: 1, flexBasis: 140, minHeight: 151, borderWidth: 1, borderColor: C.border, borderRadius: 12, alignItems: 'center', padding: 11 },
+  budgetIcon: { fontSize: 20 },
+  budgetLabel: { color: '#fff', fontSize: 9, fontWeight: '800', marginTop: 5 },
+  budgetSpent: { color: C.muted, fontSize: 8, marginTop: 5 },
+  budgetRing: { width: 59, height: 59, borderRadius: 30, borderWidth: 6, alignItems: 'center', justifyContent: 'center', marginVertical: 9 },
+  budgetPercent: { fontSize: 12, fontWeight: '900' },
+});
