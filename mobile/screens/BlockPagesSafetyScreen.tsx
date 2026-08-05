@@ -1,217 +1,214 @@
-import React from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-import { useNomadBlockPagesSafety } from "../nomad";
+import { useNomadBlockPagesSafety } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-const blue = "#1684ff";
-const green = "#35f883";
-const purple = "#9b4dff";
-const orange = "#ff9f1a";
-const red = "#ff4058";
-const border = "#0a3862";
-const bg = "#020812";
-const muted = "#b8c3d6";
+const threats = [
+  ['⌁', 'Phishing Protection', 'Blocking malicious links and fake sign-ins', C.blue],
+  ['♙', 'Identity Monitoring', 'Watching for identity exposure signals', C.purple],
+  ['◎', 'Data Leak Scanner', 'Reviewing connected exposure sources', C.green],
+  ['☀', 'Malware Protection', 'Warning before suspicious downloads', C.orange],
+  ['◭', 'Social Engineering', 'Detecting impersonation and coercion patterns', C.blue],
+] as const;
 
-type NavItem = { label: string; icon: string; route?: string; active?: boolean };
-type Threat = { title: string; status: string; subtitle: string; icon: string; color: string };
-type Exposure = { label: string; count: string; status: string; icon: string; color: string };
-type Activity = { title: string; subtitle: string; time: string; status: string; icon: string; color: string };
-type Tool = { title: string; subtitle: string; icon: string; color: string; route?: string };
+const tools = [
+  ['◎', 'URL Scanner', 'Check links before opening', 'BlockPagesURLScanner', C.blue],
+  ['⌕', 'Address Scanner', 'Review wallets before sending', 'AddressSafetyDetail', C.blue],
+  ['▣', 'Security Center', 'Wallet and device protections', 'SecurityCenter', C.green],
+  ['A', 'Arkrilium Protocols', 'Connected protocol health', 'VoltaireProtocols', C.purple],
+  ['⚑', 'Report a Scam', 'Record suspicious activity', 'BlockPagesURLScanner', C.red],
+] as const;
 
-const threats: Threat[] = [
-  { title: "Phishing Protection", status: "ACTIVE", subtitle: "Blocking phishing sites & scams", icon: "⌁", color: blue },
-  { title: "Identity Monitoring", status: "ACTIVE", subtitle: "Monitoring your personal data", icon: "♙", color: purple },
-  { title: "Data Leak Scanner", status: "ACTIVE", subtitle: "Scanning exposure sources 24/7", icon: "◎", color: green },
-  { title: "Malware Protection", status: "ACTIVE", subtitle: "Blocking harmful downloads", icon: "☀", color: orange },
-  { title: "Social Engineering", status: "ACTIVE", subtitle: "Detecting scams & impersonation", icon: "◭", color: blue },
-];
-
-const activityBase: Activity[] = [
-  { title: "Phishing site blocked", subtitle: "nomad-fake-login.com", time: "Today, 9:41 AM", status: "Blocked", icon: "♢", color: green },
-  { title: "Identity scan completed", subtitle: "No new exposures found", time: "Today, 6:30 AM", status: "All Clear", icon: "♙", color: purple },
-  { title: "Suspicious email blocked", subtitle: "verify your account now", time: "Yesterday, 8:12 PM", status: "Blocked", icon: "✉", color: blue },
-  { title: "Safety scan completed", subtitle: "No leaked data found", time: "Yesterday, 3:45 PM", status: "All Clear", icon: "▤", color: orange },
-];
-
-const tools: Tool[] = [
-  { title: "URL Scanner", subtitle: "Check links before opening", icon: "◎", color: blue, route: "BlockPagesURLScanner" },
-  { title: "Address Scanner", subtitle: "Check wallets before sending", icon: "⌕", color: blue, route: "AddressSafetyDetail" },
-  { title: "Password Vault", subtitle: "Store & protect passwords", icon: "▣", color: green, route: "SecurityCenter" },
-  { title: "Phone Lookup", subtitle: "Check numbers & identity", icon: "⌕", color: blue },
-  { title: "Report a Scam", subtitle: "Report suspicious activity", icon: "⚑", color: red, route: "BlockPagesURLScanner" },
-];
-
-function Card({ children, style }: { children: React.ReactNode; style?: any }) {
-  return <View style={[{ borderWidth: 1, borderColor: border, borderRadius: 14, backgroundColor: "rgba(3,16,30,0.94)", overflow: "hidden" }, style]}>{children}</View>;
+function ThreatCard({ item }: { item: typeof threats[number] }) {
+  const [icon, title, subtitle, color] = item;
+  return <View style={styles.threatCard}><RoundIcon symbol={icon} color={color} size={50} filled /><Text style={styles.threatTitle}>{title}</Text><Text style={[styles.threatStatus, { color }]}>ACTIVE</Text><Text style={styles.threatSub}>{subtitle}</Text></View>;
 }
 
-function BPLogo({ size = 62 }: { size?: number }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.16, borderWidth: 3, borderColor: blue, backgroundColor: "rgba(22,132,255,0.14)", alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color: "white", fontSize: size * 0.35, fontWeight: "900" }}>BP</Text>
-    </View>
-  );
-}
-
-function SecurePill() {
-  return (
-    <View style={{ borderWidth: 1, borderColor: border, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 9, flexDirection: "row", alignItems: "center" }}>
-      <Text style={{ color: green, fontSize: 22, marginRight: 9 }}>♢</Text>
-      <View><Text style={{ color: "#d7e8ff", fontSize: 13 }}>All Systems</Text><Text style={{ color: green, fontSize: 13, fontWeight: "900" }}>SECURE</Text></View>
-    </View>
-  );
-}
-
-function Header({ label }: { label: string }) {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}>
-      <Pressable onPress={() => navigation.goBack()} style={{ marginRight: 12 }}><Text style={{ color: "white", fontSize: 38 }}>‹</Text></Pressable>
-      <BPLogo />
-      <View style={{ flex: 1, marginLeft: 14 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={{ color: "white", fontSize: 27, fontWeight: "900" }}>BlockPages Safety</Text>
-          <View style={{ marginLeft: 8, borderRadius: 7, backgroundColor: "rgba(22,132,255,0.22)", paddingHorizontal: 8, paddingVertical: 4 }}><Text style={{ color: blue, fontSize: 12, fontWeight: "900" }}>{label}</Text></View>
-        </View>
-        <Text style={{ color: muted, fontSize: 14, marginTop: 4 }}>Your identity. Your data. Your safety online.</Text>
-      </View>
-      <SecurePill />
-      <View style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: border, alignItems: "center", justifyContent: "center", marginLeft: 10 }}><Text style={{ color: "#d7e8ff", fontSize: 20, fontWeight: "900" }}>?</Text></View>
-    </View>
-  );
-}
-
-function Stat({ icon, label, value, note }: { icon: string; label: string; value: string; note: string }) {
-  return (
-    <View style={{ flex: 1, borderRightWidth: 1, borderRightColor: "#143556", paddingHorizontal: 8 }}>
-      <Text style={{ color: muted, fontSize: 12 }}>{icon}  {label}</Text>
-      <Text style={{ color: "white", fontSize: 19, fontWeight: "900", marginTop: 7 }}>{value}</Text>
-      <Text style={{ color: green, fontSize: 12, marginTop: 7 }}>{note}</Text>
-    </View>
-  );
-}
-
-function Orb({ icon, color }: { icon: string; color: string }) {
-  return <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: color, backgroundColor: `${color}22`, alignItems: "center", justifyContent: "center" }}><Text style={{ color, fontSize: 21 }}>{icon}</Text></View>;
-}
-
-function ProtectionHero({ percent, threatsBlocked, dataLeaksPrevented, websitesScanned, sensitiveItemsFound, lastScanLabel }: { percent: number; threatsBlocked: string; dataLeaksPrevented: string; websitesScanned: string; sensitiveItemsFound: string; lastScanLabel: string }) {
-  return (
-    <Card style={{ borderColor: "rgba(22,132,255,0.72)", padding: 20, marginBottom: 14 }}>
-      <View style={{ flexDirection: "row" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: blue, fontSize: 15, fontWeight: "900" }}>YOUR IDENTITY IS PROTECTED</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 18 }}><Text style={{ color: "white", fontSize: 56, fontWeight: "900" }}>{percent}%</Text><Text style={{ color: blue, fontSize: 38, marginLeft: 12 }}>✓</Text></View>
-          <Text style={{ color: "white", fontSize: 16, lineHeight: 23, marginTop: 6 }}>BlockPages is actively protecting you{`\n`}across the web.</Text>
-          <Text style={{ color: muted, fontSize: 13, marginTop: 9 }}>Last scan: {lastScanLabel}</Text>
-        </View>
-        <View style={{ width: 250, alignItems: "center", justifyContent: "center" }}>
-          <View style={{ width: 188, height: 160, alignItems: "center", justifyContent: "center" }}>
-            <View style={{ position: "absolute", top: 0 }}><Orb icon="◎" color={blue} /></View>
-            <View style={{ position: "absolute", left: 10, top: 58 }}><Orb icon="♙" color={blue} /></View>
-            <View style={{ position: "absolute", right: 10, top: 38 }}><Orb icon="✉" color={blue} /></View>
-            <View style={{ position: "absolute", right: 0, bottom: 22 }}><Orb icon="⌕" color={blue} /></View>
-            <BPLogo size={118} />
-          </View>
-        </View>
-      </View>
-      <View style={{ flexDirection: "row", marginTop: 22 }}>
-        <Stat icon="⌁" label="Threats Blocked" value={threatsBlocked} note="This Month" />
-        <Stat icon="♙" label="Data Leaks Prevented" value={dataLeaksPrevented} note="This Month" />
-        <Stat icon="◎" label="Websites Scanned" value={websitesScanned} note="This Month" />
-        <Stat icon="▣" label="Sensitive Items Found" value={sensitiveItemsFound} note={sensitiveItemsFound === "0" ? "All Clear" : "Review"} />
-      </View>
-    </Card>
-  );
-}
-
-function ThreatCard({ item }: { item: Threat }) {
-  return (
-    <View style={{ flex: 1, minHeight: 150, borderWidth: 1, borderColor: border, borderRadius: 9, padding: 10, marginHorizontal: 4, alignItems: "center", justifyContent: "center" }}>
-      <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: `${item.color}22`, alignItems: "center", justifyContent: "center", marginBottom: 13 }}><Text style={{ color: item.color, fontSize: 29 }}>{item.icon}</Text></View>
-      <Text style={{ color: "white", fontSize: 12, fontWeight: "800", textAlign: "center" }}>{item.title}</Text>
-      <Text style={{ color: item.color, fontSize: 12, fontWeight: "900", marginTop: 7 }}>{item.status}</Text>
-      <Text style={{ color: muted, fontSize: 11, textAlign: "center", marginTop: 6, lineHeight: 15 }}>{item.subtitle}</Text>
-    </View>
-  );
-}
-
-function ThreatProtection() {
-  return <Card style={{ padding: 16, marginBottom: 14 }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900", marginBottom: 14 }}>THREAT PROTECTION</Text><View style={{ flexDirection: "row", marginHorizontal: -4 }}>{threats.map((item) => <ThreatCard key={item.title} item={item} />)}</View></Card>;
-}
-
-function PrivacyAndExposure({ privacyScore, sensitiveItemsFound }: { privacyScore: number; sensitiveItemsFound: string }) {
-  const exposures: Exposure[] = [
-    { label: "Email Exposures", count: sensitiveItemsFound === "0" ? "0" : "1", status: sensitiveItemsFound === "0" ? "Resolved" : "Review", icon: "✉", color: blue },
-    { label: "Password Exposures", count: "0", status: "Resolved", icon: "♧", color: green },
-    { label: "Phone Exposures", count: "0", status: "Resolved", icon: "▯", color: purple },
-    { label: "Address Exposures", count: "0", status: "Resolved", icon: "◇", color: purple },
-    { label: "Financial Exposures", count: "0", status: "Resolved", icon: "▭", color: purple },
-  ];
-  return (
-    <View style={{ flexDirection: "row", marginBottom: 14 }}>
-      <Card style={{ flex: 1, padding: 16, marginRight: 6 }}>
-        <Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>PRIVACY SCORE</Text>
-        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 24 }}>
-          <View style={{ width: 132, height: 132, borderRadius: 66, borderWidth: 12, borderColor: blue, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "white", fontSize: 36, fontWeight: "900" }}>{privacyScore}</Text><Text style={{ color: muted, fontSize: 13 }}>/100</Text></View>
-          <View style={{ marginLeft: 22, flex: 1 }}><Text style={{ color: blue, fontSize: 18, fontWeight: "900" }}>{privacyScore >= 90 ? "Excellent" : "Review"}</Text><Text style={{ color: muted, fontSize: 13, lineHeight: 19, marginTop: 8 }}>Your privacy posture{`\n`}is strong.</Text></View>
-        </View>
-        <View style={{ height: 1, backgroundColor: "#143556", marginVertical: 20 }} />
-        <Text style={{ color: blue, fontSize: 15, fontWeight: "800" }}>Improve Your Score  ›</Text>
-      </Card>
-      <Card style={{ flex: 1.38, padding: 16, marginLeft: 6 }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>EXPOSURE SUMMARY</Text><Text style={{ color: blue, fontSize: 14, fontWeight: "800" }}>View Details  ›</Text></View>
-        {exposures.map((item) => <View key={item.label} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: "#102b49" }}><Text style={{ color: item.color, width: 30, fontSize: 21 }}>{item.icon}</Text><Text style={{ color: "white", flex: 1, fontSize: 14 }}>{item.label}</Text><Text style={{ color: "white", width: 28, fontSize: 14 }}>{item.count}</Text><Text style={{ color: item.status === "Resolved" ? green : orange, fontSize: 13 }}>✓ {item.status}</Text></View>)}
-      </Card>
-    </View>
-  );
-}
-
-function ActivityPanel({ lastScanLabel }: { lastScanLabel: string }) {
-  const activity = [{ ...activityBase[0], time: lastScanLabel }, ...activityBase.slice(1)];
-  return (
-    <Card style={{ flex: 1.35, padding: 16, marginRight: 6 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>RECENT ACTIVITY</Text><Text style={{ color: blue, fontSize: 14, fontWeight: "800" }}>View All ›</Text></View>
-      {activity.map((item) => <View key={item.title} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#102b49" }}><View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: `${item.color}22`, alignItems: "center", justifyContent: "center", marginRight: 13 }}><Text style={{ color: item.color, fontSize: 22 }}>{item.icon}</Text></View><View style={{ flex: 1 }}><Text style={{ color: "white", fontSize: 14, fontWeight: "800" }}>{item.title}</Text><Text style={{ color: muted, fontSize: 12, marginTop: 4 }}>{item.subtitle}</Text></View><View style={{ alignItems: "flex-end" }}><Text style={{ color: muted, fontSize: 12 }}>{item.time}</Text><Text style={{ color: green, fontSize: 12, fontWeight: "900", marginTop: 8 }}>{item.status}</Text></View></View>)}
-    </Card>
-  );
-}
-
-function SafetyTools() {
-  const navigation = useNavigation<any>();
-  return (
-    <Card style={{ flex: 1, padding: 16, marginLeft: 6 }}>
-      <Text style={{ color: "white", fontSize: 18, fontWeight: "900", marginBottom: 12 }}>SAFETY TOOLS</Text>
-      {tools.map((item) => <Pressable key={item.title} onPress={() => item.route && navigation.navigate(item.route)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: "#102b49" }}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: `${item.color}22`, alignItems: "center", justifyContent: "center", marginRight: 12 }}><Text style={{ color: item.color, fontSize: 21 }}>{item.icon}</Text></View><View style={{ flex: 1 }}><Text style={{ color: "white", fontSize: 13, fontWeight: "800" }}>{item.title}</Text><Text style={{ color: muted, fontSize: 11, marginTop: 4 }}>{item.subtitle}</Text></View><Text style={{ color: "#c7cfdf", fontSize: 24 }}>›</Text></Pressable>)}
-    </Card>
-  );
-}
-
-function PremiumBanner() {
-  return <Card style={{ padding: 20, marginBottom: 14, borderColor: "rgba(22,132,255,0.58)", flexDirection: "row", alignItems: "center" }}><BPLogo size={70} /><View style={{ flex: 1, marginLeft: 18 }}><View style={{ flexDirection: "row", alignItems: "center" }}><Text style={{ color: "white", fontSize: 20, fontWeight: "900" }}>BlockPages Premium</Text><View style={{ marginLeft: 8, backgroundColor: "rgba(22,132,255,0.30)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7 }}><Text style={{ color: blue, fontWeight: "900", fontSize: 11 }}>PRO</Text></View></View><Text style={{ color: muted, marginTop: 7, lineHeight: 20 }}>Advanced protection. Real-time monitoring.{`\n`}Complete peace of mind.</Text></View><Pressable style={{ backgroundColor: blue, borderRadius: 10, paddingHorizontal: 28, paddingVertical: 15, flexDirection: "row", alignItems: "center" }}><Text style={{ color: "white", fontSize: 18, fontWeight: "900" }}>Go Premium</Text><Text style={{ color: "white", fontSize: 24, marginLeft: 12 }}>›</Text></Pressable></Card>;
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items: NavItem[] = [{ label: "Home", icon: "⌂", route: "Portfolio" }, { label: "Wallets", icon: "▣", route: "Wallets" }, { label: "Travel", icon: "✈", route: "TravelMode" }, { label: "Security", icon: "♢", route: "SecurityCenter" }, { label: "Safety", icon: "BP", active: true }];
-  return <View style={{ position: "absolute", left: 18, right: 18, bottom: 18, height: 78, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: "rgba(3,16,30,0.98)", flexDirection: "row", alignItems: "center", justifyContent: "space-around" }}>{items.map((item) => <Pressable key={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: "center", flex: 1 }}><Text style={{ color: item.active ? blue : "#c7cfdf", fontSize: item.icon === "BP" ? 20 : 29, fontWeight: item.active ? "900" : "600" }}>{item.icon}</Text><Text style={{ color: item.active ? blue : "#c7cfdf", marginTop: 5, fontSize: 13 }}>{item.label}</Text></Pressable>)}</View>;
+function ExposureRow({ icon, label, count, status, color, last }: { icon: string; label: string; count: string; status: string; color: string; last?: boolean }) {
+  return <View style={[styles.exposureRow, !last && styles.rowBorder]}><Text style={[styles.exposureIcon, { color }]}>{icon}</Text><Text style={styles.exposureLabel}>{label}</Text><Text style={styles.exposureCount}>{count}</Text><Text style={[styles.exposureStatus, { color: status === 'Resolved' ? C.green : C.yellow }]}>✓ {status}</Text></View>;
 }
 
 export default function BlockPagesSafetyScreen() {
-  const blockpages = useNomadBlockPagesSafety();
+  const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
+  const safety = useNomadBlockPagesSafety();
+  const [scanState, setScanState] = useState<'idle' | 'running' | 'complete' | 'failed'>('idle');
+  const [feedback, setFeedback] = useState('');
+
+  const statusColor = safety.safetyStatus === 'protected' ? C.green : safety.safetyStatus === 'warning' ? C.yellow : C.red;
+  const exposures = useMemo(() => [
+    ['✉', 'Email Exposures', safety.sensitiveItemsFound === '0' ? '0' : '1', safety.sensitiveItemsFound === '0' ? 'Resolved' : 'Review', C.blue],
+    ['♧', 'Password Exposures', '0', 'Resolved', C.green],
+    ['▯', 'Phone Exposures', '0', 'Resolved', C.purple],
+    ['◇', 'Address Exposures', '0', 'Resolved', C.purple],
+    ['▭', 'Financial Exposures', '0', 'Resolved', C.orange],
+  ] as const, [safety.sensitiveItemsFound]);
+
+  const runFullScan = async () => {
+    try {
+      setScanState('running');
+      setFeedback('Running Reqrium protection checks…');
+      await safety.runScan();
+      setScanState('complete');
+      setFeedback('Reqrium scan complete. Review any flagged items before acting.');
+    } catch (err) {
+      setScanState('failed');
+      setFeedback(err instanceof Error ? err.message : 'Unable to complete the Reqrium scan.');
+    }
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 116 }} showsVerticalScrollIndicator={false}>
-        <Header label={blockpages.protectionLabel} />
-        {blockpages.error ? <Text style={{ color: red, marginBottom: 10 }}>{blockpages.error}</Text> : null}
-        <ProtectionHero percent={blockpages.identityProtectionPercent} threatsBlocked={blockpages.threatsBlocked} dataLeaksPrevented={blockpages.dataLeaksPrevented} websitesScanned={blockpages.websitesScanned} sensitiveItemsFound={blockpages.sensitiveItemsFound} lastScanLabel={blockpages.lastScanLabel} />
-        <ThreatProtection />
-        <PrivacyAndExposure privacyScore={blockpages.privacyScore} sensitiveItemsFound={blockpages.sensitiveItemsFound} />
-        <View style={{ flexDirection: "row", marginBottom: 14 }}><ActivityPanel lastScanLabel={blockpages.lastScanLabel} /><SafetyTools /></View>
-        <PremiumBanner />
-      </ScrollView>
-      <BottomNav />
-    </View>
+    <NomadPage maxWidth={980}>
+      <PageHeader
+        title="Reqrium Safety"
+        subtitle="Your identity. Your data. Your safety online."
+        icon="R"
+        color={C.blue}
+        right={<Text style={styles.hubBadge}>SAFETY HUB</Text>}
+      />
+      {safety.error ? <Text style={styles.error}>{safety.error}</Text> : null}
+
+      <Panel style={styles.hero}>
+        <View style={[styles.heroBody, compact && styles.heroCompact]}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.eyebrow}>YOUR IDENTITY IS PROTECTED</Text>
+            <View style={styles.protectionRow}><Text style={[styles.protectionValue, { color: statusColor, fontSize: compact ? 43 : 57 }]}>{safety.identityProtectionPercent}%</Text><Text style={[styles.protectionMark, { color: statusColor }]}>✓</Text></View>
+            <Text style={styles.heroText}>Reqrium is actively checking connected safety signals across your Nomad experience.</Text>
+            <Text style={styles.lastScan}>Last scan: {safety.lastScanLabel}</Text>
+          </View>
+          <View style={styles.logoGraphic}><View style={styles.logoOrbit}><RoundIcon symbol="R" color={C.blue} size={110} filled /><Text style={[styles.orbitIcon, styles.orbitTop]}>◎</Text><Text style={[styles.orbitIcon, styles.orbitRight]}>✉</Text><Text style={[styles.orbitIcon, styles.orbitBottom]}>⌕</Text><Text style={[styles.orbitIcon, styles.orbitLeft]}>♙</Text></View></View>
+        </View>
+        <View style={styles.heroStats}>
+          {[
+            ['⌁', 'Threats Blocked', safety.threatsBlocked, 'This month'],
+            ['♙', 'Leaks Prevented', safety.dataLeaksPrevented, 'This month'],
+            ['◎', 'Websites Scanned', safety.websitesScanned, 'This month'],
+            ['▣', 'Sensitive Items', safety.sensitiveItemsFound, safety.sensitiveItemsFound === '0' ? 'All clear' : 'Review'],
+          ].map(([icon, label, value, note]) => <View key={label} style={styles.heroStat}><Text style={styles.heroStatLabel}>{icon} {label}</Text><Text style={styles.heroStatValue}>{value}</Text><Text style={[styles.heroStatNote, { color: note === 'Review' ? C.yellow : C.green }]}>{note}</Text></View>)}
+        </View>
+      </Panel>
+
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>THREAT PROTECTION</Text><Text style={styles.sectionSub}>Active protection modules</Text></View><Pressable disabled={scanState === 'running'} onPress={() => void runFullScan()} style={styles.scanButton}><Text style={styles.scanButtonText}>{scanState === 'running' ? 'Scanning…' : 'Run Full Scan'}</Text></Pressable></View>
+        <View style={styles.threatGrid}>{threats.map((item) => <ThreatCard key={item[1]} item={item} />)}</View>
+        {feedback ? <Text style={[styles.feedback, scanState === 'failed' && { color: C.red }]}>{feedback}</Text> : null}
+      </Panel>
+
+      <View style={[styles.twoColumn, compact && styles.twoColumnCompact]}>
+        <Panel style={styles.privacyPanel}>
+          <Text style={styles.sectionTitle}>PRIVACY SCORE</Text>
+          <View style={styles.privacyBody}><View style={styles.scoreRing}><Text style={styles.scoreValue}>{safety.privacyScore}</Text><Text style={styles.scoreOut}>/100</Text></View><View style={styles.privacyCopy}><Text style={styles.privacyStatus}>{safety.privacyScore >= 90 ? 'Excellent' : 'Review'}</Text><Text style={styles.privacyText}>Your current privacy posture is based on connected Reqrium and Nomad security signals.</Text><ProgressBar value={safety.privacyScore} color={C.blue} height={7} /></View></View>
+        </Panel>
+        <Panel style={styles.exposurePanel}>
+          <View style={styles.sectionHeading}><Text style={styles.sectionTitle}>EXPOSURE SUMMARY</Text><Pressable onPress={() => navigation.navigate('AddressSafetyDetail')}><Text style={styles.link}>Details  ›</Text></Pressable></View>
+          {exposures.map((item, index) => <ExposureRow key={item[1]} icon={item[0]} label={item[1]} count={item[2]} status={item[3]} color={item[4]} last={index === exposures.length - 1} />)}
+        </Panel>
+      </View>
+
+      <Panel style={styles.activityPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>RECENT ACTIVITY</Text><Text style={styles.sectionSub}>Protection events and checks</Text></View><Text style={styles.link}>Reqrium Log</Text></View>
+        {[
+          ['◇', 'Security scan completed', safety.lastScanLabel, safety.sensitiveItemsFound === '0' ? 'All Clear' : 'Review', C.green],
+          ['♙', 'Identity monitoring active', 'Connected signals', 'Active', C.purple],
+          ['✉', 'Phishing protection ready', 'URL checks available', 'Protected', C.blue],
+          ['▤', 'Wallet safety tools online', 'Address checks available', 'Ready', C.orange],
+        ].map(([icon, title, subtitle, status, color], index, array) => <View key={title} style={[styles.activityRow, index < array.length - 1 && styles.rowBorder]}><RoundIcon symbol={icon} color={color} size={43} filled /><View style={styles.activityCopy}><Text style={styles.activityTitle}>{title}</Text><Text style={styles.activitySub}>{subtitle}</Text></View><Text style={[styles.activityStatus, { color }]}>{status}</Text></View>)}
+      </Panel>
+
+      <Panel style={styles.toolsPanel}>
+        <Text style={styles.sectionTitle}>SAFETY TOOLS</Text>
+        <View style={styles.toolGrid}>{tools.map(([icon, title, subtitle, route, color]) => <Pressable key={title} onPress={() => navigation.navigate(route)} style={styles.toolCard}><RoundIcon symbol={icon} color={color} size={47} filled /><Text style={styles.toolTitle}>{title}</Text><Text style={styles.toolSub}>{subtitle}</Text><Text style={styles.toolArrow}>›</Text></Pressable>)}</View>
+      </Panel>
+
+      <Panel tone="green" style={styles.footerPanel}><RoundIcon symbol="R" color={C.blue} size={50} filled /><View style={styles.footerCopy}><Text style={styles.footerTitle}>Reqrium protection inside Nomad</Text><Text style={styles.footerSub}>Safety results are decision-support signals. Always verify recipients, URLs and transaction details before signing.</Text></View></Panel>
+
+      <BottomNav active="Safety" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['R', 'Safety', 'BlockPagesSafety'], ['⚙', 'Settings', 'Settings'],
+      ]} />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  hubBadge: { color: C.blue, borderWidth: 1, borderColor: C.blue, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 8, fontWeight: '900' },
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  hero: { padding: 19 },
+  heroBody: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  heroCopy: { flex: 1, minWidth: 0 },
+  eyebrow: { color: C.blue, fontSize: 11, fontWeight: '900' },
+  protectionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  protectionValue: { fontWeight: '900', letterSpacing: -1 },
+  protectionMark: { fontSize: 31, marginLeft: 12 },
+  heroText: { color: '#fff', fontSize: 12, lineHeight: 18, marginTop: 7 },
+  lastScan: { color: C.muted, fontSize: 9, marginTop: 8 },
+  logoGraphic: { width: 240, alignItems: 'center' },
+  logoOrbit: { width: 180, height: 180, borderRadius: 90, borderWidth: 1, borderColor: 'rgba(22,140,255,.28)', alignItems: 'center', justifyContent: 'center' },
+  orbitIcon: { position: 'absolute', width: 41, height: 41, borderRadius: 21, borderWidth: 1, borderColor: C.blue, backgroundColor: C.bg, color: C.blue, fontSize: 20, textAlign: 'center', textAlignVertical: 'center' },
+  orbitTop: { top: -2 },
+  orbitRight: { right: -2, top: 69 },
+  orbitBottom: { bottom: -2 },
+  orbitLeft: { left: -2, top: 69 },
+  heroStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.borderSoft },
+  heroStat: { flex: 1, minWidth: 135 },
+  heroStatLabel: { color: C.muted, fontSize: 8 },
+  heroStatValue: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 6 },
+  heroStatNote: { fontSize: 8, marginTop: 5 },
+  sectionPanel: { marginTop: 17, padding: 16 },
+  activityPanel: { marginTop: 17, paddingHorizontal: 16, paddingTop: 16 },
+  toolsPanel: { marginTop: 17, padding: 16 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  sectionSub: { color: C.muted, fontSize: 9, marginTop: 4 },
+  scanButton: { borderWidth: 1, borderColor: C.blue, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 8 },
+  scanButtonText: { color: C.blue, fontSize: 9, fontWeight: '900' },
+  threatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 13 },
+  threatCard: { flexGrow: 1, flexBasis: 145, minHeight: 147, borderWidth: 1, borderColor: C.border, borderRadius: 11, alignItems: 'center', justifyContent: 'center', padding: 11 },
+  threatTitle: { color: '#fff', fontSize: 10, fontWeight: '900', textAlign: 'center', marginTop: 8 },
+  threatStatus: { fontSize: 8, fontWeight: '900', marginTop: 6 },
+  threatSub: { color: C.muted, fontSize: 8, lineHeight: 13, textAlign: 'center', marginTop: 5 },
+  feedback: { color: C.green, fontSize: 9, marginTop: 10 },
+  twoColumn: { flexDirection: 'row', gap: 12, marginTop: 17 },
+  twoColumnCompact: { flexDirection: 'column' },
+  privacyPanel: { flex: .8, padding: 16 },
+  exposurePanel: { flex: 1.2, padding: 16 },
+  privacyBody: { flexDirection: 'row', alignItems: 'center', gap: 15, marginTop: 17 },
+  scoreRing: { width: 112, height: 112, borderRadius: 56, borderWidth: 10, borderColor: C.blue, alignItems: 'center', justifyContent: 'center' },
+  scoreValue: { color: '#fff', fontSize: 30, fontWeight: '900' },
+  scoreOut: { color: C.muted, fontSize: 8 },
+  privacyCopy: { flex: 1, minWidth: 0 },
+  privacyStatus: { color: C.blue, fontSize: 14, fontWeight: '900' },
+  privacyText: { color: C.muted, fontSize: 8, lineHeight: 13, marginVertical: 9 },
+  link: { color: C.blue, fontSize: 9, fontWeight: '900' },
+  exposureRow: { minHeight: 47, flexDirection: 'row', alignItems: 'center' },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  exposureIcon: { width: 27, fontSize: 18 },
+  exposureLabel: { flex: 1, color: '#fff', fontSize: 9 },
+  exposureCount: { color: '#fff', width: 25, fontSize: 9 },
+  exposureStatus: { fontSize: 8, fontWeight: '800' },
+  activityRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
+  activityCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
+  activityTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  activitySub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  activityStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8 },
+  toolGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 13 },
+  toolCard: { flexGrow: 1, flexBasis: 145, minHeight: 119, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 12 },
+  toolTitle: { color: '#fff', fontSize: 10, fontWeight: '900', marginTop: 8 },
+  toolSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  toolArrow: { position: 'absolute', right: 10, top: 10, color: '#c7cfdf', fontSize: 22 },
+  footerPanel: { minHeight: 84, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  footerCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  footerTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  footerSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
+});
