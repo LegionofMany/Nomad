@@ -1,135 +1,178 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useNomadSecurity, type NomadFreezeScope } from '../nomad';
-
-const green = '#19ef5f';
-const blue = '#1684ff';
-const red = '#ff4b4b';
-const amber = '#ffb31a';
-const purple = '#a855f7';
-const muted = '#c9d0d8';
-const border = '#123345';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
 type FreezeOptionItem = {
   title: string;
   subtitle: string;
   icon: string;
-  tint: string;
+  color: string;
   badge: string;
-  badgeTint: string;
   scope: NomadFreezeScope;
 };
 
 const freezeOptions: FreezeOptionItem[] = [
-  { title: 'Freeze Entire Wallet', subtitle: 'Lock all assets and transactions across your Nomad wallet.', icon: '▰', tint: red, badge: 'High Protection', badgeTint: red, scope: 'entire_wallet' },
-  { title: 'Freeze Travel Pocket', subtitle: 'Stop all spending and top-ups for your Travel Pocket.', icon: '▣', tint: blue, badge: 'Medium Protection', badgeTint: blue, scope: 'travel_pocket' },
-  { title: 'Freeze Specific Assets', subtitle: 'Choose specific assets to freeze while keeping others active.', icon: '◉', tint: purple, badge: 'Custom', badgeTint: purple, scope: 'specific_assets' },
-  { title: 'Notify Owner Authority', subtitle: 'Alert your Owner Authority of this emergency action.', icon: '♙', tint: green, badge: 'Recommended', badgeTint: green, scope: 'owner_authority_alert' },
+  { title: 'Freeze Entire Wallet', subtitle: 'Block outgoing transactions, swaps and top-ups across Nomad.', icon: '▰', color: C.red, badge: 'High Protection', scope: 'entire_wallet' },
+  { title: 'Freeze Travel Pocket', subtitle: 'Stop Travel Pocket spending and regional top-ups.', icon: '✈', color: C.blue, badge: 'Medium Protection', scope: 'travel_pocket' },
+  { title: 'Freeze Specific Assets', subtitle: 'Protect selected assets while leaving other wallets active.', icon: '◉', color: C.purple, badge: 'Custom', scope: 'specific_assets' },
+  { title: 'Notify Owner Authority', subtitle: 'Send an emergency alert without freezing the full wallet.', icon: '♙', color: C.green, badge: 'Recommended', scope: 'owner_authority_alert' },
 ];
 
-const navItems = [
-  { label: 'Home', icon: '⌂', route: 'Portfolio' },
-  { label: 'Wallets', icon: '▣', route: 'Wallets' },
-  { label: 'Travel', icon: '✈', route: 'TravelMode' },
-  { label: 'Security', icon: '♢', route: 'SecurityCenter', active: true },
-  { label: 'More', icon: '…', route: 'Settings' },
-];
-
-function Card({ children, style }: React.PropsWithChildren<{ style?: object }>) {
-  return <View style={[{ borderWidth: 1, borderColor: border, backgroundColor: 'rgba(3,16,26,0.94)', borderRadius: 14, padding: 18 }, style]}>{children}</View>;
-}
-
-function Header() {
-  const navigation = useNavigation<any>();
+function FreezeOption({ item, active, busy, onPress }: { item: FreezeOptionItem; active: boolean; busy: boolean; onPress: () => void }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()}><Text style={{ color: 'white', fontSize: 40 }}>‹</Text></Pressable>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 18 }}>
-        <View style={{ width: 74, height: 74, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: red, fontSize: 58 }}>♜</Text></View>
-        <View style={{ marginLeft: 14, flex: 1 }}><Text style={{ color: 'white', fontSize: 31, fontWeight: '900' }}>Emergency Freeze</Text><Text style={{ color: muted, fontSize: 20, marginTop: 5 }}>Protect your assets instantly</Text></View>
+    <Pressable disabled={busy} onPress={onPress} style={[styles.option, active && { borderColor: item.color, backgroundColor: `${item.color}12` }]}>
+      <View style={[styles.optionIcon, { borderColor: `${item.color}66`, backgroundColor: `${item.color}16` }]}>
+        <Text style={[styles.optionMark, { color: item.color }]}>{item.icon}</Text>
+        <View style={[styles.optionBadgeIcon, { backgroundColor: active ? item.color : C.blue }]}><Text style={styles.optionBadgeIconText}>{active ? '✓' : '❄'}</Text></View>
       </View>
-      <Pressable onPress={() => navigation.navigate('SecurityCenter')}><Text style={{ color: green, fontSize: 24 }}>Help  ?</Text></Pressable>
-    </View>
-  );
-}
-
-function FreezeOption({ item, active, onPress }: { item: FreezeOptionItem; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={onPress} style={{ minHeight: 138, borderRadius: 14, borderWidth: 1, borderColor: active ? item.tint : 'rgba(255,255,255,0.12)', backgroundColor: active ? `${item.tint}18` : 'rgba(5,18,28,0.88)', padding: 22, flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
-      <View style={{ width: 92, height: 92, borderRadius: 46, borderWidth: 1, borderColor: `${item.tint}66`, backgroundColor: `${item.tint}18`, alignItems: 'center', justifyContent: 'center', marginRight: 24 }}>
-        <Text style={{ color: item.tint, fontSize: 42, fontWeight: '900' }}>{item.icon}</Text>
-        <View style={{ position: 'absolute', right: -2, bottom: 6, width: 30, height: 30, borderRadius: 15, backgroundColor: active ? item.tint : blue, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: 'white', fontSize: 17 }}>{active ? '✓' : '❄'}</Text></View>
-      </View>
-      <View style={{ flex: 1 }}><Text style={{ color: 'white', fontSize: 25, fontWeight: '900' }}>{item.title}</Text><Text style={{ color: '#e5e9ee', fontSize: 19, lineHeight: 27, marginTop: 7 }}>{item.subtitle}</Text></View>
-      <View style={{ alignItems: 'flex-end', marginLeft: 14 }}><View style={{ borderRadius: 18, borderWidth: 1, borderColor: `${item.badgeTint}55`, backgroundColor: `${item.badgeTint}18`, paddingHorizontal: 15, paddingVertical: 8, marginBottom: 10 }}><Text style={{ color: item.badgeTint, fontSize: 14, fontWeight: '800' }}>{active ? 'Active' : item.badge}</Text></View><Text style={{ color: item.tint, fontSize: 45 }}>›</Text></View>
+      <View style={styles.optionCopy}><Text style={styles.optionTitle}>{item.title}</Text><Text style={styles.optionSub}>{item.subtitle}</Text></View>
+      <View style={styles.optionRight}><Text style={[styles.protectionBadge, { color: item.color, borderColor: `${item.color}55`, backgroundColor: `${item.color}12` }]}>{active ? 'Active' : item.badge}</Text><Text style={[styles.optionArrow, { color: item.color }]}>›</Text></View>
     </Pressable>
   );
 }
 
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingBottom: 12, paddingTop: 8, backgroundColor: '#02060d' }}>
-      <View style={{ height: 92, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: 'rgba(3,16,26,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
-        {navItems.map((item) => <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={item.label} onPress={() => item.route && navigation.navigate(item.route)} style={{ alignItems: 'center', width: 70 }}><Text style={{ color: item.active ? green : '#d8d4df', fontSize: 31, fontWeight: '600' }}>{item.icon}</Text><Text style={{ color: item.active ? green : '#d8d4df', marginTop: 5, fontSize: 16 }}>{item.label}</Text></Pressable>)}
-      </View>
-    </View>
-  );
-}
-
 export default function EmergencyFreezeScreen() {
+  const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   const { security, error, activateFreeze, clearFreeze } = useNomadSecurity();
+  const [busyScope, setBusyScope] = useState<NomadFreezeScope | 'clear' | null>(null);
+  const [feedback, setFeedback] = useState('');
+
   const currentScope = security.freezeScope;
   const hasFreeze = security.freezeStatus !== 'none';
-
-  const handleFreeze = async (scope: NomadFreezeScope) => {
-    await activateFreeze(scope);
-  };
-
   const latestActivity = security.freezeActivity[0];
 
+  const statusCopy = useMemo(() => {
+    if (!hasFreeze) return 'Choose a protection scope if a device is lost, stolen or compromised.';
+    return currentScope === 'owner_authority_alert'
+      ? 'Owner Authority has been alerted. Wallet access remains under owner control.'
+      : `Emergency protection is active for ${(currentScope || security.freezeStatus).replace(/_/g, ' ')}.`;
+  }, [currentScope, hasFreeze, security.freezeStatus]);
+
+  const handleFreeze = async (scope: NomadFreezeScope) => {
+    try {
+      setBusyScope(scope);
+      setFeedback('');
+      const next = await activateFreeze(scope);
+      setFeedback(`${next.freezeStatus === 'none' ? 'Alert sent' : 'Freeze activated'}: ${scope.replace(/_/g, ' ')}.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to activate emergency protection.');
+    } finally {
+      setBusyScope(null);
+    }
+  };
+
+  const handleClear = async () => {
+    try {
+      setBusyScope('clear');
+      setFeedback('');
+      await clearFreeze();
+      setFeedback('Emergency freeze cleared after owner-controlled verification.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Unable to clear the emergency freeze.');
+    } finally {
+      setBusyScope(null);
+    }
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#02060d' }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 22, paddingBottom: 130 }}>
-        <Header />
-        {error ? <Text style={{ color: red, marginTop: 12 }}>{error}</Text> : null}
+    <NomadPage maxWidth={900}>
+      <PageHeader title="Emergency Freeze" subtitle="Protect your assets instantly" icon="❄" color={C.red} status={false} help />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Card style={{ marginTop: 22, minHeight: 205, borderColor: hasFreeze ? red : '#7b1c1c', backgroundColor: 'rgba(34,6,9,0.55)', flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 195, alignItems: 'center', justifyContent: 'center' }}><View style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: '#6b2022', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,75,75,0.10)' }}><Text style={{ color: red, fontSize: 76 }}>{hasFreeze ? '❄' : '▣'}</Text></View></View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: red, fontSize: 25, fontWeight: '900', marginBottom: 10 }}>{hasFreeze ? 'Emergency Freeze Active' : 'Emergency Protection'}</Text>
-            <Text style={{ color: '#f2f6fa', fontSize: 21, lineHeight: 30 }}>Freeze your wallet or assets if your device is lost, stolen, or compromised. You can unfreeze anytime using your Time Sets or Owner Authority.</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16 }}><Text style={{ color: red, fontSize: 28, marginRight: 12 }}>⚠</Text><Text style={{ color: '#f1d8d8', fontSize: 17 }}>{hasFreeze ? `Current status: ${security.freezeStatus.toUpperCase()}` : 'Frozen actions cannot be undone immediately.'}</Text></View>
-          </View>
-        </Card>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 10 }}>
-          <Text style={{ color: 'white', fontSize: 24, fontWeight: '800' }}>What would you like to freeze?</Text>
-          {hasFreeze ? <Pressable onPress={() => { void clearFreeze(); }}><Text style={{ color: green, fontSize: 18, fontWeight: '900' }}>Clear Freeze</Text></Pressable> : null}
+      <Panel tone="red" style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={styles.heroIcon}><Text style={styles.heroMark}>{hasFreeze ? '❄' : '▣'}</Text></View>
+        <View style={styles.heroCopy}>
+          <Text style={styles.heroTitle}>{hasFreeze ? 'Emergency Protection Active' : 'Emergency Protection'}</Text>
+          <Text style={styles.heroText}>{statusCopy}</Text>
+          <Text style={styles.heroWarning}>⚠ Incoming funds can remain available while outgoing actions are restricted by the selected scope.</Text>
         </View>
-        {freezeOptions.map((item) => <FreezeOption key={item.title} item={item} active={currentScope === item.scope && hasFreeze} onPress={() => { void handleFreeze(item.scope); }} />)}
+        {hasFreeze ? <Pressable disabled={busyScope === 'clear'} onPress={() => void handleClear()} style={styles.clearButton}><Text style={styles.clearText}>{busyScope === 'clear' ? 'Clearing…' : 'Clear Freeze'}</Text></Pressable> : null}
+      </Panel>
 
-        <Card style={{ marginTop: 18, borderColor: '#0d3a66', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: blue, fontSize: 45, marginRight: 18 }}>ⓘ</Text>
-          <View style={{ flex: 1 }}><Text style={{ color: '#f0f4f8', fontSize: 18, lineHeight: 27 }}>When frozen, all outgoing transactions, swaps, and top-ups will be blocked. Incoming funds (receive only) will still be allowed unless otherwise specified.</Text><Text style={{ color: blue, fontSize: 18, marginTop: 16 }}>Learn more about Emergency Freeze  ›</Text></View>
-        </Card>
+      <View style={styles.headingRow}><Text style={styles.heading}>What would you like to protect?</Text><Text style={styles.headingNote}>Owner verification required</Text></View>
+      {freezeOptions.map((item) => <FreezeOption key={item.scope} item={item} active={hasFreeze && currentScope === item.scope} busy={busyScope !== null} onPress={() => void handleFreeze(item.scope)} />)}
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 28, marginBottom: 10 }}><Text style={{ color: 'white', fontSize: 22, fontWeight: '800' }}>Recent Freeze Activity</Text><Text style={{ color: green, fontSize: 18 }}>View All</Text></View>
-        <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.10)', alignItems: 'center', justifyContent: 'center', marginRight: 18 }}><Text style={{ color: latestActivity ? red : '#b7bcc5', fontSize: 31 }}>{latestActivity ? '❄' : '❄'}</Text></View>
-          <View style={{ flex: 1 }}><Text style={{ color: 'white', fontSize: 20, fontWeight: '800' }}>{latestActivity?.label ?? 'No freeze actions yet'}</Text><Text style={{ color: muted, fontSize: 17, marginTop: 5 }}>{latestActivity ? new Date(latestActivity.requestedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'You’re all set. Stay secure!'}</Text></View>
-          <Text style={{ color: latestActivity ? red : '#8f98a8', fontSize: 44 }}>{latestActivity ? '!' : '♢'}</Text>
-        </Card>
+      {feedback ? <Text style={[styles.feedback, feedback.toLowerCase().includes('unable') && { color: C.red }]}>{feedback}</Text> : null}
 
-        <Card style={{ marginTop: 18, borderColor: '#7a5b00', backgroundColor: 'rgba(46,31,0,0.42)', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: amber, fontSize: 42, marginRight: 18 }}>☏</Text>
-          <View style={{ flex: 1 }}><Text style={{ color: amber, fontSize: 20, fontWeight: '900' }}>Need help?</Text><Text style={{ color: '#f2e7ce', fontSize: 16, marginTop: 6 }}>Contact Nomad Support or your Owner Authority.</Text></View>
-          <View style={{ borderWidth: 1, borderColor: amber, borderRadius: 9, paddingHorizontal: 21, paddingVertical: 14 }}><Text style={{ color: amber, fontSize: 18 }}>Contact Support</Text></View>
-        </Card>
-      </ScrollView>
-      <BottomNav />
-    </View>
+      <Panel style={styles.infoPanel}>
+        <RoundIcon symbol="i" color={C.blue} size={43} />
+        <View style={styles.infoCopy}><Text style={styles.infoText}>Freeze controls block reviewable outgoing actions before signing. Final enforcement remains inside the connected wallet and owner-authority layer.</Text><Pressable onPress={() => navigation.navigate('SecurityCenter')}><Text style={styles.infoLink}>Return to Security Center  ›</Text></Pressable></View>
+      </Panel>
+
+      <Text style={styles.activityHeading}>Recent Freeze Activity</Text>
+      <Panel style={styles.activityPanel}>
+        <RoundIcon symbol={latestActivity ? '❄' : '◇'} color={latestActivity ? C.red : C.muted} size={48} filled />
+        <View style={styles.activityCopy}>
+          <Text style={styles.activityTitle}>{latestActivity?.label || 'No freeze actions yet'}</Text>
+          <Text style={styles.activitySub}>{latestActivity ? `${latestActivity.scope.replace(/_/g, ' ')} • ${new Date(latestActivity.requestedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'Your wallet has no recorded emergency actions.'}</Text>
+        </View>
+        <Text style={[styles.activityStatus, { color: latestActivity ? C.red : C.green }]}>{latestActivity?.status.replace(/_/g, ' ') || 'Secure'}</Text>
+      </Panel>
+
+      <Panel tone="yellow" style={styles.supportPanel}>
+        <RoundIcon symbol="☏" color={C.yellow} size={45} />
+        <View style={styles.supportCopy}><Text style={styles.supportTitle}>Need help?</Text><Text style={styles.supportSub}>Use recovery or contact your Owner Authority before clearing a freeze you did not initiate.</Text></View>
+        <Pressable onPress={() => navigation.navigate('RecoveryCenter')} style={styles.supportButton}><Text style={styles.supportButtonText}>Recovery  ›</Text></Pressable>
+      </Panel>
+
+      <BottomNav active="Security" fifth={['•••', 'More', 'Settings']} />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  error: { color: C.red, fontSize: 11, marginBottom: 12 },
+  hero: { minHeight: 180, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 18 },
+  heroCompact: { flexWrap: 'wrap', alignItems: 'flex-start' },
+  heroIcon: { width: 118, height: 118, borderRadius: 59, borderWidth: 1, borderColor: '#6b2022', backgroundColor: 'rgba(255,75,75,.1)', alignItems: 'center', justifyContent: 'center' },
+  heroMark: { color: C.red, fontSize: 61 },
+  heroCopy: { flex: 1, minWidth: 210 },
+  heroTitle: { color: C.red, fontSize: 20, fontWeight: '900' },
+  heroText: { color: '#f1f5f9', fontSize: 13, lineHeight: 20, marginTop: 8 },
+  heroWarning: { color: '#f1d8d8', fontSize: 10, lineHeight: 16, marginTop: 11 },
+  clearButton: { borderWidth: 1, borderColor: C.green, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  clearText: { color: C.green, fontSize: 11, fontWeight: '900' },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 22, marginBottom: 2 },
+  heading: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  headingNote: { color: C.muted, fontSize: 9 },
+  option: { minHeight: 111, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.12)', borderRadius: 14, backgroundColor: C.panel, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  optionIcon: { width: 70, height: 70, borderRadius: 35, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  optionMark: { fontSize: 31, fontWeight: '900' },
+  optionBadgeIcon: { position: 'absolute', right: -2, bottom: 3, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optionBadgeIconText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  optionCopy: { flex: 1, minWidth: 0 },
+  optionTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  optionSub: { color: '#d6dee8', fontSize: 10, lineHeight: 16, marginTop: 5 },
+  optionRight: { alignItems: 'flex-end', marginLeft: 9 },
+  protectionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 8, fontWeight: '900' },
+  optionArrow: { fontSize: 28, marginTop: 5 },
+  feedback: { color: C.green, fontSize: 11, marginTop: 13 },
+  infoPanel: { minHeight: 91, marginTop: 18, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  infoCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  infoText: { color: '#d8e1ec', fontSize: 10, lineHeight: 16 },
+  infoLink: { color: C.blue, fontSize: 10, fontWeight: '800', marginTop: 7 },
+  activityHeading: { color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 21, marginBottom: 9 },
+  activityPanel: { minHeight: 78, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  activityCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  activityTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  activitySub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  activityStatus: { fontSize: 9, fontWeight: '900', textTransform: 'capitalize', marginLeft: 8 },
+  supportPanel: { minHeight: 84, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  supportCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  supportTitle: { color: C.yellow, fontSize: 13, fontWeight: '900' },
+  supportSub: { color: '#efe5ce', fontSize: 9, lineHeight: 14, marginTop: 4 },
+  supportButton: { borderWidth: 1, borderColor: C.yellow, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 9, marginLeft: 8 },
+  supportButtonText: { color: C.yellow, fontSize: 9, fontWeight: '900' },
+});
