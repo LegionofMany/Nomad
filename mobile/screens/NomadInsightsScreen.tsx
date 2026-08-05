@@ -1,104 +1,187 @@
-import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-import { useNomadInsights } from '../nomad';
-import type { NomadInsightStat, NomadPerformanceRow, NomadSpendingCategory } from '../nomad';
+import { useNomadInsights, useNomadTravel } from '../nomad';
+import {
+  BottomNav,
+  C,
+  NomadPage,
+  PageHeader,
+  Panel,
+  ProgressBar,
+  RoundIcon,
+  useNomadLayout,
+} from '../ui/NomadShell';
 
-function Card({ children, style }: { children: React.ReactNode; style?: object }) {
-  return <View style={[{ borderRadius: 16, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.94)', padding: 16 }, style]}>{children}</View>;
+function Sparkline({ positive = true }: { positive?: boolean }) {
+  const values = positive ? [22, 31, 28, 39, 44, 41, 55, 62, 70] : [66, 59, 61, 48, 52, 42, 45, 34, 29];
+  const color = positive ? C.green : C.red;
+  return <View style={styles.sparkline}>{values.map((height, index) => <View key={`${height}-${index}`} style={styles.sparkColumn}><View style={[styles.sparkDot, { backgroundColor: color }]} /><View style={[styles.sparkStem, { height, backgroundColor: `${color}45` }]} /></View>)}</View>;
 }
 
-function SecurePill() {
-  return (
-    <View style={{ borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.94)', borderRadius: 26, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' }}>
-      <Text style={{ color: '#35f883', fontSize: 24, marginRight: 10 }}>▾</Text>
-      <View><Text style={{ color: '#d7e8ff', fontSize: 14 }}>All Systems</Text><Text style={{ color: '#35f883', fontWeight: '900', fontSize: 14 }}>SECURE</Text></View>
-    </View>
-  );
+function StatCard({ label, value, note, icon, color }: { label: string; value: string; note: string; icon: string; color: string }) {
+  return <View style={styles.statCard}><Text style={[styles.statIcon, { color }]}>{icon}</Text><Text style={styles.statLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.statValue}>{value}</Text><Text style={[styles.statNote, { color }]}>{note}</Text></View>;
 }
 
-function Header({ error }: { error: string | null }) {
-  return (
-    <View style={{ marginBottom: 22 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Text style={{ color: '#35f883', fontSize: 44, fontWeight: '900', marginRight: 12 }}>⌁</Text>
-          <View><Text style={{ color: 'white', fontSize: 28, fontWeight: '900' }}>Nomad Insights</Text><Text style={{ color: '#d7e8ff', fontSize: 16, marginTop: 4 }}>Your spending. Your savings. Your freedom.</Text></View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}><SecurePill /><Text style={{ color: '#d7e8ff', fontSize: 25, marginLeft: 10 }}>?</Text></View>
-      </View>
-      {error ? <Text style={{ color: '#ff455c', marginTop: 10 }}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function TrendLine({ color = '#35f883' }: { color?: string }) {
-  return <View style={{ height: 72, flex: 1, justifyContent: 'center' }}><View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', opacity: 0.95 }}>{[15, 25, 24, 42, 42, 58, 50, 70, 80].map((height, index) => <View key={`${height}-${index}`} style={{ width: 22, alignItems: 'center' }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color, marginBottom: 2 }} /><View style={{ height, width: 2, backgroundColor: `${color}55` }} /></View>)}</View></View>;
-}
-
-function DonutChart({ total }: { total: string }) {
-  return (
-    <View style={{ width: 142, height: 142, borderRadius: 71, borderWidth: 24, borderColor: '#24d481', alignItems: 'center', justifyContent: 'center', shadowColor: '#35f883', shadowOpacity: 0.25, shadowRadius: 18 }}>
-      <View style={{ position: 'absolute', width: 118, height: 118, borderRadius: 59, borderTopColor: '#1684ff', borderRightColor: '#8b5cff', borderBottomColor: '#ffb84d', borderLeftColor: '#cfd5dd', borderWidth: 13, transform: [{ rotate: '32deg' }] }} />
-      <Text style={{ color: 'white', fontSize: 20, fontWeight: '900' }}>{total}</Text><Text style={{ color: 'white', fontSize: 13 }}>Total Spent</Text>
-    </View>
-  );
-}
-
-function StatTile({ stat }: { stat: NomadInsightStat }) {
-  return <View style={{ width: '24%', borderRadius: 12, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(0,25,45,0.72)', padding: 12 }}><Text style={{ color: stat.color, fontSize: 24, fontWeight: '900' }}>{stat.icon}</Text><Text style={{ color: 'white', marginTop: 8, fontSize: 13 }}>{stat.label}</Text><Text style={{ color: 'white', marginTop: 12, fontSize: 24, fontWeight: '900' }}>{stat.value}</Text><Text style={{ color: stat.color, marginTop: 8, fontWeight: '900' }}>{stat.note}</Text></View>;
-}
-
-function SpendingOverview({ total, delta, categories, insight }: { total: string; delta: string; categories: NomadSpendingCategory[]; insight: string }) {
-  return (
-    <Card style={{ marginTop: 18 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>SPENDING OVERVIEW</Text><View style={{ borderWidth: 1, borderColor: '#2b5b8d', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}><Text style={{ color: 'white' }}>This Month ⌄</Text></View></View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 18 }}>
-        <View style={{ width: '30%' }}><Text style={{ color: 'white', fontSize: 15 }}>Total Spent (This Month) ⓘ</Text><Text style={{ color: 'white', fontSize: 32, fontWeight: '900', marginTop: 12 }}>{total}</Text><Text style={{ color: '#35f883', fontSize: 16, fontWeight: '900', marginTop: 8 }}>{delta}</Text></View>
-        <View style={{ width: '32%', alignItems: 'center' }}><DonutChart total={total} /></View>
-        <View style={{ flex: 1 }}>{categories.map((item) => <View key={item.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 11 }}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: item.color, marginRight: 8 }} /><Text style={{ color: 'white', fontSize: 13 }}>{item.label}</Text></View><Text style={{ color: 'white', width: 38, fontWeight: '900' }}>{item.percent}</Text><Text style={{ color: '#c8d4e6', width: 62, textAlign: 'right', fontSize: 12 }}>{item.amount}</Text></View>)}</View>
-      </View>
-      <View style={{ marginTop: 16, borderRadius: 10, borderWidth: 1, borderColor: '#13b55b', backgroundColor: 'rgba(4,75,36,0.35)', padding: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><Text style={{ color: '#35f883', fontSize: 24, marginRight: 10 }}>✪</Text><View><Text style={{ color: '#35f883', fontWeight: '900' }}>Top Insight</Text><Text style={{ color: 'white', marginTop: 3 }}>{insight}</Text></View></View><Text style={{ color: '#35f883', fontSize: 28 }}>›</Text></View>
-    </Card>
-  );
-}
-
-function TravelActivity({ location, dateRange, spent, spentUsd, average, averageUsd }: { location: string; dateRange: string; spent: string; spentUsd: string; average: string; averageUsd: string }) {
-  return <Card style={{ marginTop: 18 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>TRAVEL ACTIVITY</Text><Text style={{ color: '#35f883', fontWeight: '900' }}>View All Trips  ›</Text></View><View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ width: 78, height: 78, borderRadius: 39, backgroundColor: 'rgba(18,163,80,0.35)', borderWidth: 1, borderColor: '#13b55b', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}><Text style={{ color: '#35f883', fontSize: 34 }}>⌂</Text><Text style={{ position: 'absolute', bottom: -4, color: 'white' }}>🇯🇵</Text></View><View style={{ flex: 1 }}><View style={{ flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: 'white', fontSize: 20, fontWeight: '900' }}>{location}</Text><Text style={{ color: '#35f883', marginLeft: 12, fontWeight: '900', backgroundColor: 'rgba(19,181,91,0.35)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>ACTIVE</Text></View><Text style={{ color: '#c8d4e6', marginTop: 10 }}>{dateRange}</Text><View style={{ marginTop: 14, height: 6, borderRadius: 8, backgroundColor: '#123243', width: '75%' }}><View style={{ width: '84%', height: 6, borderRadius: 8, backgroundColor: '#35f883' }} /></View></View><View style={{ width: 150 }}><Text style={{ color: '#c8d4e6' }}>Spent from Pocket</Text><Text style={{ color: 'white', fontSize: 22, fontWeight: '900', marginTop: 10 }}>{spent}</Text><Text style={{ color: '#c8d4e6', marginTop: 4 }}>{spentUsd}</Text></View><View style={{ width: 140 }}><Text style={{ color: '#c8d4e6' }}>Daily Average</Text><Text style={{ color: 'white', fontSize: 22, fontWeight: '900', marginTop: 10 }}>{average}</Text><Text style={{ color: '#c8d4e6', marginTop: 4 }}>{averageUsd}</Text></View></View></Card>;
-}
-
-function PerformanceTable({ rows }: { rows: NomadPerformanceRow[] }) {
-  return <Card style={{ marginTop: 18 }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '900' }}>PORTFOLIO PERFORMANCE</Text><Text style={{ color: 'white' }}>This Month ⌄</Text></View>{rows.map((row, index) => <View key={row.symbol} style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: index === rows.length - 1 ? 0 : 1, borderBottomColor: '#0a263f', paddingVertical: 10 }}><View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: row.symbol === 'BTC' ? '#ff9500' : row.symbol === 'HBAR' ? '#6246ea' : row.symbol === 'XRP' ? '#2e3337' : row.symbol === 'USDC' ? '#1684ff' : '#19a669', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}><Text style={{ color: 'white', fontSize: 20, fontWeight: '900' }}>{row.icon}</Text></View><View style={{ width: 154 }}><Text style={{ color: 'white', fontSize: 16, fontWeight: '800' }}>{row.asset}</Text><Text style={{ color: '#c8d4e6' }}>{row.symbol}</Text></View><TrendLine color={row.positive ? '#35f883' : '#ff3b4f'} /><Text style={{ color: 'white', width: 110, textAlign: 'right', fontSize: 16 }}>{row.price}</Text><Text style={{ color: row.positive ? '#35f883' : '#ff3b4f', width: 84, textAlign: 'right', fontSize: 16, fontWeight: '900' }}>{row.change}</Text></View>)}</Card>;
-}
-
-function FreedomScore({ score }: { score: number }) {
-  return <View style={{ marginTop: 18, borderRadius: 16, borderWidth: 1, borderColor: '#13b55b', backgroundColor: 'rgba(4,75,36,0.35)', padding: 16, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: '#35f883', fontSize: 48, marginRight: 18 }}>♕</Text><View style={{ flex: 1 }}><Text style={{ color: 'white', fontSize: 20, fontWeight: '900' }}>Freedom Score ⓘ</Text><Text style={{ color: 'white', marginTop: 8 }}>You're building true financial freedom.</Text></View><View style={{ width: 110, height: 110, borderRadius: 55, borderWidth: 13, borderColor: '#35f883', alignItems: 'center', justifyContent: 'center', marginRight: 22 }}><Text style={{ color: 'white', fontSize: 34, fontWeight: '900' }}>{score}</Text><Text style={{ color: 'white' }}>/100</Text></View><View style={{ width: 170 }}>{['Save consistently', 'Spend mindfully', 'Travel freely'].map((item) => <View key={item} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 5 }}><Text style={{ color: 'white', fontSize: 15 }}>{item}</Text><Text style={{ color: '#35f883', fontWeight: '900' }}>✓</Text></View>)}</View></View>;
-}
-
-function BottomNav() {
-  const navigation = useNavigation<any>();
-  const items = [{ label: 'Home', icon: '⌂', route: 'Portfolio' }, { label: 'Wallets', icon: '▣', route: 'Wallets' }, { label: 'Travel', icon: '✈', route: 'TravelMode' }, { label: 'Security', icon: '▾', route: 'SecurityCenter' }, { label: 'Insights', icon: '⌁', route: 'NomadInsights' }];
-  return <View style={{ position: 'absolute', left: 18, right: 18, bottom: 18, height: 82, borderRadius: 18, borderWidth: 1, borderColor: '#0a3862', backgroundColor: 'rgba(3,16,30,0.98)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>{items.map((item) => { const active = item.label === 'Insights'; return <Pressable key={item.label} onPress={() => navigation.navigate(item.route)} style={{ alignItems: 'center', minWidth: 68 }}><Text style={{ color: active ? '#35f883' : '#c8d4e6', fontSize: 28, fontWeight: '900' }}>{item.icon}</Text><Text style={{ color: active ? '#35f883' : '#c8d4e6', fontSize: 14, marginTop: 4 }}>{item.label}</Text></Pressable>; })}</View>;
+function CategoryRow({ label, percent, amount, color }: { label: string; percent: string; amount: string; color: string }) {
+  const numeric = Number(percent.replace('%', '')) || 0;
+  return <View style={styles.categoryRow}><View style={[styles.categoryDot, { backgroundColor: color }]} /><View style={styles.categoryCopy}><View style={styles.categoryHeading}><Text style={styles.categoryLabel}>{label}</Text><Text style={styles.categoryAmount}>{amount}</Text></View><View style={styles.categoryProgress}><ProgressBar value={numeric} color={color} height={6} /></View></View><Text style={styles.categoryPercent}>{percent}</Text></View>;
 }
 
 export default function NomadInsightsScreen() {
-  const { insights, error } = useNomadInsights();
+  const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
+  const { insights, loading, error, refresh } = useNomadInsights();
+  const { travelPocket } = useNomadTravel();
+
+  const region = travelPocket.regionInput || 'Global';
+  const regionCurrency = travelPocket.localCurrency || travelPocket.preferredStablecoin || 'USD Stable';
+  const travelLocation = region === 'Global' ? insights.travelLocation : region;
+  const travelBalance = travelPocket.pocketBalanceLocal || insights.travelPocketSpent;
+
+  const performance = useMemo(() => insights.performanceRows.slice(0, 5), [insights.performanceRows]);
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#020812' }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 26, paddingBottom: 118 }}>
-        <Header error={error} />
-        <Card style={{ borderColor: '#13b55b' }}>
-          <Text style={{ color: '#35f883', fontSize: 16, fontWeight: '900' }}>OVERVIEW</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20 }}><View style={{ width: '42%' }}><Text style={{ color: 'white', fontSize: 18, fontWeight: '800' }}>Total Portfolio Value  ◎</Text><View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}><Text style={{ color: 'white', fontSize: 42, lineHeight: 46, fontWeight: '900' }}>{insights.totalPortfolioValue}</Text><Text style={{ color: 'white', fontSize: 20, marginLeft: 6, marginBottom: 4 }}>USD</Text></View><Text style={{ color: '#35f883', fontSize: 16, marginTop: 10, fontWeight: '900' }}>{insights.monthlyGrowth} ({insights.monthlyGrowthPercent}) <Text style={{ color: 'white', fontWeight: '400' }}>This Month</Text></Text></View><TrendLine /></View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 }}>{insights.statCards.map((stat) => <StatTile key={stat.label} stat={stat} />)}</View>
-        </Card>
-        <SpendingOverview total={insights.spendingTotal} delta={insights.spendingDelta} categories={insights.spendingCategories} insight={insights.topInsight} />
-        <TravelActivity location={insights.travelLocation} dateRange={insights.travelDateRange} spent={insights.travelPocketSpent} spentUsd={insights.travelPocketSpentUsd} average={insights.travelDailyAverage} averageUsd={insights.travelDailyAverageUsd} />
-        <PerformanceTable rows={insights.performanceRows} />
-        <FreedomScore score={insights.freedomScore} />
-      </ScrollView>
-      <BottomNav />
-    </View>
+    <NomadPage maxWidth={980}>
+      <PageHeader
+        title="Nomad Insights"
+        subtitle="Your spending. Your savings. Your freedom."
+        icon="⌁"
+        color={C.green}
+        back={false}
+        right={<Pressable disabled={loading} onPress={() => void refresh()} style={styles.refreshButton}><Text style={styles.refreshText}>{loading ? 'Syncing…' : 'Refresh'}</Text></Pressable>}
+      />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Panel tone="green" style={styles.overviewPanel}>
+        <Text style={styles.eyebrow}>OVERVIEW</Text>
+        <View style={[styles.portfolioRow, compact && styles.portfolioCompact]}>
+          <View style={styles.portfolioCopy}><Text style={styles.portfolioLabel}>Total Portfolio Value  ◎</Text><View style={styles.portfolioValueRow}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.portfolioValue, { fontSize: compact ? 38 : 54 }]}>{insights.totalPortfolioValue}</Text><Text style={styles.usd}>USD</Text></View><Text style={styles.growth}>{insights.monthlyGrowth} ({insights.monthlyGrowthPercent}) <Text style={styles.growthLabel}>this month</Text></Text></View>
+          <View style={styles.largeSpark}><Sparkline /></View>
+        </View>
+        <View style={styles.statGrid}>{insights.statCards.map((stat) => <StatCard key={stat.label} {...stat} />)}</View>
+      </Panel>
+
+      <Panel style={styles.sectionPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>SPENDING OVERVIEW</Text><Text style={styles.sectionSub}>This month</Text></View><Pressable onPress={() => navigation.navigate('NomadInsightsSpending')}><Text style={styles.link}>View Spending  ›</Text></Pressable></View>
+        <View style={[styles.spendingBody, compact && styles.spendingCompact]}>
+          <View style={styles.spendingTotal}><Text style={styles.spendingLabel}>Total Spent</Text><Text style={styles.spendingValue}>{insights.spendingTotal}</Text><Text style={styles.spendingDelta}>{insights.spendingDelta}</Text><View style={styles.donut}><Text style={styles.donutValue}>{insights.spendingTotal}</Text><Text style={styles.donutLabel}>TOTAL</Text></View></View>
+          <View style={styles.categories}>{insights.spendingCategories.map((category) => <CategoryRow key={category.label} {...category} />)}</View>
+        </View>
+        <Pressable onPress={() => navigation.navigate('NomadInsightsSpending')} style={styles.insightRow}><RoundIcon symbol="✪" color={C.green} size={42} filled /><View style={styles.insightCopy}><Text style={styles.insightTitle}>Top Insight</Text><Text style={styles.insightText}>{insights.topInsight}</Text></View><Text style={styles.chevron}>›</Text></Pressable>
+      </Panel>
+
+      <Panel tone="green" style={styles.travelPanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>TRAVEL ACTIVITY</Text><Text style={styles.sectionSub}>Current regional pocket</Text></View><Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.link}>Travel Pocket  ›</Text></Pressable></View>
+        <View style={[styles.travelBody, compact && styles.travelCompact]}>
+          <RoundIcon symbol="✈" color={C.green} size={65} filled />
+          <View style={styles.travelCopy}><View style={styles.travelNameRow}><Text style={styles.travelName}>{travelLocation}</Text><Text style={styles.activePill}>{travelPocket.enabled ? 'ACTIVE' : 'READY'}</Text></View><Text style={styles.travelCurrency}>{regionCurrency}</Text><ProgressBar value={travelPocket.enabled ? 64 : 20} color={C.green} height={7} /></View>
+          <View style={styles.travelMetric}><Text style={styles.travelMetricLabel}>Pocket Value</Text><Text style={styles.travelMetricValue}>{travelBalance}</Text><Text style={styles.travelMetricSub}>{travelPocket.pocketBalanceFiat || insights.travelPocketSpentUsd}</Text></View>
+          <View style={styles.travelMetric}><Text style={styles.travelMetricLabel}>Daily Average</Text><Text style={styles.travelMetricValue}>{region === 'Global' ? insights.travelDailyAverage : 'Regional'}</Text><Text style={styles.travelMetricSub}>{region === 'Global' ? insights.travelDailyAverageUsd : 'Updates with activity'}</Text></View>
+        </View>
+      </Panel>
+
+      <Panel style={styles.performancePanel}>
+        <View style={styles.sectionHeading}><View><Text style={styles.sectionTitle}>PORTFOLIO PERFORMANCE</Text><Text style={styles.sectionSub}>Current asset movement</Text></View><Pressable onPress={() => navigation.navigate('Wallets')}><Text style={styles.link}>Wallets  ›</Text></Pressable></View>
+        {performance.map((row, index) => <View key={row.symbol} style={[styles.performanceRow, index < performance.length - 1 && styles.rowBorder]}><View style={[styles.assetBadge, { backgroundColor: row.symbol === 'BTC' ? '#ff9500' : row.symbol === 'HBAR' ? '#6246ea' : row.symbol === 'USDC' ? C.blue : '#26313d' }]}><Text style={styles.assetMark}>{row.icon}</Text></View><View style={styles.assetCopy}><Text style={styles.assetName}>{row.asset}</Text><Text style={styles.assetSymbol}>{row.symbol}</Text></View><View style={styles.rowSpark}><Sparkline positive={row.positive} /></View><Text style={styles.assetPrice}>{row.price}</Text><Text style={[styles.assetChange, { color: row.positive ? C.green : C.red }]}>{row.change}</Text></View>)}
+      </Panel>
+
+      <Panel tone="green" style={styles.freedomPanel}>
+        <RoundIcon symbol="♕" color={C.green} size={57} filled />
+        <View style={styles.freedomCopy}><Text style={styles.freedomTitle}>Freedom Score</Text><Text style={styles.freedomText}>A planning indicator based on savings, spending and wallet diversification—not financial advice.</Text></View>
+        <View style={styles.scoreRing}><Text style={styles.scoreValue}>{insights.freedomScore}</Text><Text style={styles.scoreOut}>/100</Text></View>
+      </Panel>
+
+      <BottomNav active="Insights" items={[
+        ['⌂', 'Home', 'Portfolio'], ['▣', 'Wallets', 'Wallets'], ['✈', 'Travel', 'TravelMode'], ['◇', 'Security', 'SecurityCenter'], ['⌁', 'Insights', 'NomadInsights'],
+      ]} />
+    </NomadPage>
   );
 }
+
+const styles = StyleSheet.create({
+  refreshButton: { minHeight: 36, borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center' },
+  refreshText: { color: C.green, fontSize: 9, fontWeight: '900' },
+  error: { color: C.red, fontSize: 11, marginBottom: 10 },
+  overviewPanel: { padding: 18 },
+  eyebrow: { color: C.green, fontSize: 12, fontWeight: '900' },
+  portfolioRow: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 14 },
+  portfolioCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  portfolioCopy: { flex: 1, minWidth: 0 },
+  portfolioLabel: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  portfolioValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7, marginTop: 8 },
+  portfolioValue: { color: '#fff', fontWeight: '900', letterSpacing: -1.5 },
+  usd: { color: '#fff', fontSize: 13 },
+  growth: { color: C.green, fontSize: 12, fontWeight: '900', marginTop: 7 },
+  growthLabel: { color: '#fff', fontWeight: '400' },
+  largeSpark: { flex: 1, minWidth: 230 },
+  sparkline: { height: 75, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  sparkColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  sparkDot: { width: 6, height: 6, borderRadius: 3, marginBottom: 2 },
+  sparkStem: { width: 2 },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 20 },
+  statCard: { flexGrow: 1, flexBasis: 145, minHeight: 112, borderWidth: 1, borderColor: C.border, borderRadius: 12, backgroundColor: 'rgba(0,25,45,.7)', padding: 12 },
+  statIcon: { fontSize: 22, fontWeight: '900' },
+  statLabel: { color: '#fff', fontSize: 9, marginTop: 7 },
+  statValue: { color: '#fff', fontSize: 19, fontWeight: '900', marginTop: 11 },
+  statNote: { fontSize: 9, fontWeight: '900', marginTop: 6 },
+  sectionPanel: { marginTop: 17, padding: 17 },
+  performancePanel: { marginTop: 17, paddingHorizontal: 17, paddingTop: 17 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  sectionSub: { color: C.muted, fontSize: 9, marginTop: 4 },
+  link: { color: C.green, fontSize: 9, fontWeight: '900' },
+  spendingBody: { flexDirection: 'row', gap: 20, marginTop: 18 },
+  spendingCompact: { flexDirection: 'column' },
+  spendingTotal: { width: 210, alignItems: 'center' },
+  spendingLabel: { color: C.muted, fontSize: 9 },
+  spendingValue: { color: '#fff', fontSize: 25, fontWeight: '900', marginTop: 6 },
+  spendingDelta: { color: C.green, fontSize: 9, fontWeight: '800', marginTop: 5 },
+  donut: { width: 130, height: 130, borderRadius: 65, borderWidth: 17, borderColor: C.green, borderTopColor: C.blue, borderRightColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 13, transform: [{ rotate: '12deg' }] },
+  donutValue: { color: '#fff', fontSize: 14, fontWeight: '900', transform: [{ rotate: '-12deg' }] },
+  donutLabel: { color: C.muted, fontSize: 7, marginTop: 2, transform: [{ rotate: '-12deg' }] },
+  categories: { flex: 1, minWidth: 220 },
+  categoryRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
+  categoryDot: { width: 9, height: 9, borderRadius: 5, marginRight: 9 },
+  categoryCopy: { flex: 1, minWidth: 0 },
+  categoryHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  categoryLabel: { color: '#fff', fontSize: 10 },
+  categoryAmount: { color: C.muted, fontSize: 9 },
+  categoryProgress: { marginTop: 5 },
+  categoryPercent: { color: '#fff', fontSize: 9, fontWeight: '900', marginLeft: 9 },
+  insightRow: { minHeight: 66, marginTop: 15, borderWidth: 1, borderColor: C.green, borderRadius: 11, backgroundColor: 'rgba(4,75,36,.25)', padding: 11, flexDirection: 'row', alignItems: 'center' },
+  insightCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
+  insightTitle: { color: C.green, fontSize: 11, fontWeight: '900' },
+  insightText: { color: '#fff', fontSize: 9, marginTop: 4 },
+  chevron: { color: C.green, fontSize: 26, marginLeft: 8 },
+  travelPanel: { marginTop: 17, padding: 17 },
+  travelBody: { flexDirection: 'row', alignItems: 'center', gap: 15, marginTop: 17 },
+  travelCompact: { flexWrap: 'wrap', alignItems: 'flex-start' },
+  travelCopy: { flex: 1, minWidth: 210 },
+  travelNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  travelName: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  activePill: { color: C.green, backgroundColor: 'rgba(32,239,112,.14)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, fontSize: 8, fontWeight: '900' },
+  travelCurrency: { color: C.muted, fontSize: 9, marginVertical: 8 },
+  travelMetric: { minWidth: 120 },
+  travelMetricLabel: { color: C.muted, fontSize: 8 },
+  travelMetricValue: { color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 6 },
+  travelMetricSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  performanceRow: { minHeight: 67, flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  assetBadge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  assetMark: { color: '#fff', fontSize: 19, fontWeight: '900' },
+  assetCopy: { width: 110 },
+  assetName: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  assetSymbol: { color: C.muted, fontSize: 8, marginTop: 3 },
+  rowSpark: { flex: 1, minWidth: 80, marginHorizontal: 8 },
+  assetPrice: { color: '#fff', width: 85, fontSize: 10, textAlign: 'right' },
+  assetChange: { width: 62, fontSize: 9, fontWeight: '900', textAlign: 'right' },
+  freedomPanel: { minHeight: 105, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  freedomCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  freedomTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  freedomText: { color: '#fff', fontSize: 9, lineHeight: 14, marginTop: 5 },
+  scoreRing: { width: 76, height: 76, borderRadius: 38, borderWidth: 8, borderColor: C.green, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  scoreValue: { color: '#fff', fontSize: 21, fontWeight: '900' },
+  scoreOut: { color: '#fff', fontSize: 7 },
+});
