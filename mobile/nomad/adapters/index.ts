@@ -9,6 +9,7 @@ export * from './nomadLostWalletAdapter';
 export * from './nomadWalletRestorationAdapter';
 export * from './nomadOwnerAuthorityApprovalAdapter';
 export * from './nomadSafetyAdapter';
+export * from './nomadAddressSafetyDetailAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
 export * from './nomadSettingsAdapter';
