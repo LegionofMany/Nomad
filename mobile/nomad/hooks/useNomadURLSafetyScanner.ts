@@ -21,6 +21,13 @@ const fallbackState: ReqriumURLScannerState = {
   checkedAt: new Date(0).toISOString(),
 };
 
+function scopeURLReportCount(state: ReqriumURLScannerState): ReqriumURLScannerState {
+  return {
+    ...state,
+    localReportDrafts: state.activity.filter((event) => event.type === 'report').length,
+  };
+}
+
 export function useNomadURLSafetyScanner(initialUrl?: string) {
   const [scanner, setScanner] = useState<ReqriumURLScannerState>(fallbackState);
   const [loading, setLoading] = useState(true);
@@ -31,7 +38,7 @@ export function useNomadURLSafetyScanner(initialUrl?: string) {
     setLoading(true);
     try {
       setError(null);
-      const next = await nomadURLSafetyScannerAdapter.getScannerState(selectedScanId);
+      const next = scopeURLReportCount(await nomadURLSafetyScannerAdapter.getScannerState(selectedScanId));
       setScanner(next);
       return next;
     } catch (nextError) {
@@ -47,7 +54,7 @@ export function useNomadURLSafetyScanner(initialUrl?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadURLSafetyScannerAdapter.scanUrl(rawUrl);
+      const next = scopeURLReportCount(await nomadURLSafetyScannerAdapter.scanUrl(rawUrl));
       setScanner(next);
       return next.selectedScan;
     } catch (nextError) {
@@ -63,7 +70,7 @@ export function useNomadURLSafetyScanner(initialUrl?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadURLSafetyScannerAdapter.selectScan(scanId);
+      const next = scopeURLReportCount(await nomadURLSafetyScannerAdapter.selectScan(scanId));
       setScanner(next);
       return next.selectedScan;
     } catch (nextError) {
@@ -79,7 +86,7 @@ export function useNomadURLSafetyScanner(initialUrl?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadURLSafetyScannerAdapter.createReportDraft(scanId, notes);
+      const next = scopeURLReportCount(await nomadURLSafetyScannerAdapter.createReportDraft(scanId, notes));
       setScanner(next);
       return next.selectedScan;
     } catch (nextError) {
