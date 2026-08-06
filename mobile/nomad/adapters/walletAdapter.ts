@@ -113,6 +113,25 @@ export type NomadWalletAdapter = {
   broadcastTransaction?(signedTransaction: NomadSignedTransaction): Promise<NomadBroadcastResult>;
 };
 
+export type NomadTravelFundingSource = {
+  symbol: string;
+  balance: string;
+  fiatValueUsd: string;
+  allocationPercent: number;
+  network?: string;
+};
+
+export type NomadTravelPocketTransaction = {
+  id: string;
+  merchant: string;
+  category: 'shopping' | 'transport' | 'dining' | 'lodging' | 'other';
+  amountLocal: string;
+  amountUsd: string;
+  timestamp: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  source: 'wallet' | 'preview';
+};
+
 export type NomadTravelPocketState = {
   enabled: boolean;
   regionInput?: string;
@@ -120,12 +139,32 @@ export type NomadTravelPocketState = {
   pocketBalanceFiat?: string;
   pocketBalanceLocal?: string;
   localCurrency?: string;
+  currencyCode?: string;
+  currencySymbol?: string;
+  exchangeRate?: number;
+  exchangeRateSource?: 'provider' | 'local_preview';
+  exchangeRateUpdatedAt?: string;
+  dailyLimitLocal?: string;
+  tripLimitLocal?: string;
+  spentTodayLocal?: string;
+  spentTodayPercent?: number;
+  tripSpentLocal?: string;
+  tripSpentPercent?: number;
+  remainingTodayLocal?: string;
+  expiresAt?: string;
+  autoConvertEnabled?: boolean;
+  fundingSources?: NomadTravelFundingSource[];
+  recentTransactions?: NomadTravelPocketTransaction[];
+  dataSource?: 'connected' | 'local_preview';
 };
 
 export type NomadTravelAdapter = {
   getTravelPocketState(): Promise<NomadTravelPocketState>;
   enableTravelPocket(regionInput: string): Promise<NomadTravelPocketState>;
   disableTravelPocket(): Promise<NomadTravelPocketState>;
+  selectRegion?(regionInput: string): Promise<NomadTravelPocketState>;
+  setAutoConvert?(enabled: boolean): Promise<NomadTravelPocketState>;
+  refreshTravelPocket?(): Promise<NomadTravelPocketState>;
 };
 
 export type NomadRecoveryClockTime = {
@@ -434,8 +473,3 @@ export type NomadOverlayAdapters = {
   settings?: NomadSettingsAdapter;
   safety?: NomadSafetyAdapter;
 };
-
-export const createMissingAdapterError = (adapterName: string) =>
-  new Error(`${adapterName} adapter is not connected yet. Connect the cloned wallet core before enabling live actions.`);
-
-export const createAdapterFailure = (code: NomadAdapterFailureCode, message: string, recoverable = true): NomadAdapterFailure => ({ code, message, recoverable });
