@@ -4,7 +4,9 @@ import {
   nomadLostWalletAdapter,
   type NomadLostWalletReason,
   type NomadLostWalletState,
+  type NomadLostWalletVerificationResult,
 } from '../adapters/nomadLostWalletAdapter';
+import type { NomadRecoveryClockTime } from '../adapters/walletAdapter';
 
 const fallbackState: NomadLostWalletState = {
   status: 'setup_required',
@@ -53,13 +55,18 @@ const fallbackState: NomadLostWalletState = {
   activity: [],
   canBeginVerification: false,
   canContinueVerification: false,
+  sessionRequired: false,
   enrolledTimeSets: 0,
   totalTimeSets: 24,
   attemptsRemaining: 5,
+  lockoutRemainingSeconds: 0,
   ownerAuthorityStatus: 'none',
   recoveryProviderConnected: false,
   passwordProviderConnected: false,
   remoteRecoveryPackageAvailable: false,
+  verificationProvider: 'nomad_recovery_adapter',
+  digestAlgorithm: 'SHA-256',
+  rawTimeSetsStored: false,
   dataSource: 'nomad_lost_wallet_adapter',
   persistence: 'in_memory_stub',
 };
@@ -85,6 +92,10 @@ export function useNomadLostWallet() {
 
   useEffect(() => {
     void refresh();
+    const interval = setInterval(() => {
+      void refresh();
+    }, 1000);
+    return () => clearInterval(interval);
   }, [refresh]);
 
   const beginRecovery = useCallback(async (reason: NomadLostWalletReason) => {
@@ -103,8 +114,28 @@ export function useNomadLostWallet() {
     }
   }, []);
 
+  const verifySet = useCallback(async (
+    setNumber: number,
+    time: NomadRecoveryClockTime,
+  ): Promise<NomadLostWalletVerificationResult> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await nomadLostWalletAdapter.verifyRecoverySet(setNumber, time);
+      setLostWallet(result.state);
+      return result;
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : 'Unable to verify the recovery Time Set.';
+      setError(message);
+      await refresh();
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [refresh]);
+
   return useMemo(
-    () => ({ lostWallet, loading, error, refresh, beginRecovery }),
-    [lostWallet, loading, error, refresh, beginRecovery],
+    () => ({ lostWallet, loading, error, refresh, beginRecovery, verifySet }),
+    [lostWallet, loading, error, refresh, beginRecovery, verifySet],
   );
 }
