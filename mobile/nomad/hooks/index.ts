@@ -13,6 +13,7 @@ export * from './useNomadWalletRestoration';
 export * from './useNomadOwnerAuthorityEnrollment';
 export * from './useNomadOwnerAuthorityApproval';
 export * from './useNomadSecurity';
+export * from './useNomadEmergencyFreeze';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
 export * from './useNomadProtocols';
