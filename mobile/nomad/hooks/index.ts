@@ -9,6 +9,7 @@ export * from './useNomadClockAccess';
 export * from './useNomadUnlock';
 export * from './useNomadLostWallet';
 export * from './useNomadWalletRestoration';
+export * from './useNomadOwnerAuthorityEnrollment';
 export * from './useNomadOwnerAuthorityApproval';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
