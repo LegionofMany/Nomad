@@ -6,6 +6,7 @@ export * from './nomadRecoveryAdapter';
 export * from './nomadClockAccessAdapter';
 export * from './nomadUnlockAdapter';
 export * from './nomadLostWalletAdapter';
+export * from './nomadWalletRestorationAdapter';
 export * from './nomadSafetyAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
