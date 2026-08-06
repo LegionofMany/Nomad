@@ -4,6 +4,7 @@ export * from './useNomadTravel';
 export * from './useNomadRecovery';
 export * from './useNomadClockAccess';
 export * from './useNomadUnlock';
+export * from './useNomadLostWallet';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
