@@ -14,11 +14,12 @@ const fallbackQuote: NomadSwapQuote = {
   toBalance: 'Balance: 3,250.00 HBAR',
   rateLabel: '1 BTC ≈ 124,578 HBAR',
   priceImpact: '0.30%',
-  network: 'Hedera Mainnet',
-  networkFee: '0.00012 BTC (≈ $0.73)',
-  estimatedTime: '~ 15 seconds',
+  network: 'Arkrilium Smart Route • Hedera Mainnet',
+  networkFee: '0.000028 BTC (≈ $1.72)',
+  estimatedTime: '~ 5 seconds',
   slippageTolerance: '0.50%',
   status: 'quote',
+  quoteId: 'preview-swap-quote',
 };
 
 export type NomadSwapHookState = {
@@ -27,7 +28,8 @@ export type NomadSwapHookState = {
   error: string | null;
   lastDraft: NomadSignedTransaction | null;
   refreshQuote(fromAsset?: string, toAsset?: string, amount?: string): Promise<NomadSwapQuote>;
-  createDraft(): Promise<NomadSignedTransaction>;
+  createDraft(quoteOverride?: NomadSwapQuote): Promise<NomadSignedTransaction>;
+  clearDraft(): void;
 };
 
 export function useNomadSwap(adapters?: NomadOverlayAdapters): NomadSwapHookState {
@@ -39,13 +41,15 @@ export function useNomadSwap(adapters?: NomadOverlayAdapters): NomadSwapHookStat
   const [lastDraft, setLastDraft] = useState<NomadSignedTransaction | null>(null);
 
   const refreshQuote = useCallback(
-    async (fromAsset = quote.fromAsset, toAsset = quote.toAsset, amount = quote.fromAmount) => {
+    async (fromAsset = 'BTC', toAsset = 'HBAR', amount = '0.01') => {
       if (!swap) throw new Error('Nomad swap adapter is not connected.');
       try {
         setLoading(true);
         setError(null);
+        setLastDraft(null);
         const next = await swap.getSwapQuote(fromAsset, toAsset, amount);
         setQuote(next);
+        if (next.status === 'failed') setError(next.failure?.message ?? 'Unable to create a swap quote.');
         return next;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unable to load swap quote.';
@@ -55,20 +59,35 @@ export function useNomadSwap(adapters?: NomadOverlayAdapters): NomadSwapHookStat
         setLoading(false);
       }
     },
-    [quote.fromAmount, quote.fromAsset, quote.toAsset, swap],
+    [swap],
   );
 
   useEffect(() => {
     void refreshQuote().catch(() => setLoading(false));
-  }, []);
+  }, [refreshQuote]);
 
-  const createDraft = useCallback(async () => {
+  const createDraft = useCallback(async (quoteOverride?: NomadSwapQuote) => {
     if (!swap) throw new Error('Nomad swap adapter is not connected.');
-    const draft = await swap.createSwapDraft(quote);
+    const selectedQuote = quoteOverride ?? quote;
+    const draft = await swap.createSwapDraft(selectedQuote);
     setLastDraft(draft);
-    setQuote({ ...quote, status: draft.status === 'created' ? 'draft_created' : 'failed' });
+    if (draft.status === 'failed') {
+      setError(draft.failure?.message ?? 'Unable to create the swap draft.');
+      setQuote({ ...selectedQuote, status: 'failed', failure: draft.failure });
+    } else {
+      setError(null);
+      setQuote({ ...selectedQuote, status: 'draft_created' });
+    }
     return draft;
   }, [quote, swap]);
 
-  return useMemo(() => ({ quote, loading, error, lastDraft, refreshQuote, createDraft }), [quote, loading, error, lastDraft, refreshQuote, createDraft]);
+  const clearDraft = useCallback(() => {
+    setLastDraft(null);
+    setQuote((current) => ({ ...current, status: current.status === 'draft_created' ? 'quote' : current.status }));
+  }, []);
+
+  return useMemo(
+    () => ({ quote, loading, error, lastDraft, refreshQuote, createDraft, clearDraft }),
+    [quote, loading, error, lastDraft, refreshQuote, createDraft, clearDraft],
+  );
 }
