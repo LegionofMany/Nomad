@@ -1,5 +1,6 @@
 export * from './useNomadWallet';
 export * from './useNomadSafety';
+export * from './useNomadURLSafetyScanner';
 export * from './useNomadAddressSafetyDetail';
 export * from './useNomadTravel';
 export * from './useNomadTravelTopUp';
