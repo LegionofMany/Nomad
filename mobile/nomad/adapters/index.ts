@@ -16,6 +16,7 @@ export * from './nomadURLSafetyScannerAdapter';
 export * from './nomadAddressSafetyDetailAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
+export * from './nomadEmergencyFreezeAdapter';
 export * from './nomadSettingsAdapter';
 export * from './nomadInsightsAdapter';
 export * from './nomadProtocolsAdapter';
