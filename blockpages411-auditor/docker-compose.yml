@@ -1,0 +1,144 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    # Redis is intentionally not exposed on the host. Backend and worker use the internal Docker network.
+
+  backend:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:3000}
+      - ENABLE_QUEUE=true
+      - ENABLE_SYNC_AUDIT=${ENABLE_SYNC_AUDIT:-false}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALLOW_PRIVATE_AUDIT=false
+      - ALLOW_PRIVATE_RPC=false
+      - ENABLE_CHAIN_SIMULATION=${ENABLE_CHAIN_SIMULATION:-false}
+      - RPC_TIMEOUT_MS=${RPC_TIMEOUT_MS:-8000}
+      - MAX_CHAIN_SIM_TX=${MAX_CHAIN_SIM_TX:-8}
+      - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL:-}
+      - BASE_RPC_URL=${BASE_RPC_URL:-}
+      - POLYGON_RPC_URL=${POLYGON_RPC_URL:-}
+      - BSC_RPC_URL=${BSC_RPC_URL:-}
+      - ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:-}
+      - OPTIMISM_RPC_URL=${OPTIMISM_RPC_URL:-}
+      - AVALANCHE_RPC_URL=${AVALANCHE_RPC_URL:-}
+      - AUDITOR_USER_AGENT=Blockpages411-Auditor/8.0
+      - AUDITOR_HTTP_TIMEOUT_MS=${AUDITOR_HTTP_TIMEOUT_MS:-12000}
+      - DYNAMIC_TIMEOUT_MS=${DYNAMIC_TIMEOUT_MS:-30000}
+      - MAX_PAYLOADS=${MAX_PAYLOADS:-30}
+      - AUDIT_REPORT_DIR=/app/data/audit-reports
+      - AUDIT_LOG_PATH=/app/data/audit-logs/audits.jsonl
+      - ALERT_RISK_THRESHOLD=${ALERT_RISK_THRESHOLD:-8}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?Set ADMIN_API_KEY in .env to a strong 32+ character secret}
+      - ADMIN_VERDICT_DIR=/app/data/admin-verdicts
+      - THREAT_INTEL_DIR=/app/data/threat-intel
+      - CAPTURE_SCREENSHOTS=${CAPTURE_SCREENSHOTS:-false}
+      - SCREENSHOT_DIR=/app/data/screenshots
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=1024m,mode=1777
+    volumes:
+      - audit_data:/app/data
+    shm_size: "1gb"
+    pids_limit: 512
+    mem_limit: 1024m
+    cpus: 0.75
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    build: ./backend
+    command: ["node", "worker.js"]
+    environment:
+      - NODE_ENV=production
+      - ENABLE_QUEUE=true
+      - ENABLE_SYNC_AUDIT=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALLOW_PRIVATE_AUDIT=false
+      - ALLOW_PRIVATE_RPC=false
+      - ENABLE_CHAIN_SIMULATION=${ENABLE_CHAIN_SIMULATION:-false}
+      - RPC_TIMEOUT_MS=${RPC_TIMEOUT_MS:-8000}
+      - MAX_CHAIN_SIM_TX=${MAX_CHAIN_SIM_TX:-8}
+      - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL:-}
+      - BASE_RPC_URL=${BASE_RPC_URL:-}
+      - POLYGON_RPC_URL=${POLYGON_RPC_URL:-}
+      - BSC_RPC_URL=${BSC_RPC_URL:-}
+      - ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL:-}
+      - OPTIMISM_RPC_URL=${OPTIMISM_RPC_URL:-}
+      - AVALANCHE_RPC_URL=${AVALANCHE_RPC_URL:-}
+      - AUDITOR_USER_AGENT=Blockpages411-Auditor/8.0-Worker
+      - AUDITOR_HTTP_TIMEOUT_MS=${AUDITOR_HTTP_TIMEOUT_MS:-12000}
+      - DYNAMIC_TIMEOUT_MS=${DYNAMIC_TIMEOUT_MS:-30000}
+      - MAX_PAYLOADS=${MAX_PAYLOADS:-30}
+      - AUDIT_WORKER_CONCURRENCY=${AUDIT_WORKER_CONCURRENCY:-1}
+      - AUDIT_REPORT_DIR=/app/data/audit-reports
+      - AUDIT_LOG_PATH=/app/data/audit-logs/audits.jsonl
+      - ALERT_RISK_THRESHOLD=${ALERT_RISK_THRESHOLD:-8}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?Set ADMIN_API_KEY in .env to a strong 32+ character secret}
+      - ADMIN_VERDICT_DIR=/app/data/admin-verdicts
+      - THREAT_INTEL_DIR=/app/data/threat-intel
+      - CAPTURE_SCREENSHOTS=${CAPTURE_SCREENSHOTS:-false}
+      - SCREENSHOT_DIR=/app/data/screenshots
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=1024m,mode=1777
+    volumes:
+      - audit_data:/app/data
+    shm_size: "1gb"
+    pids_limit: 512
+    mem_limit: 1536m
+    cpus: 1.0
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:4000}
+        VITE_ENABLE_ADMIN_PANEL: ${VITE_ENABLE_ADMIN_PANEL:-false}
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE=${VITE_API_BASE:-http://localhost:4000}
+      - VITE_ENABLE_ADMIN_PANEL=${VITE_ENABLE_ADMIN_PANEL:-false}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  audit_data:

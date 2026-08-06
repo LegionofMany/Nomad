@@ -1,0 +1,12 @@
+[
+  {
+    "value": "33c0b6a2c3e5566af79ac51c31d46764236c787bab4bd50b1af83d1d23d38d62",
+    "source": "qa-fixture",
+    "severity": "critical",
+    "tags": [
+      "qa",
+      "drainer-payload"
+    ],
+    "note": "Hash for backend/fixtures/drainer-payload.js defensive QA fixture."
+  }
+]
