@@ -4,6 +4,7 @@ import { localNomadOverlayAdapters } from './localNomadAdapters';
 import { nomadInsightsAdapter } from './nomadInsightsAdapter';
 import { nomadProtocolsAdapter } from './nomadProtocolsAdapter';
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
+import { nomadSafetyAdapter } from './nomadSafetyAdapter';
 import { nomadSecurityBridgeAdapter } from './nomadSecurityBridgeAdapter';
 import { nomadSettingsAdapter } from './nomadSettingsAdapter';
 import { nomadSwapAdapter } from './nomadSwapAdapter';
@@ -27,6 +28,7 @@ export function mergeNomadAdapters(overrides?: NomadOverlayAdapters): NomadOverl
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
     protocols: nomadProtocolsAdapter,
+    safety: nomadSafetyAdapter,
     ...(overrides ?? {}),
   };
 }
@@ -51,5 +53,6 @@ export function useNomadAdapters(): NomadOverlayAdapters {
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
     protocols: nomadProtocolsAdapter,
+    safety: nomadSafetyAdapter,
   };
 }
