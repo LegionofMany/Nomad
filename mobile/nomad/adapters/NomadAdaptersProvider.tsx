@@ -9,6 +9,7 @@ import { nomadSecurityBridgeAdapter } from './nomadSecurityBridgeAdapter';
 import { nomadSettingsAdapter } from './nomadSettingsAdapter';
 import { nomadSwapAdapter } from './nomadSwapAdapter';
 import { nomadTravelAdapter } from './nomadTravelAdapter';
+import { nomadWatchAdapter } from './nomadWatchAdapter';
 import type { NomadOverlayAdapters } from './walletAdapter';
 
 type NomadAdaptersProviderProps = {
@@ -28,6 +29,7 @@ export function mergeNomadAdapters(overrides?: NomadOverlayAdapters): NomadOverl
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
     protocols: nomadProtocolsAdapter,
+    watch: nomadWatchAdapter,
     safety: nomadSafetyAdapter,
     ...(overrides ?? {}),
   };
@@ -53,6 +55,7 @@ export function useNomadAdapters(): NomadOverlayAdapters {
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
     protocols: nomadProtocolsAdapter,
+    watch: nomadWatchAdapter,
     safety: nomadSafetyAdapter,
   };
 }
