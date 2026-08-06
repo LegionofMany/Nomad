@@ -27,6 +27,14 @@ const fallbackState: ReqriumAddressSafetyDetailState = {
   persistence: 'in_memory_stub',
 };
 
+function normalizeDetail(next: ReqriumAddressSafetyDetailState): ReqriumAddressSafetyDetailState {
+  const detailReportEvents = next.activity.filter((item) => item.type === 'report').length;
+  return {
+    ...next,
+    localReportDrafts: Math.max(next.localReportDrafts, detailReportEvents),
+  };
+}
+
 export function useNomadAddressSafetyDetail(initialAddress?: string) {
   const [detail, setDetail] = useState<ReqriumAddressSafetyDetailState>(fallbackState);
   const [loading, setLoading] = useState(true);
@@ -36,7 +44,7 @@ export function useNomadAddressSafetyDetail(initialAddress?: string) {
     setLoading(true);
     try {
       setError(null);
-      const next = await nomadAddressSafetyDetailAdapter.getAddressDetail(address ?? initialAddress);
+      const next = normalizeDetail(await nomadAddressSafetyDetailAdapter.getAddressDetail(address ?? initialAddress));
       setDetail(next);
       return next;
     } catch (nextError) {
@@ -55,7 +63,7 @@ export function useNomadAddressSafetyDetail(initialAddress?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadAddressSafetyDetailAdapter.scanAddress(address);
+      const next = normalizeDetail(await nomadAddressSafetyDetailAdapter.scanAddress(address));
       setDetail(next);
       return next;
     } catch (nextError) {
@@ -71,7 +79,7 @@ export function useNomadAddressSafetyDetail(initialAddress?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadAddressSafetyDetailAdapter.saveContact(address, label, note);
+      const next = normalizeDetail(await nomadAddressSafetyDetailAdapter.saveContact(address, label, note));
       setDetail(next);
       return next;
     } catch (nextError) {
@@ -87,7 +95,7 @@ export function useNomadAddressSafetyDetail(initialAddress?: string) {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadAddressSafetyDetailAdapter.removeContact(address);
+      const next = normalizeDetail(await nomadAddressSafetyDetailAdapter.removeContact(address));
       setDetail(next);
       return next;
     } catch (nextError) {
@@ -104,8 +112,9 @@ export function useNomadAddressSafetyDetail(initialAddress?: string) {
     setError(null);
     try {
       const result = await nomadAddressSafetyDetailAdapter.createReportDraft(address, notes);
-      setDetail(result.state);
-      return result;
+      const state = normalizeDetail(result.state);
+      setDetail(state);
+      return { ...result, state };
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Unable to create the report draft.';
       setError(message);
