@@ -1,4 +1,5 @@
 import { LockoutManager } from '../../../src/security/lockout';
+import type { LockoutState } from '../../../src/security/lockout';
 import { secureGetItem } from '../../services/nativeStubs';
 import type { ClockTime } from '../../types';
 
@@ -52,14 +53,22 @@ const MAXIMUM_FAILURES = 8;
 
 async function getLockoutDiagnostics() {
   const raw = await secureGetItem(LOCKOUT_STORAGE_KEY);
-  let stored: StoredLockoutState | undefined;
+  let parsed: StoredLockoutState | undefined;
   if (raw) {
     try {
-      stored = JSON.parse(raw) as StoredLockoutState;
+      parsed = JSON.parse(raw) as StoredLockoutState;
     } catch {
-      stored = undefined;
+      parsed = undefined;
     }
   }
+
+  const stored: LockoutState | undefined = parsed && Array.isArray(parsed.failedTimestamps)
+    ? {
+        failedTimestamps: parsed.failedTimestamps.filter((value) => Number.isFinite(value)),
+        lockUntil: typeof parsed.lockUntil === 'number' ? parsed.lockUntil : null,
+        permanentlyLocked: Boolean(parsed.permanentlyLocked),
+      }
+    : undefined;
 
   const lockout = new LockoutManager(
     {
