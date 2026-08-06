@@ -41,6 +41,21 @@ const fallbackTravelPocket: NomadTravelPocketState = {
   pocketBalanceFiat: '$1,208.64',
   pocketBalanceLocal: '$1,208.64',
   localCurrency: 'USD Stable',
+  currencyCode: 'USD',
+  currencySymbol: '$',
+  exchangeRate: 1,
+  exchangeRateSource: 'local_preview',
+  dailyLimitLocal: '$500.00',
+  tripLimitLocal: '$5,000.00',
+  spentTodayLocal: '$0.00',
+  spentTodayPercent: 0,
+  tripSpentLocal: '$0.00',
+  tripSpentPercent: 0,
+  remainingTodayLocal: '$500.00',
+  autoConvertEnabled: true,
+  fundingSources: [],
+  recentTransactions: [],
+  dataSource: 'local_preview',
 };
 
 function resolveRegionCurrency(regionInput?: string): RegionCurrency {
@@ -50,7 +65,7 @@ function resolveRegionCurrency(regionInput?: string): RegionCurrency {
 
 function parseUsd(value?: string): number {
   const parsed = Number((value ?? '').replace(/[^0-9.-]/g, ''));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1208.64;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1208.64;
 }
 
 function formatLocalBalance(usdValue: number, currency: RegionCurrency): string {
@@ -66,12 +81,16 @@ function normalizeTravelPocket(next: NomadTravelPocketState, requestedRegion?: s
   const pocketUsd = parseUsd(pocketBalanceFiat);
 
   return {
+    ...fallbackTravelPocket,
     ...next,
     regionInput,
-    preferredStablecoin: currency.stablecoin,
-    localCurrency: currency.stablecoin,
+    preferredStablecoin: next.preferredStablecoin || currency.stablecoin,
+    localCurrency: next.localCurrency || currency.stablecoin,
+    currencyCode: next.currencyCode || currency.code,
+    currencySymbol: next.currencySymbol || currency.symbol,
+    exchangeRate: next.exchangeRate ?? currency.previewRate,
     pocketBalanceFiat,
-    pocketBalanceLocal: formatLocalBalance(pocketUsd, currency),
+    pocketBalanceLocal: next.pocketBalanceLocal || formatLocalBalance(pocketUsd, currency),
   };
 }
 
@@ -80,8 +99,10 @@ export type NomadTravelState = {
   loading: boolean;
   error: string | null;
   refresh(): Promise<void>;
+  selectRegion(regionInput: string): Promise<NomadTravelPocketState>;
   enable(regionInput: string): Promise<NomadTravelPocketState>;
   disable(): Promise<NomadTravelPocketState>;
+  setAutoConvert(enabled: boolean): Promise<NomadTravelPocketState>;
 };
 
 export function useNomadTravel(adapters?: NomadOverlayAdapters): NomadTravelState {
@@ -90,6 +111,13 @@ export function useNomadTravel(adapters?: NomadOverlayAdapters): NomadTravelStat
   const [travelPocket, setTravelPocket] = useState<NomadTravelPocketState>(fallbackTravelPocket);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const apply = useCallback((next: NomadTravelPocketState, requestedRegion?: string) => {
+    const normalized = normalizeTravelPocket(next, requestedRegion);
+    setTravelPocket(normalized);
+    setError(null);
+    return normalized;
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!travel) {
@@ -100,39 +128,63 @@ export function useNomadTravel(adapters?: NomadOverlayAdapters): NomadTravelStat
 
     try {
       setLoading(true);
-      setError(null);
-      const next = await travel.getTravelPocketState();
-      setTravelPocket(normalizeTravelPocket(next));
+      const next = travel.refreshTravelPocket
+        ? await travel.refreshTravelPocket()
+        : await travel.getTravelPocketState();
+      apply(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load Travel Pocket data.');
     } finally {
       setLoading(false);
     }
-  }, [travel]);
+  }, [apply, travel]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  const enable = useCallback(
-    async (regionInput: string) => {
-      if (!travel) throw new Error('Nomad travel adapter is not connected.');
-      const next = normalizeTravelPocket(await travel.enableTravelPocket(regionInput), regionInput);
-      setTravelPocket(next);
-      return next;
-    },
-    [travel],
-  );
+  const selectRegion = useCallback(async (regionInput: string) => {
+    if (!travel?.selectRegion) throw new Error('The connected Travel Pocket adapter does not support destination selection.');
+    setLoading(true);
+    try {
+      return apply(await travel.selectRegion(regionInput), regionInput);
+    } finally {
+      setLoading(false);
+    }
+  }, [apply, travel]);
+
+  const enable = useCallback(async (regionInput: string) => {
+    if (!travel) throw new Error('Nomad travel adapter is not connected.');
+    setLoading(true);
+    try {
+      return apply(await travel.enableTravelPocket(regionInput), regionInput);
+    } finally {
+      setLoading(false);
+    }
+  }, [apply, travel]);
 
   const disable = useCallback(async () => {
     if (!travel) throw new Error('Nomad travel adapter is not connected.');
-    const next = normalizeTravelPocket(await travel.disableTravelPocket());
-    setTravelPocket(next);
-    return next;
-  }, [travel]);
+    setLoading(true);
+    try {
+      return apply(await travel.disableTravelPocket());
+    } finally {
+      setLoading(false);
+    }
+  }, [apply, travel]);
+
+  const setAutoConvert = useCallback(async (enabled: boolean) => {
+    if (!travel?.setAutoConvert) throw new Error('The connected Travel Pocket adapter does not support Auto-Convert settings.');
+    setLoading(true);
+    try {
+      return apply(await travel.setAutoConvert(enabled));
+    } finally {
+      setLoading(false);
+    }
+  }, [apply, travel]);
 
   return useMemo(
-    () => ({ travelPocket, loading, error, refresh, enable, disable }),
-    [travelPocket, loading, error, refresh, enable, disable],
+    () => ({ travelPocket, loading, error, refresh, selectRegion, enable, disable, setAutoConvert }),
+    [travelPocket, loading, error, refresh, selectRegion, enable, disable, setAutoConvert],
   );
 }
