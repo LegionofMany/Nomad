@@ -58,9 +58,7 @@ function extendBaseState(
     ...base,
     period,
     updatedAt: new Date().toISOString(),
-    calculationNotes: [
-      'The connected insights provider does not expose period-specific history.',
-    ],
+    calculationNotes: ['The connected insights provider does not expose period-specific history.'],
   };
 }
 
@@ -71,6 +69,7 @@ export type NomadInsightsHookState = {
   error: string | null;
   refresh(): Promise<NomadExtendedInsightsState | void>;
   setPeriod(period: NomadInsightsPeriod): Promise<NomadExtendedInsightsState | void>;
+  updateBudget(categoryLabel: string, totalUsd: number): Promise<NomadExtendedInsightsState>;
 };
 
 export function useNomadInsights(adapters?: NomadOverlayAdapters): NomadInsightsHookState {
@@ -105,19 +104,37 @@ export function useNomadInsights(adapters?: NomadOverlayAdapters): NomadInsights
   }, [insightsAdapter]);
 
   useEffect(() => {
-    void load(period);
-  }, [load, period]);
+    void load('1M');
+  }, [load]);
 
   const refresh = useCallback(() => load(period), [load, period]);
 
   const setPeriod = useCallback(async (nextPeriod: NomadInsightsPeriod) => {
     setSelectedPeriod(nextPeriod);
-    if (nextPeriod === period) return load(nextPeriod);
-    return undefined;
-  }, [load, period]);
+    return load(nextPeriod);
+  }, [load]);
+
+  const updateBudget = useCallback(async (categoryLabel: string, totalUsd: number) => {
+    if (!isExtendedAdapter(insightsAdapter) || typeof insightsAdapter.updateBudget !== 'function') {
+      throw new Error('The connected Insights adapter does not support editable budgets.');
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const next = await insightsAdapter.updateBudget(categoryLabel, totalUsd, period);
+      setInsights(next);
+      return next;
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : 'Unable to save the budget.';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [insightsAdapter, period]);
 
   return useMemo(
-    () => ({ insights, period, loading, error, refresh, setPeriod }),
-    [insights, period, loading, error, refresh, setPeriod],
+    () => ({ insights, period, loading, error, refresh, setPeriod, updateBudget }),
+    [insights, period, loading, error, refresh, setPeriod, updateBudget],
   );
 }
