@@ -1,7 +1,7 @@
 import { getTravelState, getWalletMeta, getWalletStatus } from '../../services/walletService';
 import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
 
-import { localNomadRecoveryAdapter } from './localNomadAdapters';
+import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import type {
   NomadFreezeActivity,
   NomadFreezeScope,
@@ -143,8 +143,8 @@ async function moduleChecks(checkedAt: string): Promise<NomadSecurityModuleResul
   const [walletMeta, walletStatus, recovery, authority, travel] = await Promise.all([
     getWalletMeta(),
     getWalletStatus(),
-    localNomadRecoveryAdapter.getRecoveryState(),
-    localNomadRecoveryAdapter.getOwnerAuthorityRequest(),
+    nomadRecoveryAdapter.getRecoveryState(),
+    nomadRecoveryAdapter.getOwnerAuthorityRequest(),
     getTravelState(),
   ]);
 
@@ -218,8 +218,8 @@ async function moduleChecks(checkedAt: string): Promise<NomadSecurityModuleResul
 
 async function backupChecks(): Promise<NomadSecurityBackupResult[]> {
   const [recovery, authority] = await Promise.all([
-    localNomadRecoveryAdapter.getRecoveryState(),
-    localNomadRecoveryAdapter.getOwnerAuthorityRequest(),
+    nomadRecoveryAdapter.getRecoveryState(),
+    nomadRecoveryAdapter.getOwnerAuthorityRequest(),
   ]);
   const recoveryReady = recovery.recoveryStatus === 'protected' && recovery.timeSetsComplete >= recovery.timeSetsTotal;
   const quorumReady = recovery.signerQuorum > 0 && recovery.signerQuorum <= recovery.signerTotal;
