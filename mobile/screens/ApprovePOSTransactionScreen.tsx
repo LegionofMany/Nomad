@@ -16,7 +16,6 @@ import {
   PageHeader,
   Panel,
   PrimaryButton,
-  ProgressBar,
   RoundIcon,
   useNomadLayout,
 } from '../ui/NomadShell';
@@ -44,11 +43,7 @@ function formatDate(value?: string) {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return 'Time unavailable';
   return new Date(parsed).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 }
 
@@ -59,17 +54,7 @@ function checkInfo(status: NomadPOSCheck['status']) {
   return { color: C.muted, mark: '—', label: 'UNAVAILABLE' };
 }
 
-function DetailRow({
-  label,
-  value,
-  color = '#fff',
-  last,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-  last?: boolean;
-}) {
+function DetailRow({ label, value, color = '#fff', last }: { label: string; value: string; color?: string; last?: boolean }) {
   return (
     <View style={[styles.detailRow, !last && styles.rowBorder]}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -95,33 +80,15 @@ function CheckRow({ item, last }: { item: NomadPOSCheck; last?: boolean }) {
   );
 }
 
-function AssetRow({
-  item,
-  selected,
-  last,
-  onPress,
-}: {
-  item: NomadPOSPaymentAsset;
-  selected: boolean;
-  last?: boolean;
-  onPress(): void;
-}) {
+function AssetRow({ item, selected, last, onPress }: { item: NomadPOSPaymentAsset; selected: boolean; last?: boolean; onPress(): void }) {
   const visual = visualFor(item.symbol);
   return (
     <Pressable
       disabled={!item.quoteAvailable}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.assetRow,
-        !last && styles.rowBorder,
-        selected && styles.assetSelected,
-        !item.quoteAvailable && styles.disabled,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.assetRow, !last && styles.rowBorder, selected && styles.assetSelected, !item.quoteAvailable && styles.disabled, pressed && styles.pressed]}
     >
-      <View style={[styles.assetBadge, { backgroundColor: visual.color }]}>
-        <Text style={styles.assetMark}>{visual.icon}</Text>
-      </View>
+      <View style={[styles.assetBadge, { backgroundColor: visual.color }]}><Text style={styles.assetMark}>{visual.icon}</Text></View>
       <View style={styles.assetCopy}>
         <Text style={styles.assetSymbol}>{item.symbol}</Text>
         <Text numberOfLines={1} style={styles.assetName}>{item.name} • {item.network || 'Network unavailable'}</Text>
@@ -130,26 +97,21 @@ function AssetRow({
         <Text numberOfLines={1} style={styles.assetBalance}>{item.balanceLabel}</Text>
         <Text style={styles.assetValue}>{item.fiatValueLabel}</Text>
       </View>
-      <Text style={[styles.assetStatus, { color: item.quoteAvailable ? C.green : C.yellow }]}>
-        {item.quoteAvailable ? (selected ? '✓' : '›') : 'NO PRICE'}
-      </Text>
+      <Text style={[styles.assetStatus, { color: item.quoteAvailable ? C.green : C.yellow }]}>{item.quoteAvailable ? (selected ? '✓' : '›') : 'NO PRICE'}</Text>
     </Pressable>
   );
 }
 
 function ReceiptPanel({ receipt }: { receipt: NomadPOSDraftReceipt }) {
-  const color = receipt.walletDraftStatus === 'failed' ? C.red : receipt.broadcasted ? C.yellow : C.blue;
+  const failed = receipt.walletDraftStatus === 'failed';
+  const color = failed ? C.red : receipt.broadcasted ? C.yellow : C.blue;
   return (
-    <Panel tone={receipt.walletDraftStatus === 'failed' ? 'red' : 'yellow'} style={styles.receiptPanel}>
+    <Panel tone={failed ? 'red' : 'yellow'} style={styles.receiptPanel}>
       <View style={styles.receiptHeader}>
-        <RoundIcon symbol={receipt.walletDraftStatus === 'failed' ? '!' : '▰'} color={color} size={52} filled />
+        <RoundIcon symbol={failed ? '!' : '▰'} color={color} size={52} filled />
         <View style={styles.receiptCopy}>
-          <Text style={[styles.receiptTitle, { color }]}>
-            {receipt.walletDraftStatus === 'failed' ? 'Wallet Draft Failed' : 'Wallet Draft Recorded'}
-          </Text>
-          <Text style={styles.receiptText}>
-            The wallet returned status {receipt.walletDraftStatus}. Payment and merchant settlement remain unconfirmed.
-          </Text>
+          <Text style={[styles.receiptTitle, { color }]}>{failed ? 'Wallet Draft Failed' : 'Wallet Draft Recorded'}</Text>
+          <Text style={styles.receiptText}>Wallet status: {receipt.walletDraftStatus}. Payment and merchant settlement remain unconfirmed.</Text>
         </View>
       </View>
       <DetailRow label="Merchant" value={receipt.merchantName} />
@@ -168,33 +130,20 @@ export default function ApprovePOSTransactionScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { compact } = useNomadLayout();
-
   const source: NomadPOSSource = route.params?.source === 'travel_qr'
     ? 'travel_qr'
-    : route.params?.source === 'travel_pocket'
-      ? 'travel_pocket'
-      : 'manual';
-  const initialPaymentRequest = typeof route.params?.paymentRequest === 'string'
-    ? route.params.paymentRequest
-    : undefined;
+    : route.params?.source === 'travel_pocket' ? 'travel_pocket' : 'manual';
+  const initialPaymentRequest = typeof route.params?.paymentRequest === 'string' ? route.params.paymentRequest : undefined;
   const region = typeof route.params?.region === 'string' ? route.params.region : undefined;
-  const preferredAssetSymbol = typeof route.params?.assetSymbol === 'string'
-    ? route.params.assetSymbol
-    : undefined;
+  const preferredAssetSymbol = typeof route.params?.assetSymbol === 'string' ? route.params.assetSymbol : undefined;
 
   const {
-    pos,
-    loading,
-    error,
-    refresh,
-    parseRequest,
-    createQuote,
-    createWalletDraft,
-    quoteSecondsRemaining,
-    requestSecondsRemaining,
+    pos, loading, error, refresh, parseRequest, createQuote, createWalletDraft,
+    quoteSecondsRemaining, requestSecondsRemaining,
   } = useNomadPOSTransaction(source, initialPaymentRequest, region, preferredAssetSymbol);
 
   const [rawRequest, setRawRequest] = useState(initialPaymentRequest || '');
+  const [parsedRaw, setParsedRaw] = useState(initialPaymentRequest || '');
   const [selectedSymbol, setSelectedSymbol] = useState(preferredAssetSymbol?.toUpperCase() || '');
   const [feedback, setFeedback] = useState('');
   const [showRequestInput, setShowRequestInput] = useState(!initialPaymentRequest);
@@ -205,57 +154,41 @@ export default function ApprovePOSTransactionScreen() {
     if (!selectedSymbol && pos.selectedAssetSymbol) setSelectedSymbol(pos.selectedAssetSymbol);
   }, [pos.selectedAssetSymbol, selectedSymbol]);
 
-  useEffect(() => {
-    if (!rawRequest && pos.request) {
-      setRawRequest(JSON.stringify({
-        id: pos.request.id,
-        merchantName: pos.request.merchantName,
-        merchantId: pos.request.merchantId,
-        terminalId: pos.request.terminalId,
-        amount: pos.request.amountLocal,
-        currency: pos.request.currencyCode,
-        region: pos.request.region,
-        nonce: pos.request.nonce,
-        memo: pos.request.memo,
-        createdAt: pos.request.createdAt,
-        expiresAt: pos.request.expiresAt,
-      }));
-    }
-  }, [pos.request, rawRequest]);
-
-  const selectedAsset = useMemo(
-    () => pos.assets.find((item) => item.symbol === selectedSymbol),
-    [pos.assets, selectedSymbol],
-  );
-  const quote = pos.activeQuote;
+  const requestMatchesInput = Boolean(rawRequest.trim() && parsedRaw === rawRequest);
+  const activeRequest = requestMatchesInput ? pos.request : undefined;
+  const activeChecks = activeRequest ? pos.checks : [];
+  const quote = activeRequest ? pos.activeQuote : undefined;
   const quoteExpired = Boolean(quote && quoteSecondsRemaining <= 0);
-  const latestReceipt = receipt ?? pos.recentDrafts[0] ?? null;
-  const visibleChecks = showAllChecks ? pos.checks : pos.checks.slice(0, 5);
-  const requestProgress = pos.checks.length
-    ? Math.round((pos.checks.filter((item) => item.status === 'pass').length / pos.checks.length) * 100)
+  const matchingReceipt = activeRequest
+    ? pos.recentDrafts.find((item) => item.nonce === activeRequest.nonce)
+    : undefined;
+  const latestReceipt = receipt?.nonce === activeRequest?.nonce ? receipt : matchingReceipt ?? null;
+  const selectedAsset = useMemo(() => pos.assets.find((item) => item.symbol === selectedSymbol), [pos.assets, selectedSymbol]);
+  const visibleChecks = showAllChecks ? activeChecks : activeChecks.slice(0, 5);
+  const requestProgress = activeChecks.length
+    ? Math.round((activeChecks.filter((item) => item.status === 'pass').length / activeChecks.length) * 100)
     : 0;
-  const tone = pos.frozen || pos.checks.some((item) => item.status === 'fail')
-    ? 'red' as const
-    : pos.requestValid ? 'yellow' as const : 'blue' as const;
-  const tint = pos.frozen || pos.checks.some((item) => item.status === 'fail')
-    ? C.red
-    : pos.requestValid ? C.yellow : C.blue;
+  const hasFailure = activeChecks.some((item) => item.status === 'fail');
+  const tint = pos.frozen || hasFailure ? C.red : activeRequest && pos.requestValid ? C.yellow : C.blue;
+  const tone = pos.frozen || hasFailure ? 'red' as const : activeRequest && pos.requestValid ? 'yellow' as const : 'blue' as const;
 
   const handleParse = async () => {
     try {
       setFeedback('Parsing the merchant request and checking its local evidence…');
       await parseRequest(rawRequest);
+      setParsedRaw(rawRequest);
       setReceipt(null);
       setShowRequestInput(false);
-      setFeedback('Merchant request parsed. Merchant identity and request signature remain unverified.');
+      setFeedback('Request parsed. Merchant identity and request signature remain unverified.');
     } catch (nextError) {
+      setParsedRaw('');
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to parse the merchant request.');
     }
   };
 
   const handleQuote = async () => {
-    if (!selectedAsset) {
-      setFeedback('Choose a connected wallet asset before creating a payment preview.');
+    if (!selectedAsset || !activeRequest) {
+      setFeedback('Parse the request and choose a connected wallet asset before continuing.');
       return;
     }
     try {
@@ -263,7 +196,7 @@ export default function ApprovePOSTransactionScreen() {
       const next = await createQuote(rawRequest, selectedAsset.symbol);
       if (!next) throw new Error('The POS adapter did not return a payment preview.');
       setReceipt(null);
-      setFeedback('Payment preview created. Network fees, merchant identity and settlement remain unavailable.');
+      setFeedback('Preview created. Fees, merchant identity and settlement remain unavailable.');
     } catch (nextError) {
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the POS payment preview.');
     }
@@ -283,8 +216,16 @@ export default function ApprovePOSTransactionScreen() {
     }
   };
 
+  const editRequest = (value: string) => {
+    setRawRequest(value);
+    setParsedRaw('');
+    setReceipt(null);
+    setFeedback('');
+  };
+
   const startOver = () => {
     setRawRequest('');
+    setParsedRaw('');
     setSelectedSymbol('');
     setReceipt(null);
     setFeedback('Enter or scan a new merchant request.');
@@ -299,19 +240,13 @@ export default function ApprovePOSTransactionScreen() {
         icon=")))"
         color={tint}
         status={false}
-        right={(
-          <Pressable onPress={() => navigation.goBack()} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </Pressable>
-        )}
+        right={<Pressable onPress={() => navigation.goBack()} style={styles.cancelButton}><Text style={styles.cancelText}>Cancel</Text></Pressable>}
       />
 
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void refresh(rawRequest || undefined)} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
+          <Pressable onPress={() => void refresh(requestMatchesInput ? rawRequest : undefined)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
         </View>
       ) : null}
 
@@ -322,44 +257,32 @@ export default function ApprovePOSTransactionScreen() {
         </View>
         <View style={styles.heroCopy}>
           <Text style={[styles.heroEyebrow, { color: tint }]}>MERCHANT REQUEST • {source.replace('_', ' ').toUpperCase()}</Text>
-          <Text style={styles.heroTitle}>{pos.request?.merchantName || 'Merchant Request Required'}</Text>
-          <Text style={styles.heroText}>
-            {pos.request
-              ? `${pos.request.amountLocal.toLocaleString()} ${pos.request.currencyCode} • terminal ${pos.request.terminalId}`
-              : 'Scan or enter a supported Nomad POS request before reviewing a payment.'}
-          </Text>
+          <Text style={styles.heroTitle}>{activeRequest?.merchantName || 'Merchant Request Required'}</Text>
+          <Text style={styles.heroText}>{activeRequest
+            ? `${activeRequest.amountLocal.toLocaleString()} ${activeRequest.currencyCode} • terminal ${activeRequest.terminalId}`
+            : 'Scan or enter a supported Nomad POS request before reviewing a payment.'}</Text>
           <View style={styles.heroTags}>
-            <Text style={[styles.heroTag, { borderColor: tint, color: tint }]}>
-              {pos.requestValid ? 'STRUCTURE VALID' : 'REVIEW REQUIRED'}
-            </Text>
+            <Text style={[styles.heroTag, { borderColor: tint, color: tint }]}>{activeRequest && pos.requestValid ? 'LOCAL CHECKS VALID' : 'REVIEW REQUIRED'}</Text>
             <Text style={[styles.heroTag, { borderColor: C.red, color: C.red }]}>MERCHANT UNVERIFIED</Text>
             <Text style={[styles.heroTag, { borderColor: C.muted, color: C.muted }]}>SETTLEMENT OFFLINE</Text>
           </View>
         </View>
         <View style={styles.heroAmount}>
           <Text style={styles.heroAmountLabel}>LOCAL TOTAL</Text>
-          <Text style={[styles.heroAmountValue, { color: tint }]}>
-            {pos.request ? `${pos.request.amountLocal.toLocaleString()} ${pos.request.currencyCode}` : '--'}
-          </Text>
-          <Text style={styles.heroAmountSub}>
-            {pos.request ? `${requestSecondsRemaining}s request validity` : 'No request loaded'}
-          </Text>
+          <Text style={[styles.heroAmountValue, { color: tint }]}>{activeRequest ? `${activeRequest.amountLocal.toLocaleString()} ${activeRequest.currencyCode}` : '--'}</Text>
+          <Text style={styles.heroAmountSub}>{activeRequest ? `${requestSecondsRemaining}s request validity` : 'No request loaded'}</Text>
         </View>
       </Panel>
 
       <View style={[styles.metricRow, compact && styles.metricRowCompact]}>
         <Panel style={styles.metricCard}>
           <Text style={styles.metricLabel}>TRAVEL MODE</Text>
-          <Text style={[styles.metricStatus, { color: pos.travelPocket.enabled ? C.green : C.red }]}>
-            {pos.travelPocket.enabled ? 'ACTIVE' : 'INACTIVE'}
-          </Text>
+          <Text style={[styles.metricStatus, { color: pos.travelPocket.enabled ? C.green : C.red }]}>{pos.travelPocket.enabled ? 'ACTIVE' : 'INACTIVE'}</Text>
           <Text style={styles.metricSub}>{pos.travelPocket.regionInput || 'Global'} • {pos.travelPocket.currencyCode || 'USD'}</Text>
         </Panel>
         <Panel style={styles.metricCard}>
           <Text style={styles.metricLabel}>WALLET SESSION</Text>
-          <Text style={[styles.metricStatus, { color: pos.walletSessionStatus === 'unlocked' ? C.green : C.red }]}>
-            {pos.walletSessionStatus.toUpperCase()}
-          </Text>
+          <Text style={[styles.metricStatus, { color: pos.walletSessionStatus === 'unlocked' ? C.green : C.red }]}>{pos.walletSessionStatus.toUpperCase()}</Text>
           <Text style={styles.metricSub}>{pos.walletSessionProvider.replace(/_/g, ' ')}</Text>
         </Panel>
         <Panel style={styles.metricCard}>
@@ -369,15 +292,11 @@ export default function ApprovePOSTransactionScreen() {
         </Panel>
       </View>
 
-      <Panel style={styles.requestPanel}>
+      <Panel style={styles.sectionPanel}>
         <Pressable onPress={() => setShowRequestInput((value) => !value)} style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>MERCHANT POS REQUEST</Text>
-            <Text style={styles.sectionSub}>JSON, nomadpos:// or NOMADPOS pipe format</Text>
-          </View>
+          <View style={styles.sectionCopy}><Text style={styles.sectionTitle}>MERCHANT POS REQUEST</Text><Text style={styles.sectionSub}>JSON, nomadpos:// or NOMADPOS pipe format</Text></View>
           <Text style={styles.sectionToggle}>{showRequestInput ? 'Hide −' : 'Change +'}</Text>
         </Pressable>
-
         {showRequestInput ? (
           <>
             <TextInput
@@ -385,93 +304,55 @@ export default function ApprovePOSTransactionScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               multiline
-              onChangeText={(value) => {
-                setRawRequest(value);
-                setFeedback('');
-              }}
-              placeholder={'Paste a request such as nomadpos://pay?merchant=...&merchantId=...&terminal=...&amount=...&currency=...&region=...&expires=...&nonce=...'}
+              onChangeText={editRequest}
+              placeholder={'Paste nomadpos://pay?... or a structured JSON request'}
               placeholderTextColor="#718096"
               style={styles.requestInput}
               value={rawRequest}
             />
-            <Text style={styles.requestHelp}>
-              Never paste a seed phrase, private key, password or Time Set. A valid request needs merchant name, merchant ID, terminal ID, amount, currency, expiry and a unique nonce.
-            </Text>
-            <PrimaryButton
-              label={loading ? 'Checking Request…' : 'Parse Merchant Request'}
-              subtitle="Validate structure, expiry, region, currency and replay status"
-              icon="⌕"
-              tone="blue"
-              disabled={loading || rawRequest.trim().length < 8}
-              onPress={() => void handleParse()}
-            />
+            <Text style={styles.requestHelp}>Never paste a seed phrase, private key, password or Time Set. Required fields: merchant, merchant ID, terminal ID, amount, currency, expiry and nonce.</Text>
+            <PrimaryButton label={loading ? 'Checking Request…' : 'Parse Merchant Request'} subtitle="Validate structure, expiry, region, currency and replay status" icon="⌕" tone="blue" disabled={loading || rawRequest.trim().length < 8} onPress={() => void handleParse()} />
           </>
-        ) : pos.request ? (
-          <View style={styles.requestSummary}>
-            <DetailRow label="Request ID" value={pos.request.id} />
-            <DetailRow label="Merchant ID" value={pos.request.merchantId} />
-            <DetailRow label="Terminal ID" value={pos.request.terminalId} />
-            <DetailRow label="Currency" value={pos.request.currencyCode} />
-            <DetailRow label="Region" value={pos.request.region || 'Not supplied'} />
-            <DetailRow label="Expires" value={formatDate(pos.request.expiresAt)} />
-            <DetailRow label="Signature Present" value={pos.request.signaturePresent ? 'YES • UNVERIFIED' : 'NO'} color={C.yellow} />
+        ) : activeRequest ? (
+          <View style={styles.summaryWrap}>
+            <DetailRow label="Request ID" value={activeRequest.id} />
+            <DetailRow label="Merchant ID" value={activeRequest.merchantId} />
+            <DetailRow label="Terminal ID" value={activeRequest.terminalId} />
+            <DetailRow label="Region" value={activeRequest.region || 'Not supplied'} />
+            <DetailRow label="Expires" value={formatDate(activeRequest.expiresAt)} />
+            <DetailRow label="Signature" value={activeRequest.signaturePresent ? 'PRESENT • UNVERIFIED' : 'NOT PRESENT'} color={C.yellow} />
             <DetailRow label="Contains Secrets" value="NO" color={C.green} last />
           </View>
         ) : null}
       </Panel>
 
-      <Panel style={styles.checkPanel}>
-        <Pressable onPress={() => setShowAllChecks((value) => !value)} style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>PAYMENT EVIDENCE</Text>
-            <Text style={styles.sectionSub}>Every required boundary is evaluated independently</Text>
-          </View>
-          <Text style={styles.sectionToggle}>{showAllChecks ? 'Show less −' : 'Show all +'}</Text>
-        </Pressable>
-        {visibleChecks.map((item, index) => (
-          <CheckRow key={item.id} item={item} last={index === visibleChecks.length - 1} />
-        ))}
-      </Panel>
+      {activeRequest ? (
+        <Panel style={styles.sectionPanel}>
+          <Pressable onPress={() => setShowAllChecks((value) => !value)} style={styles.sectionHeading}>
+            <View style={styles.sectionCopy}><Text style={styles.sectionTitle}>PAYMENT EVIDENCE</Text><Text style={styles.sectionSub}>Each safety and transaction boundary is evaluated independently</Text></View>
+            <Text style={styles.sectionToggle}>{showAllChecks ? 'Show less −' : 'Show all +'}</Text>
+          </Pressable>
+          {visibleChecks.map((item, index) => <CheckRow key={item.id} item={item} last={index === visibleChecks.length - 1} />)}
+        </Panel>
+      ) : null}
 
-      <Panel style={styles.assetPanel}>
+      <Panel style={styles.sectionPanel}>
         <View style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>PAYMENT ASSET</Text>
-            <Text style={styles.sectionSub}>Only assets returned by the connected wallet snapshot are available</Text>
-          </View>
+          <View style={styles.sectionCopy}><Text style={styles.sectionTitle}>PAYMENT ASSET</Text><Text style={styles.sectionSub}>Connected wallet snapshot only</Text></View>
           <Text style={styles.sectionCount}>{pos.assets.length}</Text>
         </View>
         {pos.assets.length ? pos.assets.map((item, index) => (
-          <AssetRow
-            key={`${item.symbol}-${item.accountId || index}`}
-            item={item}
-            selected={item.symbol === selectedSymbol}
-            last={index === pos.assets.length - 1}
-            onPress={() => {
-              setSelectedSymbol(item.symbol);
-              setReceipt(null);
-              setFeedback('');
-            }}
-          />
+          <AssetRow key={`${item.symbol}-${item.accountId || index}`} item={item} selected={item.symbol === selectedSymbol} last={index === pos.assets.length - 1} onPress={() => { setSelectedSymbol(item.symbol); setReceipt(null); setFeedback(''); }} />
         )) : (
-          <View style={styles.emptyState}>
-            <RoundIcon symbol="▣" color={C.yellow} size={54} filled />
-            <Text style={styles.emptyTitle}>No Wallet Assets Available</Text>
-            <Text style={styles.emptyText}>Refresh the wallet adapter or unlock the wallet before creating a POS preview.</Text>
-          </View>
+          <View style={styles.emptyState}><RoundIcon symbol="▣" color={C.yellow} size={54} filled /><Text style={styles.emptyTitle}>No Wallet Assets Available</Text><Text style={styles.emptyText}>Refresh or unlock the wallet before creating a POS preview.</Text></View>
         )}
       </Panel>
 
       {quote ? (
-        <Panel tone={quoteExpired ? 'red' : 'yellow'} style={styles.quotePanel}>
+        <Panel tone={quoteExpired ? 'red' : 'yellow'} style={styles.sectionPanel}>
           <View style={styles.quoteHeader}>
-            <View>
-              <Text style={[styles.quoteEyebrow, { color: quoteExpired ? C.red : C.yellow }]}>60-SECOND PAYMENT PREVIEW</Text>
-              <Text style={styles.quoteTitle}>{quoteExpired ? 'Preview Expired' : `${quoteSecondsRemaining}s remaining`}</Text>
-            </View>
-            <Text style={[styles.quoteBadge, { color: quoteExpired ? C.red : C.yellow, borderColor: quoteExpired ? C.red : C.yellow }]}>
-              {quote.exchangeRateSource === 'provider' ? 'PROVIDER FX' : 'PREVIEW FX'}
-            </Text>
+            <View><Text style={[styles.quoteEyebrow, { color: quoteExpired ? C.red : C.yellow }]}>60-SECOND PAYMENT PREVIEW</Text><Text style={styles.quoteTitle}>{quoteExpired ? 'Preview Expired' : `${quoteSecondsRemaining}s remaining`}</Text></View>
+            <Text style={[styles.quoteBadge, { color: quoteExpired ? C.red : C.yellow, borderColor: quoteExpired ? C.red : C.yellow }]}>{quote.exchangeRateSource === 'provider' ? 'PROVIDER FX' : 'PREVIEW FX'}</Text>
           </View>
           <DetailRow label="Merchant" value={quote.request.merchantName} />
           <DetailRow label="Local Total" value={quote.localAmountLabel} />
@@ -488,90 +369,34 @@ export default function ApprovePOSTransactionScreen() {
 
       {feedback ? (
         <Panel tone={/unable|failed|blocked|expired|exceeds|unverified/i.test(feedback) ? 'red' : 'yellow'} style={styles.feedbackPanel}>
-          <Text style={styles.feedbackIcon}>!</Text>
-          <Text style={styles.feedbackText}>{feedback}</Text>
+          <Text style={styles.feedbackIcon}>!</Text><Text style={styles.feedbackText}>{feedback}</Text>
         </Panel>
       ) : null}
 
       {!quote || quoteExpired ? (
-        <PrimaryButton
-          label={loading ? 'Creating Preview…' : quoteExpired ? 'Create New Payment Preview' : 'Review POS Payment'}
-          subtitle="Calculate the source-asset amount without signing or moving funds"
-          icon="›"
-          tone="green"
-          disabled={loading || !pos.canCreateQuote || !selectedAsset || !rawRequest.trim()}
-          onPress={() => void handleQuote()}
-        />
+        <PrimaryButton label={loading ? 'Creating Preview…' : quoteExpired ? 'Create New Payment Preview' : 'Review POS Payment'} subtitle="Calculate a source-asset preview without signing or moving funds" icon="›" tone="green" disabled={loading || !activeRequest || !pos.canCreateQuote || !selectedAsset} onPress={() => void handleQuote()} />
       ) : latestReceipt ? (
-        <PrimaryButton
-          label="Return to Travel Pocket"
-          subtitle="The local draft does not prove merchant payment or settlement"
-          icon="✓"
-          tone="green"
-          onPress={() => navigation.navigate('TravelMode')}
-        />
-      ) : pos.walletSessionStatus !== 'unlocked' ? (
-        <PrimaryButton
-          label="Unlock Wallet to Continue"
-          subtitle="POS draft creation requires an unlocked wallet session"
-          icon="◷"
-          tone="green"
-          onPress={() => navigation.navigate('UnlockWallet')}
-        />
+        <PrimaryButton label="Return to Travel Pocket" subtitle="The local draft does not prove merchant payment or settlement" icon="✓" tone="green" onPress={() => navigation.navigate('TravelMode')} />
       ) : pos.frozen ? (
-        <PrimaryButton
-          label="Review Emergency Freeze"
-          subtitle="Travel Pocket payments are blocked while freeze protection is active"
-          icon="!"
-          tone="green"
-          onPress={() => navigation.navigate('EmergencyFreeze')}
-        />
+        <PrimaryButton label="Review Emergency Freeze" subtitle="Travel Pocket payments are blocked" icon="!" tone="green" onPress={() => navigation.navigate('EmergencyFreeze')} />
+      ) : pos.walletSessionStatus !== 'unlocked' ? (
+        <PrimaryButton label="Unlock Wallet to Continue" subtitle="An unlocked session is required for draft creation" icon="◷" tone="green" onPress={() => navigation.navigate('UnlockWallet')} />
       ) : (
         <View style={styles.approvalWrap}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Hold to create wallet review draft"
-            delayLongPress={700}
-            disabled={loading || !pos.canCreateDraft || quoteExpired}
-            onLongPress={() => void handleWalletDraft()}
-            style={({ pressed }) => [
-              styles.approvalControl,
-              pressed && styles.pressed,
-              (loading || !pos.canCreateDraft || quoteExpired) && styles.disabled,
-            ]}
-          >
+          <Pressable accessibilityRole="button" accessibilityLabel="Hold to create wallet review draft" delayLongPress={700} disabled={loading || !pos.canCreateDraft || quoteExpired} onLongPress={() => void handleWalletDraft()} style={({ pressed }) => [styles.approvalControl, pressed && styles.pressed, (loading || !pos.canCreateDraft || quoteExpired) && styles.disabled]}>
             <View style={styles.approvalKnob}><Text style={styles.approvalArrow}>→</Text></View>
-            <View style={styles.approvalCopy}>
-              <Text style={styles.approvalTitle}>{loading ? 'Requesting Wallet Draft…' : 'Hold for Wallet Review Draft'}</Text>
-              <Text style={styles.approvalSub}>This does not approve, broadcast or settle the merchant payment</Text>
-            </View>
+            <View style={styles.approvalCopy}><Text style={styles.approvalTitle}>{loading ? 'Requesting Wallet Draft…' : 'Hold for Wallet Review Draft'}</Text><Text style={styles.approvalSub}>This does not approve, broadcast or settle the payment</Text></View>
           </Pressable>
-          <Pressable
-            disabled={loading || !pos.canCreateDraft || quoteExpired}
-            onPress={() => void handleWalletDraft()}
-            style={({ pressed }) => [styles.tapButton, pressed && styles.pressed, (loading || !pos.canCreateDraft || quoteExpired) && styles.disabled]}
-          >
-            <Text style={styles.tapButtonText}>Create review draft without holding</Text>
-          </Pressable>
+          <Pressable disabled={loading || !pos.canCreateDraft || quoteExpired} onPress={() => void handleWalletDraft()} style={({ pressed }) => [styles.tapButton, pressed && styles.pressed, (loading || !pos.canCreateDraft || quoteExpired) && styles.disabled]}><Text style={styles.tapButtonText}>Create review draft without holding</Text></Pressable>
         </View>
       )}
 
       <View style={[styles.secondaryActions, compact && styles.secondaryActionsCompact]}>
-        <Pressable onPress={startOver} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>New Merchant Request</Text>
-        </Pressable>
-        <Pressable onPress={() => navigation.navigate('BlockPagesSafety')} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Open Reqrium Safety</Text>
-        </Pressable>
+        <Pressable onPress={startOver} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>New Merchant Request</Text></Pressable>
+        <Pressable onPress={() => navigation.navigate('BlockPagesSafety')} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Open Reqrium Safety</Text></Pressable>
       </View>
 
-      <Panel style={styles.boundaryPanel}>
-        <RoundIcon symbol="i" color={C.blue} size={44} />
-        <Text style={styles.boundaryText}>
-          Page 22 validates request structure, local limits and wallet evidence. It cannot verify merchant ownership, NFC encryption, request signatures, network fees, transaction confirmation or merchant settlement until those production providers are connected.
-        </Text>
-      </Panel>
-
+      <Panel style={styles.boundaryPanel}><RoundIcon symbol="i" color={C.blue} size={44} /><Text style={styles.boundaryText}>Page 22 validates request structure, local limits and wallet evidence. It cannot verify merchant ownership, NFC encryption, request signatures, network fees, transaction confirmation or merchant settlement until production providers are connected.</Text></Panel>
       <BottomNav active="Travel" fifth={['•••', 'More', 'Settings']} />
     </NomadPage>
   );
@@ -606,18 +431,16 @@ const styles = StyleSheet.create({
   metricStatus: { fontSize: 14, fontWeight: '900', marginTop: 10 },
   metricValue: { fontSize: 25, fontWeight: '900', marginTop: 7 },
   metricSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 7 },
-  requestPanel: { marginTop: 16, padding: 17 },
-  checkPanel: { marginTop: 16, padding: 17 },
-  assetPanel: { marginTop: 16, padding: 17 },
+  sectionPanel: { marginTop: 16, padding: 17 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   sectionCopy: { flex: 1, minWidth: 0 },
-  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', letterSpacing: .3 },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900' },
   sectionSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
   sectionToggle: { color: C.blue, fontSize: 9, fontWeight: '900' },
   sectionCount: { color: C.blue, fontSize: 20, fontWeight: '900' },
   requestInput: { minHeight: 145, marginTop: 15, borderWidth: 1, borderColor: C.border, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', padding: 13, fontSize: 11, lineHeight: 18, textAlignVertical: 'top', outlineStyle: 'none' } as any,
   requestHelp: { color: C.yellow, fontSize: 9, lineHeight: 15, marginTop: 10 },
-  requestSummary: { marginTop: 10 },
+  summaryWrap: { marginTop: 10 },
   detailRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingVertical: 9 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
   detailLabel: { color: C.muted, fontSize: 10, flex: .8 },
@@ -629,7 +452,7 @@ const styles = StyleSheet.create({
   checkTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
   checkDetail: { color: '#dce4ed', fontSize: 9, lineHeight: 14, marginTop: 4 },
   checkProvider: { color: C.muted, fontSize: 8, marginTop: 4 },
-  checkStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8, textAlign: 'right' },
+  checkStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8 },
   assetRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   assetSelected: { backgroundColor: 'rgba(32,239,112,.045)' },
   assetBadge: { width: 47, height: 47, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
@@ -641,17 +464,16 @@ const styles = StyleSheet.create({
   assetBalance: { color: '#fff', fontSize: 10, fontWeight: '700' },
   assetValue: { color: C.muted, fontSize: 9, marginTop: 4 },
   assetStatus: { width: 58, fontSize: 8, fontWeight: '900', textAlign: 'right', marginLeft: 8 },
-  emptyState: { minHeight: 150, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  emptyState: { minHeight: 140, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 12 },
-  emptyText: { color: C.muted, fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 7 },
-  quotePanel: { marginTop: 16, padding: 17 },
+  emptyText: { color: C.muted, fontSize: 9, marginTop: 7 },
   quoteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 8 },
-  quoteEyebrow: { fontSize: 8, fontWeight: '900', letterSpacing: .6 },
+  quoteEyebrow: { fontSize: 8, fontWeight: '900' },
   quoteTitle: { color: '#fff', fontSize: 19, fontWeight: '900', marginTop: 5 },
   quoteBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6, fontSize: 8, fontWeight: '900' },
   receiptPanel: { marginTop: 16, padding: 17 },
   receiptHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  receiptCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  receiptCopy: { flex: 1, marginLeft: 12 },
   receiptTitle: { fontSize: 16, fontWeight: '900' },
   receiptText: { color: '#eef3f7', fontSize: 9, lineHeight: 15, marginTop: 5 },
   feedbackPanel: { minHeight: 72, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
@@ -661,17 +483,17 @@ const styles = StyleSheet.create({
   approvalControl: { width: '100%', minHeight: 88, borderRadius: 44, backgroundColor: 'rgba(13,118,43,.72)', flexDirection: 'row', alignItems: 'center', padding: 8 },
   approvalKnob: { width: 70, height: 70, borderRadius: 35, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
   approvalArrow: { color: C.bg, fontSize: 31, fontWeight: '900' },
-  approvalCopy: { flex: 1, minWidth: 0, marginLeft: 15 },
+  approvalCopy: { flex: 1, marginLeft: 15 },
   approvalTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  approvalSub: { color: '#d8f9e3', fontSize: 9, lineHeight: 14, marginTop: 5 },
-  tapButton: { minHeight: 43, marginTop: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  approvalSub: { color: '#d8f9e3', fontSize: 9, marginTop: 5 },
+  tapButton: { minHeight: 43, marginTop: 10, justifyContent: 'center' },
   tapButtonText: { color: C.green, fontSize: 10, fontWeight: '900' },
   secondaryActions: { flexDirection: 'row', gap: 11, marginTop: 14 },
   secondaryActionsCompact: { flexDirection: 'column' },
   secondaryButton: { flex: 1, minHeight: 53, borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { color: C.blue, fontSize: 10, fontWeight: '900' },
   boundaryPanel: { minHeight: 88, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  boundaryText: { flex: 1, minWidth: 0, color: '#edf2f7', fontSize: 9, lineHeight: 15, marginLeft: 12 },
+  boundaryText: { flex: 1, color: '#edf2f7', fontSize: 9, lineHeight: 15, marginLeft: 12 },
   pressed: { opacity: .78 },
   disabled: { opacity: .42 },
 });
