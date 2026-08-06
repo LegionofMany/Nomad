@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 
 import { localNomadOverlayAdapters } from './localNomadAdapters';
+import { nomadSwapAdapter } from './nomadSwapAdapter';
 import type { NomadOverlayAdapters } from './walletAdapter';
 
 type NomadAdaptersProviderProps = {
@@ -13,6 +14,7 @@ const NomadAdaptersContext = createContext<NomadOverlayAdapters | null>(null);
 export function mergeNomadAdapters(overrides?: NomadOverlayAdapters): NomadOverlayAdapters {
   return {
     ...localNomadOverlayAdapters,
+    swap: nomadSwapAdapter,
     ...(overrides ?? {}),
   };
 }
@@ -28,5 +30,8 @@ export function NomadAdaptersProvider({ adapters, children }: NomadAdaptersProvi
 }
 
 export function useNomadAdapters(): NomadOverlayAdapters {
-  return useContext(NomadAdaptersContext) ?? localNomadOverlayAdapters;
+  return useContext(NomadAdaptersContext) ?? {
+    ...localNomadOverlayAdapters,
+    swap: nomadSwapAdapter,
+  };
 }
