@@ -76,7 +76,8 @@ export function useNomadLostWallet() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       setError(null);
       const next = await nomadLostWalletAdapter.getLostWalletState();
@@ -86,14 +87,14 @@ export function useNomadLostWallet() {
       setError(nextError instanceof Error ? nextError.message : 'Unable to load lost-wallet recovery state.');
       return undefined;
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
     const interval = setInterval(() => {
-      void refresh();
+      void refresh(true);
     }, 1000);
     return () => clearInterval(interval);
   }, [refresh]);
@@ -127,7 +128,7 @@ export function useNomadLostWallet() {
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Unable to verify the recovery Time Set.';
       setError(message);
-      await refresh();
+      await refresh(true);
       throw new Error(message);
     } finally {
       setLoading(false);
