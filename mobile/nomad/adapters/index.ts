@@ -12,6 +12,7 @@ export * from './nomadWalletRestorationAdapter';
 export * from './nomadOwnerAuthorityEnrollmentAdapter';
 export * from './nomadOwnerAuthorityApprovalAdapter';
 export * from './nomadSafetyAdapter';
+export * from './nomadURLSafetyScannerAdapter';
 export * from './nomadAddressSafetyDetailAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
