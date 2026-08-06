@@ -14,6 +14,14 @@ function NumberField({ label, value, max, onChange }: { label: string; value: st
   return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput value={value} onChangeText={handle} keyboardType="number-pad" maxLength={2} placeholder="00" placeholderTextColor="#68798f" style={styles.input} /></View>;
 }
 
+function formatSeconds(totalSeconds: number) {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 export default function ClockUnlockScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
@@ -26,14 +34,16 @@ export default function ClockUnlockScreen() {
   const configuredLabel = useMemo(() => unlockTime ? `${String(unlockTime.hour).padStart(2, '0')}:${String(unlockTime.minute).padStart(2, '0')}` : 'Not configured', [unlockTime]);
   const valid = hour !== '' && minute !== '' && Number(hour) <= 23 && Number(minute) <= 59;
   const inputTime = { hour: Number(hour || 0), minute: Number(minute || 0) };
+  const canConfigure = walletStatus === 'unlocked';
 
   const saveTime = async () => {
     if (!valid) { setMessage('Enter a valid hour and minute.'); return; }
+    if (!canConfigure) { setMessage('Unlock the wallet or complete verified recovery before changing the daily access time.'); return; }
     try {
       setBusy(true);
       setMessage('');
       await setUnlockTime(inputTime);
-      setMessage(`Clock Unlock saved for ${String(inputTime.hour).padStart(2, '0')}:${String(inputTime.minute).padStart(2, '0')}.`);
+      setMessage(`Daily access time saved for ${String(inputTime.hour).padStart(2, '0')}:${String(inputTime.minute).padStart(2, '0')} device local time.`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Unable to save the unlock time.');
     } finally {
@@ -45,16 +55,22 @@ export default function ClockUnlockScreen() {
     if (!valid) { setMessage('Enter a valid hour and minute.'); return; }
     try {
       setBusy(true);
-      setMessage('Verifying the owner-configured time…');
+      setMessage('Verifying the daily access window and owner-configured time…');
       const result = await unlockWithClock(inputTime);
       if (result.ok) {
         navigation.navigate('Portfolio');
         return;
       }
-      if (result.reason === 'locked_out') {
+      if (result.reason === 'outside_window') {
+        setMessage(`The daily access window is closed. Next window begins in ${formatSeconds(result.secondsUntilWindow ?? 0)}.`);
+      } else if (result.reason === 'not_configured') {
+        setMessage('A daily access time has not been configured. Open Recovery Center to complete setup.');
+      } else if (result.reason === 'locked_out') {
         setMessage(result.permanentlyLocked ? 'Recovery is required before another unlock attempt.' : `Temporarily locked. Try again in approximately ${result.remainingLockSeconds ?? 0} seconds.`);
       } else if (result.reason === 'bad_time') {
-        setMessage('The entered time does not match the configured Clock Unlock.');
+        setMessage('The entered time does not match the configured Time Clock value.');
+      } else if (result.reason === 'no_wallet') {
+        setMessage('Create or recover a wallet before using Time Clock access.');
       } else {
         setMessage('Clock Unlock could not be completed.');
       }
@@ -83,21 +99,21 @@ export default function ClockUnlockScreen() {
         <View style={[styles.clockFace, { width: compact ? 215 : 275, height: compact ? 215 : 275, borderRadius: compact ? 108 : 138 }]}>
           <Text style={styles.clockTop}>12</Text><Text style={styles.clockCenter}>◷</Text><Text style={styles.clockTime}>{String(Number(hour || 0)).padStart(2, '0')}:{String(Number(minute || 0)).padStart(2, '0')}</Text><Text style={styles.clockBottom}>6</Text>
         </View>
-        <Text style={styles.configured}>Configured unlock time: <Text style={styles.configuredValue}>{configuredLabel}</Text></Text>
+        <Text style={styles.configured}>Configured access time: <Text style={styles.configuredValue}>{configuredLabel}</Text></Text>
       </Panel>
 
       <Panel style={styles.entryPanel}>
-        <Text style={styles.entryTitle}>ENTER CLOCK UNLOCK TIME</Text>
-        <Text style={styles.entrySub}>Use the exact time configured by the wallet owner.</Text>
+        <Text style={styles.entryTitle}>ENTER TIME CLOCK VALUE</Text>
+        <Text style={styles.entrySub}>The real device clock must also be inside the protected daily access window.</Text>
         <View style={styles.inputRow}><NumberField label="HOUR" value={hour} max={23} onChange={setHour} /><Text style={styles.colon}>:</Text><NumberField label="MINUTE" value={minute} max={59} onChange={setMinute} /></View>
         <View style={[styles.actionRow, compact && styles.actionCompact]}>
-          <Pressable disabled={busy || !valid} onPress={() => void saveTime()} style={styles.saveButton}><Text style={styles.saveText}>{busy ? 'Working…' : 'Save Time'}</Text></Pressable>
-          <Pressable disabled={busy || !valid} onPress={() => void unlock()} style={styles.unlockButton}><Text style={styles.unlockText}>{busy ? 'Verifying…' : 'Unlock Wallet'}</Text></Pressable>
+          <Pressable disabled={busy || !valid || !canConfigure} onPress={() => void saveTime()} style={[styles.saveButton, !canConfigure && styles.disabled]}><Text style={styles.saveText}>{busy ? 'Working…' : canConfigure ? 'Change Daily Time' : 'Unlock Required to Change'}</Text></Pressable>
+          <Pressable disabled={busy || !valid} onPress={() => void unlock()} style={styles.unlockButton}><Text style={styles.unlockText}>{busy ? 'Verifying…' : 'Verify & Unlock'}</Text></Pressable>
         </View>
-        {message ? <Text style={[styles.message, /unable|does not|locked|required|could not/i.test(message) && { color: C.yellow }]}>{message}</Text> : null}
+        {message ? <Text style={[styles.message, /unable|does not|locked|required|could not|closed|not been/i.test(message) && { color: C.yellow }]}>{message}</Text> : null}
       </Panel>
 
-      <Panel style={styles.securityPanel}><RoundIcon symbol="◇" color={C.green} size={45} /><View style={styles.securityCopy}><Text style={styles.securityTitle}>Protected owner access</Text><Text style={styles.securityText}>Repeated incorrect attempts can trigger lockout or require the protected recovery sequence.</Text></View><Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.recoveryLink}>Recovery  ›</Text></Pressable></Panel>
+      <Panel style={styles.securityPanel}><RoundIcon symbol="◇" color={C.green} size={45} /><View style={styles.securityCopy}><Text style={styles.securityTitle}>Protected owner access</Text><Text style={styles.securityText}>Unlock requires both the configured value and an open daily access window. Repeated incorrect values can trigger lockout or recovery.</Text></View><Pressable onPress={() => navigation.navigate('TimeClockAccess')}><Text style={styles.recoveryLink}>View Clock  ›</Text></Pressable></Panel>
 
       <Pressable onPress={async () => { await resetDemo(); setMessage('Local preview state reset.'); navigation.navigate('Lock'); }} style={styles.reset}><Text style={styles.resetText}>Reset local preview state</Text></Pressable>
     </NomadPage>
@@ -133,7 +149,8 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 17 },
   actionCompact: { flexDirection: 'column' },
   saveButton: { flex: 1, minHeight: 55, borderWidth: 1, borderColor: C.green, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  saveText: { color: C.green, fontSize: 11, fontWeight: '900' },
+  saveText: { color: C.green, fontSize: 10, fontWeight: '900' },
+  disabled: { opacity: 0.45 },
   unlockButton: { flex: 1, minHeight: 55, borderRadius: 10, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
   unlockText: { color: C.bg, fontSize: 11, fontWeight: '900' },
   message: { color: C.green, fontSize: 9, lineHeight: 14, textAlign: 'center', marginTop: 12 },
