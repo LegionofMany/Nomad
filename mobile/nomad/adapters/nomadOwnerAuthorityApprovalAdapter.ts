@@ -79,6 +79,7 @@ export type NomadOwnerAuthorityApprovalAdapter = {
 
 type StoredApprovalState = {
   packagePreparedAt?: string;
+  packageRequestId?: string;
   events: NomadOwnerAuthorityApprovalEvent[];
 };
 
@@ -104,6 +105,7 @@ async function loadStoredState(): Promise<StoredApprovalState> {
     const parsed = JSON.parse(raw) as Partial<StoredApprovalState>;
     return {
       packagePreparedAt: parsed.packagePreparedAt,
+      packageRequestId: parsed.packageRequestId,
       events: Array.isArray(parsed.events) ? parsed.events : [],
     };
   } catch {
@@ -142,27 +144,40 @@ function sanitizeReason(value?: string) {
 }
 
 function actionFromReason(reason: string) {
+  if (/enroll owner authority profile/i.test(reason)) return 'Enroll Owner Authority';
   if (/recover/i.test(reason)) return 'Recover Wallet Access';
   if (/freeze/i.test(reason)) return 'Change Emergency Freeze State';
   if (/clock|time/i.test(reason)) return 'Change Protected Time Access';
   return 'Protected Wallet Action';
 }
 
+function packageMatchesRequest(
+  requestId: string | undefined,
+  stored: StoredApprovalState,
+) {
+  return Boolean(
+    requestId
+    && stored.packagePreparedAt
+    && stored.packageRequestId
+    && stored.packageRequestId === requestId,
+  );
+}
+
 function deriveStatus(
   request: NomadOwnerAuthorityRequest,
-  packagePreparedAt?: string,
+  packagePreparedForCurrentRequest: boolean,
 ): NomadOwnerAuthorityApprovalStatus {
   if (request.status === 'declined') return 'declined';
   if (request.status === 'cancelled') return 'cancelled';
   if (request.status === 'approved') return 'approval_unverified';
-  if (request.status === 'pending') return packagePreparedAt ? 'awaiting_signed_receipt' : 'local_request_pending';
+  if (request.status === 'pending') return packagePreparedForCurrentRequest ? 'awaiting_signed_receipt' : 'local_request_pending';
   return 'not_requested';
 }
 
 function buildChecks(
   request: NomadOwnerAuthorityRequest,
   action: string,
-  packagePreparedAt?: string,
+  packagePreparedForCurrentRequest: boolean,
 ): NomadOwnerAuthorityApprovalCheck[] {
   const hasRequest = request.status === 'pending' || request.status === 'approved';
   const actionBound = Boolean(request.reason?.trim());
@@ -196,9 +211,9 @@ function buildChecks(
       id: 'delivery_provider',
       label: 'Remote request delivery',
       status: 'fail',
-      detail: packagePreparedAt
-        ? 'A local metadata package exists, but no encrypted remote delivery provider confirms receipt.'
-        : 'No encrypted remote delivery provider is connected.',
+      detail: packagePreparedForCurrentRequest
+        ? 'A local metadata package exists for this request, but no encrypted remote delivery provider confirms receipt.'
+        : 'No request-bound package and encrypted remote delivery confirmation are available.',
     },
     {
       id: 'signed_receipt',
@@ -216,18 +231,20 @@ async function buildState(): Promise<NomadOwnerAuthorityApprovalState> {
   ]);
   const reason = sanitizeReason(request.reason);
   const action = actionFromReason(reason);
-  const status = deriveStatus(request, stored.packagePreparedAt);
+  const requestId = requestIdentifier(request);
+  const packagePreparedForCurrentRequest = packageMatchesRequest(requestId, stored);
+  const status = deriveStatus(request, packagePreparedForCurrentRequest);
 
   return {
     status,
     request,
-    requestId: requestIdentifier(request),
+    requestId,
     action,
     reason,
-    checks: buildChecks(request, action, stored.packagePreparedAt),
+    checks: buildChecks(request, action, packagePreparedForCurrentRequest),
     activity: stored.events,
-    packagePreparedAt: stored.packagePreparedAt,
-    packageAvailable: Boolean(stored.packagePreparedAt && request.status === 'pending'),
+    packagePreparedAt: packagePreparedForCurrentRequest ? stored.packagePreparedAt : undefined,
+    packageAvailable: Boolean(packagePreparedForCurrentRequest && request.status === 'pending'),
     authorityIdentityVerified: false,
     authorityDirectoryConnected: false,
     deliveryProviderConnected: false,
@@ -269,10 +286,14 @@ async function prepareApprovalPackage() {
   };
 
   let stored = await loadStoredState();
-  stored = appendEvent({ ...stored, packagePreparedAt: generatedAt }, {
+  stored = appendEvent({
+    ...stored,
+    packagePreparedAt: generatedAt,
+    packageRequestId: state.requestId,
+  }, {
     type: 'package',
     title: 'Approval package prepared',
-    detail: 'A secret-free local metadata package was generated. Remote delivery and authority approval remain unconfirmed.',
+    detail: `A secret-free local metadata package was generated for ${state.requestId}. Remote delivery and authority approval remain unconfirmed.`,
     severity: 'warning',
   });
   await saveStoredState(stored);
@@ -285,10 +306,15 @@ async function prepareApprovalPackage() {
 
 async function checkDelivery() {
   let stored = await loadStoredState();
+  const request = await nomadRecoveryAdapter.getOwnerAuthorityRequest();
+  const requestId = requestIdentifier(request);
+  const bound = packageMatchesRequest(requestId, stored);
   stored = appendEvent(stored, {
     type: 'delivery_check',
     title: 'Authority delivery checked',
-    detail: 'No authority directory, encrypted delivery provider or signed approval receipt is connected.',
+    detail: bound
+      ? `Package ${requestId} remains local. No authority directory, encrypted delivery provider or signed approval receipt is connected.`
+      : 'No package bound to the active request is available for delivery checking.',
     severity: 'warning',
   });
   await saveStoredState(stored);
@@ -300,10 +326,14 @@ async function cancelRequest() {
   if (!state.canCancelRequest) return state;
   await nomadRecoveryAdapter.cancelOwnerAuthorityRequest();
   let stored = await loadStoredState();
-  stored = appendEvent({ ...stored, packagePreparedAt: undefined }, {
+  stored = appendEvent({
+    ...stored,
+    packagePreparedAt: undefined,
+    packageRequestId: undefined,
+  }, {
     type: 'cancelled',
     title: 'Owner Authority request cancelled',
-    detail: 'The local pending request and its prepared-package marker were cancelled. No remote cancellation was delivered.',
+    detail: 'The local pending request and its request-bound package marker were cancelled. No remote cancellation was delivered.',
     severity: 'critical',
   });
   await saveStoredState(stored);
