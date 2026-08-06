@@ -144,6 +144,7 @@ export type NomadTravelPocketState = {
   exchangeRate?: number;
   exchangeRateSource?: 'provider' | 'local_preview';
   exchangeRateUpdatedAt?: string;
+  selectedAt?: string;
   dailyLimitLocal?: string;
   tripLimitLocal?: string;
   spentTodayLocal?: string;
