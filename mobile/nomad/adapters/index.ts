@@ -4,6 +4,7 @@ export * from './nomadTravelAdapter';
 export * from './nomadSwapAdapter';
 export * from './nomadRecoveryAdapter';
 export * from './nomadClockAccessAdapter';
+export * from './nomadUnlockAdapter';
 export * from './nomadSafetyAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
