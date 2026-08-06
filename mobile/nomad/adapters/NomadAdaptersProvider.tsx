@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 
 import { localNomadOverlayAdapters } from './localNomadAdapters';
 import { nomadInsightsAdapter } from './nomadInsightsAdapter';
+import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import { nomadSecurityBridgeAdapter } from './nomadSecurityBridgeAdapter';
 import { nomadSettingsAdapter } from './nomadSettingsAdapter';
 import { nomadSwapAdapter } from './nomadSwapAdapter';
@@ -20,6 +21,7 @@ export function mergeNomadAdapters(overrides?: NomadOverlayAdapters): NomadOverl
     ...localNomadOverlayAdapters,
     travel: nomadTravelAdapter,
     swap: nomadSwapAdapter,
+    recovery: nomadRecoveryAdapter,
     security: nomadSecurityBridgeAdapter,
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
@@ -42,6 +44,7 @@ export function useNomadAdapters(): NomadOverlayAdapters {
     ...localNomadOverlayAdapters,
     travel: nomadTravelAdapter,
     swap: nomadSwapAdapter,
+    recovery: nomadRecoveryAdapter,
     security: nomadSecurityBridgeAdapter,
     settings: nomadSettingsAdapter,
     insights: nomadInsightsAdapter,
