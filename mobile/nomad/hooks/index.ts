@@ -6,6 +6,7 @@ export * from './useNomadClockAccess';
 export * from './useNomadUnlock';
 export * from './useNomadLostWallet';
 export * from './useNomadWalletRestoration';
+export * from './useNomadOwnerAuthorityApproval';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
