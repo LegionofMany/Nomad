@@ -160,6 +160,7 @@ async function buildState(requestedRegion?: string): Promise<NomadTravelPocketSt
     exchangeRate: region.previewRate,
     exchangeRateSource: 'local_preview',
     exchangeRateUpdatedAt: new Date().toISOString(),
+    selectedAt: stored.selectedAt,
     dailyLimitLocal: localAmount(region.dailyLimitUsd, region),
     tripLimitLocal: localAmount(tripLimitUsd, region),
     spentTodayLocal: localAmount(spentTodayUsd, region),
@@ -198,7 +199,7 @@ async function enable(regionInput: string) {
   await assertTravelNotFrozen();
   const region = resolveRegion(regionInput);
   const current = await loadStoredState(region.name);
-  await saveStoredState({ ...current, regionInput: region.name });
+  await saveStoredState({ ...current, regionInput: region.name, selectedAt: new Date().toISOString() });
   await enableTravelMode(region.name);
   return buildState(region.name);
 }
