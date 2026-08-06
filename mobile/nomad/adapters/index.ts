@@ -1,6 +1,7 @@
 export * from './walletAdapter';
 export * from './localNomadAdapters';
 export * from './nomadTravelAdapter';
+export * from './nomadTravelTopUpAdapter';
 export * from './nomadSwapAdapter';
 export * from './nomadRecoveryAdapter';
 export * from './nomadClockAccessAdapter';
