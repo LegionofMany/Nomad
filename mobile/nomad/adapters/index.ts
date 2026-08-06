@@ -7,5 +7,6 @@ export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
 export * from './nomadSettingsAdapter';
 export * from './nomadInsightsAdapter';
+export * from './nomadProtocolsAdapter';
 export * from './NomadAdaptersProvider';
 export * from './clonedWalletAdapterTemplate';
