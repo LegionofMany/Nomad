@@ -273,6 +273,7 @@ function buildChecks(params: {
   enrolledSets: number;
   authority: NomadOwnerAuthorityRequest;
 }): NomadRecoveryCheck[] {
+  const authorityRecorded = params.authority.status === 'pending' || params.authority.status === 'approved';
   return [
     {
       id: 'wallet',
@@ -295,12 +296,12 @@ function buildChecks(params: {
     {
       id: 'authority',
       label: 'Owner Authority',
-      status: params.authority.status === 'approved' ? 'pass' : params.authority.status === 'pending' ? 'warning' : 'fail',
+      status: authorityRecorded ? 'warning' : 'fail',
       detail: params.authority.status === 'approved'
-        ? 'An approved Owner Authority is recorded.'
+        ? 'An approved flag is recorded, but no signed authority receipt or verified signature is available.'
         : params.authority.status === 'pending'
-          ? 'Owner Authority approval is pending.'
-          : 'No approved Owner Authority is recorded.',
+          ? 'A local Owner Authority request is pending. Delivery, identity and signed consent remain unverified.'
+          : 'No verified Owner Authority enrollment is recorded.',
     },
     {
       id: 'storage',
@@ -356,8 +357,10 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
     signers.push({
       id: 'owner-authority',
       name: stored.ownerAuthority.requestedBy || 'Owner Authority',
-      role: stored.ownerAuthority.status === 'approved' ? 'Approved recovery authority' : 'Approval request pending',
-      status: stored.ownerAuthority.status === 'approved' ? 'verified' : 'pending',
+      role: stored.ownerAuthority.status === 'approved'
+        ? 'Approval flag present; signed receipt unverified'
+        : 'Approval request pending',
+      status: 'pending',
       source: 'owner_authority',
     });
   }
@@ -383,13 +386,15 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
       id: 'owner_authority',
       title: 'Owner Authority',
       subtitle: 'Independent approval and recovery support',
-      status: stored.ownerAuthority.status === 'approved' ? 'ready' : stored.ownerAuthority.status === 'pending' ? 'warning' : 'not_configured',
+      status: stored.ownerAuthority.status === 'pending' || stored.ownerAuthority.status === 'approved' ? 'warning' : 'not_configured',
       detail: stored.ownerAuthority.status === 'approved'
-        ? 'An approved Owner Authority is recorded.'
+        ? 'An approved flag exists, but a verified signed enrollment receipt is unavailable.'
         : stored.ownerAuthority.status === 'pending'
-          ? 'Approval is pending.'
+          ? 'A local request is pending; delivery and signed consent remain unverified.'
           : 'No Owner Authority is configured.',
-      route: stored.ownerAuthority.status === 'pending' ? 'OwnerAuthorityApproval' : 'CreateOwnerAuthority',
+      route: stored.ownerAuthority.status === 'pending' || stored.ownerAuthority.status === 'approved'
+        ? 'OwnerAuthorityApproval'
+        : 'CreateOwnerAuthority',
     },
     {
       id: 'encrypted_backup',
@@ -411,7 +416,7 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
     timeSetsComplete: enrolledTimeSets,
     timeSetsTotal: TIME_SET_TOTAL,
     recoveryScore: score,
-    signerQuorum: stored.ownerAuthority.status === 'approved' ? 2 : 1,
+    signerQuorum: 1,
     signerTotal: signers.length,
     nextRecommendedCheck: nextCheckDate(stored.nextCheckAt),
     timeRemainingLabel: timeRemaining(dailyUnlockTime),
