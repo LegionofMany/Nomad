@@ -33,7 +33,7 @@ type StoredTravelPocket = {
   autoConvertEnabled: boolean;
   pocketBalanceUsd: number;
   expiresAt: string;
-  selectedAt: string;
+  selectedAt?: string;
 };
 
 const regions: RegionDefinition[] = [
@@ -63,7 +63,6 @@ function defaultStoredState(regionInput = 'Global'): StoredTravelPocket {
     regionInput: resolveRegion(regionInput).name,
     autoConvertEnabled: true,
     pocketBalanceUsd: 1208.64,
-    selectedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
   };
 }
@@ -186,11 +185,7 @@ async function assertTravelNotFrozen() {
 async function selectRegion(regionInput: string) {
   await assertTravelNotFrozen();
   const current = await loadStoredState();
-  const next = {
-    ...current,
-    regionInput: resolveRegion(regionInput).name,
-    selectedAt: new Date().toISOString(),
-  };
+  const next = { ...current, regionInput: resolveRegion(regionInput).name, selectedAt: new Date().toISOString() };
   await saveStoredState(next);
   return buildState(next.regionInput);
 }
