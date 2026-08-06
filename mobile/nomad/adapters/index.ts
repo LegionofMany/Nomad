@@ -3,6 +3,7 @@ export * from './localNomadAdapters';
 export * from './nomadTravelAdapter';
 export * from './nomadSwapAdapter';
 export * from './nomadRecoveryAdapter';
+export * from './nomadClockAccessAdapter';
 export * from './nomadSafetyAdapter';
 export * from './nomadSecurityAdapter';
 export * from './nomadSecurityBridgeAdapter';
