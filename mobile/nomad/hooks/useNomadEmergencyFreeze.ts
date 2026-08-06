@@ -78,6 +78,7 @@ export function useNomadEmergencyFreeze() {
   const adapters = useNomadAdapters();
   const wallet = adapters.wallet;
   const securityAdapter = adapters.security;
+  const recoveryAdapter = adapters.recovery;
   const [freeze, setFreeze] = useState<NomadEmergencyFreezeState>(fallbackState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export function useNomadEmergencyFreeze() {
   const activateFreeze = useCallback(async (request: NomadEmergencyFreezeActivationRequest) => {
     if (!wallet) throw new Error('Nomad wallet adapter is not connected.');
     if (!securityAdapter) throw new Error('Nomad security adapter is not connected.');
+    if (!recoveryAdapter) throw new Error('Nomad recovery adapter is not connected.');
     setLoading(true);
     setError(null);
     try {
@@ -122,6 +124,13 @@ export function useNomadEmergencyFreeze() {
         walletSession: before.session,
         securityState: before.security,
       });
+
+      if (request.scope === 'owner_authority_alert') {
+        const authority = await recoveryAdapter.getOwnerAuthorityRequest();
+        if (authority.status === 'pending') {
+          throw new Error('Another Owner Authority request is already pending. Review or cancel it before recording a new Emergency Freeze alert.');
+        }
+      }
 
       const centralSecurity = await securityAdapter.activateFreeze(request.scope);
       let walletLockRequested = false;
@@ -172,16 +181,25 @@ export function useNomadEmergencyFreeze() {
     } finally {
       setLoading(false);
     }
-  }, [securityAdapter, wallet]);
+  }, [recoveryAdapter, securityAdapter, wallet]);
 
   const requestRelease = useCallback(async (
     method: NomadEmergencyFreezeReleaseMethod,
     reason: string,
   ) => {
     if (!freeze.currentIncident) throw new Error('No Page 25 freeze incident is available for release review.');
+    if (!recoveryAdapter) throw new Error('Nomad recovery adapter is not connected.');
     setLoading(true);
     setError(null);
     try {
+      if (method === 'owner_authority') {
+        const authority = await recoveryAdapter.getOwnerAuthorityRequest();
+        const expectedBinding = `Release Emergency Freeze incident ${freeze.currentIncident.id}`;
+        if (authority.status === 'pending' && !authority.reason?.includes(expectedBinding)) {
+          throw new Error('An unrelated Owner Authority request is already pending. Review or cancel it before requesting authority-based freeze release.');
+        }
+      }
+
       const snapshot = await loadSnapshot(wallet, securityAdapter);
       const next = await nomadEmergencyFreezeAdapter.requestRelease({
         walletAssets: snapshot.assets,
@@ -200,7 +218,7 @@ export function useNomadEmergencyFreeze() {
     } finally {
       setLoading(false);
     }
-  }, [freeze.currentIncident, securityAdapter, wallet]);
+  }, [freeze.currentIncident, recoveryAdapter, securityAdapter, wallet]);
 
   return useMemo(
     () => ({
