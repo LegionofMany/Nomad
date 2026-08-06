@@ -10,6 +10,10 @@ import {
 } from "../services/nativeStubs";
 
 import * as walletService from "../services/walletService";
+import {
+  nomadClockAccessAdapter,
+  type NomadClockAccessResult,
+} from "../nomad/adapters/nomadClockAccessAdapter";
 
 export type AppState = {
   walletStatus: WalletStatus;
@@ -29,7 +33,7 @@ export type AppState = {
 
   createWallet: () => Promise<{ mnemonic: string; evmAddress: string }>;
   restoreWallet: (mnemonic: string) => Promise<{ evmAddress: string }>;
-  unlockWithClock: (time: ClockTime) => Promise<walletService.UnlockWithClockResult>;
+  unlockWithClock: (time: ClockTime) => Promise<NomadClockAccessResult>;
   lockWallet: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -110,7 +114,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
       unlockTime,
       setUnlockTime: async (t) => {
-        await walletService.setDailyUnlockTime(t);
+        await nomadClockAccessAdapter.configureDailyAccessTime(t);
         await refresh();
       },
 
@@ -141,7 +145,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         return res;
       },
       unlockWithClock: async (time) => {
-        const res = await walletService.unlockWithClock(time);
+        const res = await nomadClockAccessAdapter.verifyAccess(time);
         await refresh();
         return res;
       },
@@ -157,7 +161,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setNfcEnabledState(next);
         await secureSetItem(STORAGE_KEYS.nfcEnabled, String(next));
 
-        // Safe stubs: won't access hardware.
         if (next) await enableNfc();
         else await disableNfc();
       },
