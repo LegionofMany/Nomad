@@ -1,3 +1,4 @@
+import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
 import { getPortfolio } from '../../services/walletService';
 
 import { nomadSecurityAdapter } from './nomadSecurityAdapter';
@@ -34,6 +35,7 @@ export type NomadExtendedInsightsState = NomadInsightsState & {
 
 export type NomadExtendedInsightsAdapter = NomadInsightsAdapter & {
   getInsightsStateForPeriod(period: NomadInsightsPeriod): Promise<NomadExtendedInsightsState>;
+  updateBudget(categoryLabel: string, totalUsd: number, period: NomadInsightsPeriod): Promise<NomadExtendedInsightsState>;
 };
 
 type WalletBalance = {
@@ -42,6 +44,14 @@ type WalletBalance = {
   fiatApproxUSD: number;
 };
 
+type CategoryDefinition = {
+  label: string;
+  icon: string;
+  color: string;
+  defaultBudget: number;
+};
+
+const BUDGET_STORAGE_KEY = 'nomad.insights.budgets';
 const USD = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -49,12 +59,12 @@ const USD = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-const categoryMeta: Record<string, { label: string; icon: string; color: string; budget: number }> = {
-  dining: { label: 'Food & Dining', icon: '♨', color: '#35f883', budget: 600 },
-  shopping: { label: 'Shopping', icon: '▢', color: '#1684ff', budget: 500 },
-  transport: { label: 'Transport', icon: '▰', color: '#8b5cff', budget: 400 },
-  lodging: { label: 'Travel', icon: '✈', color: '#ffb84d', budget: 700 },
-  other: { label: 'Other', icon: '•••', color: '#9aa7ba', budget: 250 },
+const categoryMeta: Record<string, CategoryDefinition> = {
+  dining: { label: 'Food & Dining', icon: '♨', color: '#35f883', defaultBudget: 600 },
+  shopping: { label: 'Shopping', icon: '▢', color: '#1684ff', defaultBudget: 500 },
+  transport: { label: 'Transport', icon: '▰', color: '#8b5cff', defaultBudget: 400 },
+  lodging: { label: 'Travel', icon: '✈', color: '#ffb84d', defaultBudget: 700 },
+  other: { label: 'Other', icon: '•••', color: '#9aa7ba', defaultBudget: 250 },
 };
 
 const assetMeta: Record<string, { name: string; icon: string }> = {
@@ -99,6 +109,33 @@ function localAmount(usd: number, symbol: string, rate: number, code: string) {
   })}`;
 }
 
+function defaultBudgetLimits() {
+  return Object.values(categoryMeta).reduce<Record<string, number>>((result, category) => {
+    result[category.label] = category.defaultBudget;
+    return result;
+  }, {});
+}
+
+async function loadBudgetLimits() {
+  const fallback = defaultBudgetLimits();
+  const raw = await secureGetItem(BUDGET_STORAGE_KEY);
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.keys(fallback).reduce<Record<string, number>>((result, label) => {
+      const value = Number(parsed[label]);
+      result[label] = Number.isFinite(value) && value > 0 ? value : fallback[label];
+      return result;
+    }, {});
+  } catch {
+    return fallback;
+  }
+}
+
+async function saveBudgetLimits(limits: Record<string, number>) {
+  await secureSetItem(BUDGET_STORAGE_KEY, JSON.stringify(limits));
+}
+
 function withinPeriod(transaction: NomadTravelPocketTransaction, days: number) {
   const timestamp = Date.parse(transaction.timestamp);
   return Number.isFinite(timestamp) && timestamp >= Date.now() - days * 24 * 60 * 60 * 1000;
@@ -132,15 +169,16 @@ function buildCategories(transactions: NomadTravelPocketTransaction[]): NomadSpe
   });
 }
 
-function buildBudgets(categories: NomadSpendingCategory[]): NomadBudgetItem[] {
+function buildBudgets(categories: NomadSpendingCategory[], limits: Record<string, number>): NomadBudgetItem[] {
   return categories.map((category) => {
     const meta = Object.values(categoryMeta).find((item) => item.label === category.label) ?? categoryMeta.other;
     const spent = parseMoney(category.amount);
+    const total = limits[category.label] ?? meta.defaultBudget;
     return {
       label: category.label,
       spent: USD.format(spent),
-      total: USD.format(meta.budget),
-      percent: formatPercent(Math.min(100, (spent / meta.budget) * 100)),
+      total: USD.format(total),
+      percent: formatPercent(Math.min(100, total > 0 ? (spent / total) * 100 : 0)),
       icon: meta.icon,
       color: meta.color,
     };
@@ -187,7 +225,7 @@ function buildPerformanceRows(balances: WalletBalance[]): NomadPerformanceRow[] 
 function buildSpendingSeries(transactions: NomadTravelPocketTransaction[], days: number): NomadInsightsSeriesPoint[] {
   const pointCount = days <= 7 ? 7 : days <= 30 ? 6 : days <= 90 ? 6 : 12;
   const bucketDays = Math.max(1, Math.ceil(days / pointCount));
-  const points = Array.from({ length: pointCount }, (_, index) => {
+  return Array.from({ length: pointCount }, (_, index) => {
     const end = Date.now() - (pointCount - 1 - index) * bucketDays * 24 * 60 * 60 * 1000;
     const start = end - bucketDays * 24 * 60 * 60 * 1000;
     const value = transactions
@@ -201,23 +239,14 @@ function buildSpendingSeries(transactions: NomadTravelPocketTransaction[], days:
       value,
     };
   });
-  return points;
 }
 
 function flatPortfolioSeries(total: number, days: number): NomadInsightsSeriesPoint[] {
   const pointCount = days <= 7 ? 7 : days <= 90 ? 6 : 12;
-  return Array.from({ length: pointCount }, (_, index) => ({
-    label: `${index + 1}`,
-    value: total,
-  }));
+  return Array.from({ length: pointCount }, (_, index) => ({ label: `${index + 1}`, value: total }));
 }
 
-function freedomScore(params: {
-  securityScore: number;
-  assetCount: number;
-  stableRatio: number;
-  spentTodayPercent: number;
-}) {
+function freedomScore(params: { securityScore: number; assetCount: number; stableRatio: number; spentTodayPercent: number }) {
   const security = Math.min(35, params.securityScore * 0.35);
   const diversification = Math.min(25, (params.assetCount / 8) * 25);
   const stability = Math.min(20, (params.stableRatio / 0.5) * 20);
@@ -226,10 +255,11 @@ function freedomScore(params: {
 }
 
 async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedInsightsState> {
-  const [portfolio, travel, security] = await Promise.all([
+  const [portfolio, travel, security, budgetLimits] = await Promise.all([
     getPortfolio().catch(() => null),
     nomadTravelAdapter.getTravelPocketState(),
     nomadSecurityAdapter.getSecurityState(),
+    loadBudgetLimits(),
   ]);
 
   const balances = portfolio?.balances ?? [];
@@ -248,7 +278,7 @@ async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedIns
   const transactions = allTravelTransactions.filter((transaction) => withinPeriod(transaction, days));
   const spendingTotal = transactions.reduce((sum, transaction) => sum + transactionUsd(transaction), 0);
   const categories = buildCategories(transactions);
-  const budgets = buildBudgets(categories);
+  const budgets = buildBudgets(categories, budgetLimits);
   const dominant = categories.slice().sort((left, right) => parseMoney(right.amount) - parseMoney(left.amount))[0];
   const activeDays = new Set(transactions.map((transaction) => new Date(transaction.timestamp).toDateString())).size;
   const dailyAverageUsd = activeDays > 0 ? spendingTotal / activeDays : 0;
@@ -257,16 +287,11 @@ async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedIns
   const currencyCode = travel.currencyCode ?? 'USD';
   const spentTodayPercent = travel.spentTodayPercent ?? 0;
   const stableRatio = walletTotal > 0 ? stableTotal / walletTotal : 0;
-  const score = freedomScore({
-    securityScore: security.score,
-    assetCount: balances.length,
-    stableRatio,
-    spentTodayPercent,
-  });
+  const score = freedomScore({ securityScore: security.score, assetCount: balances.length, stableRatio, spentTodayPercent });
   const expiresAt = travel.expiresAt && Number.isFinite(Date.parse(travel.expiresAt))
     ? new Date(travel.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'No expiry configured';
-  const remainingToday = parseMoney(travel.remainingTodayLocal);
+  const budgetHeadroom = budgets.reduce((sum, budget) => Math.max(0, sum + parseMoney(budget.total) - parseMoney(budget.spent)), 0);
 
   return {
     totalPortfolioValue: USD.format(totalPortfolio),
@@ -287,7 +312,7 @@ async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedIns
     topInsight: dominant && parseMoney(dominant.amount) > 0
       ? `${dominant.label} is the largest recorded category for ${period}, representing ${dominant.percent} of tracked spending.`
       : `No recorded Travel Pocket spending is available for ${period}.`,
-    topSavings: travel.remainingTodayLocal ?? USD.format(0),
+    topSavings: USD.format(budgetHeadroom),
     travelLocation: travel.regionInput ?? 'Global',
     travelDateRange: travel.enabled ? `Active • Expires ${expiresAt}` : `Ready • Expires ${expiresAt}`,
     travelPocketSpent: localAmount(spendingTotal, currencySymbol, exchangeRate, currencyCode),
@@ -306,13 +331,27 @@ async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedIns
     transactionFeedStatus: allTravelTransactions.some((transaction) => transaction.source === 'wallet') ? 'wallet_ledger' : 'travel_adapter_preview',
     calculationNotes: [
       'Portfolio totals use the current wallet and Travel Pocket snapshots.',
-      'Historical portfolio growth is unavailable until a dated balance ledger or price provider is connected.',
-      `Freedom Score combines security posture, asset diversification, stable-value allocation and Travel Pocket limit usage. Remaining daily allowance: ${remainingToday.toLocaleString('en-US')}.`,
+      'Spending periods are recalculated from timestamped Travel Pocket activity.',
+      'Historical portfolio growth and prior-period comparisons require a dated wallet ledger and market-price provider.',
+      'Budget limits are owner preferences stored through the current Nomad storage boundary.',
     ],
   };
+}
+
+async function updateBudget(categoryLabel: string, totalUsd: number, period: NomadInsightsPeriod) {
+  const knownLabels = new Set(Object.values(categoryMeta).map((category) => category.label));
+  if (!knownLabels.has(categoryLabel)) throw new Error('Unknown spending category.');
+  if (!Number.isFinite(totalUsd) || totalUsd < 1 || totalUsd > 1000000) {
+    throw new Error('Budget must be between $1 and $1,000,000.');
+  }
+  const limits = await loadBudgetLimits();
+  limits[categoryLabel] = Math.round(totalUsd * 100) / 100;
+  await saveBudgetLimits(limits);
+  return buildState(period);
 }
 
 export const nomadInsightsAdapter: NomadExtendedInsightsAdapter = {
   getInsightsState: () => buildState('1M'),
   getInsightsStateForPeriod: buildState,
+  updateBudget,
 };
