@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 
 import { localNomadOverlayAdapters } from './localNomadAdapters';
-import { nomadSecurityAdapter } from './nomadSecurityAdapter';
+import { nomadSecurityBridgeAdapter } from './nomadSecurityBridgeAdapter';
 import { nomadSwapAdapter } from './nomadSwapAdapter';
 import { nomadTravelAdapter } from './nomadTravelAdapter';
 import type { NomadOverlayAdapters } from './walletAdapter';
@@ -18,7 +18,7 @@ export function mergeNomadAdapters(overrides?: NomadOverlayAdapters): NomadOverl
     ...localNomadOverlayAdapters,
     travel: nomadTravelAdapter,
     swap: nomadSwapAdapter,
-    security: nomadSecurityAdapter,
+    security: nomadSecurityBridgeAdapter,
     ...(overrides ?? {}),
   };
 }
@@ -38,6 +38,6 @@ export function useNomadAdapters(): NomadOverlayAdapters {
     ...localNomadOverlayAdapters,
     travel: nomadTravelAdapter,
     swap: nomadSwapAdapter,
-    security: nomadSecurityAdapter,
+    security: nomadSecurityBridgeAdapter,
   };
 }
