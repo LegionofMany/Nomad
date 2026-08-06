@@ -5,6 +5,7 @@ import {
   type NomadExtendedRecoverySequenceState,
   type NomadExtendedRecoveryState,
 } from './nomadRecoveryAdapter';
+import type { NomadRecoveryClockTime } from './walletAdapter';
 
 export type NomadLostWalletReason =
   | 'lost_device'
@@ -55,21 +56,34 @@ export type NomadLostWalletState = {
   activity: NomadLostWalletEvent[];
   canBeginVerification: boolean;
   canContinueVerification: boolean;
+  sessionRequired: boolean;
   enrolledTimeSets: number;
   totalTimeSets: number;
   attemptsRemaining: number;
   lockedUntil?: string;
+  lockoutRemainingSeconds: number;
   ownerAuthorityStatus: NomadExtendedRecoveryState['ownerAuthorityStatus'];
   recoveryProviderConnected: false;
   passwordProviderConnected: false;
   remoteRecoveryPackageAvailable: false;
+  verificationProvider: 'nomad_recovery_adapter';
+  digestAlgorithm: 'SHA-256';
+  rawTimeSetsStored: false;
   dataSource: 'nomad_lost_wallet_adapter';
   persistence: 'in_memory_stub';
+};
+
+export type NomadLostWalletVerificationResult = {
+  ok: boolean;
+  message: string;
+  state: NomadLostWalletState;
+  attemptedSet: number;
 };
 
 export type NomadLostWalletAdapter = {
   getLostWalletState(): Promise<NomadLostWalletState>;
   beginRecovery(reason: NomadLostWalletReason): Promise<NomadLostWalletState>;
+  verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime): Promise<NomadLostWalletVerificationResult>;
 };
 
 type StoredLostWalletState = {
@@ -123,6 +137,13 @@ function appendEvent(
   };
 }
 
+function lockoutRemainingSeconds(lockedUntil?: string) {
+  if (!lockedUntil) return 0;
+  const timestamp = Date.parse(lockedUntil);
+  if (!Number.isFinite(timestamp)) return 0;
+  return Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+}
+
 function buildPrerequisites(
   recovery: NomadExtendedRecoveryState,
   sequence: NomadExtendedRecoverySequenceState,
@@ -130,7 +151,7 @@ function buildPrerequisites(
   const hasWalletIdentity = recovery.walletStatus !== 'no_wallet';
   const hasAllTimeSets = recovery.enrolledTimeSets === recovery.timeSetsTotal;
   const cryptographyAvailable = recovery.cryptographicEnrollment === 'available';
-  const verificationLocked = Boolean(sequence.lockedUntil);
+  const verificationLocked = Boolean(sequence.lockedUntil && lockoutRemainingSeconds(sequence.lockedUntil) > 0);
 
   return [
     {
@@ -191,7 +212,8 @@ async function buildState(): Promise<NomadLostWalletState> {
     .filter((item) => item.id !== 'restoration_provider')
     .every((item) => item.status === 'pass');
   const verified = sequence.status === 'ready_to_recover' || sequence.verifiedSets >= sequence.totalSets;
-  const verificationLocked = Boolean(sequence.lockedUntil);
+  const remainingLockSeconds = lockoutRemainingSeconds(sequence.lockedUntil);
+  const verificationLocked = remainingLockSeconds > 0;
   const verificationInProgress = sequence.status === 'verifying';
 
   const status: NomadLostWalletStatus = verified
@@ -212,15 +234,20 @@ async function buildState(): Promise<NomadLostWalletState> {
     activeSession: stored.session,
     activity: stored.events,
     canBeginVerification: status === 'ready',
-    canContinueVerification: status === 'verification_in_progress',
+    canContinueVerification: status === 'verification_in_progress' && Boolean(stored.session),
+    sessionRequired: status === 'verification_in_progress' && !stored.session,
     enrolledTimeSets: recovery.enrolledTimeSets,
     totalTimeSets: recovery.timeSetsTotal,
     attemptsRemaining: sequence.attemptsRemaining,
-    lockedUntil: sequence.lockedUntil,
+    lockedUntil: verificationLocked ? sequence.lockedUntil : undefined,
+    lockoutRemainingSeconds: remainingLockSeconds,
     ownerAuthorityStatus: recovery.ownerAuthorityStatus,
     recoveryProviderConnected: false,
     passwordProviderConnected: false,
     remoteRecoveryPackageAvailable: false,
+    verificationProvider: 'nomad_recovery_adapter',
+    digestAlgorithm: 'SHA-256',
+    rawTimeSetsStored: false,
     dataSource: 'nomad_lost_wallet_adapter',
     persistence: 'in_memory_stub',
   };
@@ -279,7 +306,105 @@ async function beginRecovery(reason: NomadLostWalletReason) {
   return buildState();
 }
 
+async function verifyRecoverySet(
+  setNumber: number,
+  time: NomadRecoveryClockTime,
+): Promise<NomadLostWalletVerificationResult> {
+  const before = await buildState();
+  const attemptedSet = Number(setNumber);
+
+  if (!before.activeSession) {
+    return {
+      ok: false,
+      message: 'Start or resume a protected recovery session from Recover Lost Wallet before entering Time Sets.',
+      state: before,
+      attemptedSet,
+    };
+  }
+  if (before.status === 'verification_locked') {
+    return {
+      ok: false,
+      message: before.lockedUntil
+        ? `Recovery verification is locked until ${new Date(before.lockedUntil).toLocaleString()}.`
+        : 'Recovery verification is temporarily locked.',
+      state: before,
+      attemptedSet,
+    };
+  }
+  if (before.status === 'verified_waiting_provider') {
+    return {
+      ok: false,
+      message: 'All 24 Time Sets are already verified. A production wallet-restoration provider is still required.',
+      state: before,
+      attemptedSet,
+    };
+  }
+  if (before.status !== 'verification_in_progress') {
+    return {
+      ok: false,
+      message: 'Recovery verification is not active. Return to Recover Lost Wallet and start a protected session.',
+      state: before,
+      attemptedSet,
+    };
+  }
+  if (!Number.isInteger(attemptedSet) || attemptedSet !== before.sequence.currentSet) {
+    return {
+      ok: false,
+      message: `Verify Time Set ${before.sequence.currentSet} next.`,
+      state: before,
+      attemptedSet,
+    };
+  }
+
+  try {
+    await nomadRecoveryAdapter.verifyRecoverySet(attemptedSet, time);
+    let stored = await loadStoredState();
+    const timestamp = nowIso();
+    if (stored.session) stored = { ...stored, session: { ...stored.session, updatedAt: timestamp } };
+    const after = await buildState();
+    stored = appendEvent(stored, {
+      title: after.status === 'verified_waiting_provider'
+        ? 'Recovery sequence verified'
+        : `Time Set ${attemptedSet} verified`,
+      detail: after.status === 'verified_waiting_provider'
+        ? 'All 24 salted digests matched. No wallet keys were restored because the production restoration provider is not connected.'
+        : `Proceed to Time Set ${after.sequence.currentSet}. Raw values were not retained by the lost-wallet session.`,
+      severity: after.status === 'verified_waiting_provider' ? 'warning' : 'info',
+    });
+    await saveStoredState(stored);
+    return {
+      ok: true,
+      message: after.status === 'verified_waiting_provider'
+        ? 'All 24 Time Sets matched. Verification is complete; wallet restoration remains unavailable until a production provider is connected.'
+        : `Time Set ${attemptedSet} verified. Continue with Time Set ${after.sequence.currentSet}.`,
+      state: await buildState(),
+      attemptedSet,
+    };
+  } catch (error) {
+    let stored = await loadStoredState();
+    const afterFailure = await buildState();
+    const timestamp = nowIso();
+    if (stored.session) stored = { ...stored, session: { ...stored.session, updatedAt: timestamp } };
+    const message = error instanceof Error ? error.message : 'The Time Set did not match the enrolled digest.';
+    stored = appendEvent(stored, {
+      title: afterFailure.status === 'verification_locked'
+        ? 'Recovery verification locked'
+        : `Time Set ${attemptedSet} rejected`,
+      detail: `${message} • ${afterFailure.attemptsRemaining} attempt${afterFailure.attemptsRemaining === 1 ? '' : 's'} remaining`,
+      severity: afterFailure.status === 'verification_locked' ? 'critical' : 'warning',
+    });
+    await saveStoredState(stored);
+    return {
+      ok: false,
+      message,
+      state: await buildState(),
+      attemptedSet,
+    };
+  }
+}
+
 export const nomadLostWalletAdapter: NomadLostWalletAdapter = {
   getLostWalletState: buildState,
   beginRecovery,
+  verifyRecoverySet,
 };
