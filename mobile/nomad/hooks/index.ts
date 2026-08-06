@@ -2,6 +2,7 @@ export * from './useNomadWallet';
 export * from './useNomadSafety';
 export * from './useNomadTravel';
 export * from './useNomadRecovery';
+export * from './useNomadClockAccess';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
