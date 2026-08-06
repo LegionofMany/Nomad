@@ -3,6 +3,7 @@ export * from './useNomadSafety';
 export * from './useNomadTravel';
 export * from './useNomadRecovery';
 export * from './useNomadClockAccess';
+export * from './useNomadUnlock';
 export * from './useNomadSecurity';
 export * from './useNomadInsights';
 export * from './useNomadSwap';
