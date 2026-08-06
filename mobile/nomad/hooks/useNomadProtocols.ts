@@ -1,57 +1,119 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNomadAdapters } from '../adapters/NomadAdaptersProvider';
-import type { NomadOverlayAdapters, NomadProtocolsState } from '../adapters/walletAdapter';
+import type {
+  ArkriliumProtocolsAdapter,
+  ArkriliumProtocolsState,
+  ArkriliumProtocolRow,
+  ArkriliumHealthItem,
+  NomadOverlayAdapters,
+  NomadProtocolsState,
+} from '../adapters';
 
-const fallbackProtocols: NomadProtocolsState = {
-  status: 'active',
-  activeProtocols: 6,
+const fallbackProtocols: ArkriliumProtocolsState = {
+  status: 'offline',
+  activeProtocols: 0,
   totalProtocols: 6,
-  networkUptime: '99.99%',
-  globalNodes: '1,248',
-  countries: '32',
-  message: 'The Arkrilium protocols are operating optimally.',
-  protocols: [
-    { title: 'Arkrilium Security Layer', subtitle: 'Multi-layered security and threat protection', detail: 'ACTIVE  •  All systems secure', uptime: '99.99%', icon: '♢', color: '#35f883' },
-    { title: 'Arkrilium Interoperability Protocol', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  Connected networks', uptime: '99.98%', icon: '⌘', color: '#00e5ff' },
-    { title: 'Arkrilium Key Management Protocol', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: '#9b4dff' },
-    { title: 'Arkrilium Notary Protocol', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  Verification online', uptime: '99.97%', icon: '▤', color: '#ffcc33' },
-    { title: 'Arkrilium Data Transmission Protocol', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & encrypted', uptime: '99.99%', icon: '⌁', color: '#00e5ff' },
-    { title: 'Arkrilium Governance Protocol', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Governance available', uptime: '100%', icon: '♙', color: '#9b4dff' },
-  ],
-  health: [
-    { label: 'Block Finality', value: '2.1 sec', note: 'Excellent', icon: '◷' },
-    { label: 'Transaction Success', value: '99.97%', note: 'Excellent', icon: '✓' },
-    { label: 'Security Events', value: '0', note: 'Last 7 Days', icon: '♢' },
-    { label: 'Alerts', value: '0', note: 'All Clear', icon: '♧' },
-    { label: 'Nodes Online', value: '1,248 / 1,300', note: '95.9%', icon: '◎' },
-  ],
+  networkUptime: 'Not verified',
+  globalNodes: 'Not connected',
+  countries: '—',
+  message: 'Arkrilium protocol evidence has not been loaded.',
+  protocols: [],
+  health: [],
+  checkedAt: new Date(0).toISOString(),
+  remoteTelemetryConnected: false,
+  dataSource: 'local_adapter_evidence',
+  check: {
+    id: 'protocol-check-not-run',
+    checkedAt: new Date(0).toISOString(),
+    status: 'attention_required',
+    available: 0,
+    limited: 0,
+    notConfigured: 0,
+    unavailable: 6,
+  },
 };
 
-function normalizeBranding(state: NomadProtocolsState): NomadProtocolsState {
+function isArkriliumAdapter(adapter: unknown): adapter is ArkriliumProtocolsAdapter {
+  return Boolean(
+    adapter
+    && typeof (adapter as ArkriliumProtocolsAdapter).getArkriliumProtocolsState === 'function'
+    && typeof (adapter as ArkriliumProtocolsAdapter).runProtocolCheck === 'function',
+  );
+}
+
+function routeForProtocol(title: string) {
+  if (/security/i.test(title)) return 'SecurityCenter';
+  if (/key|recovery/i.test(title)) return 'RecoveryCenter';
+  if (/notary|verification/i.test(title)) return 'BlockPagesSafety';
+  if (/interoperability|swap/i.test(title)) return 'Swap';
+  return 'Settings';
+}
+
+function extendBaseState(base: NomadProtocolsState): ArkriliumProtocolsState {
+  const checkedAt = new Date().toISOString();
+  const protocols: ArkriliumProtocolRow[] = base.protocols.map((item, index) => ({
+    ...item,
+    id: (['security_layer', 'interoperability', 'key_management', 'notary_verification', 'data_transmission', 'governance'][index] ?? 'data_transmission') as ArkriliumProtocolRow['id'],
+    title: item.title.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
+    subtitle: item.subtitle.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
+    detail: `${item.detail.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium')} Provider evidence is not available from this adapter.`,
+    status: 'limited',
+    statusLabel: 'LIMITED',
+    uptime: 'LIMITED',
+    route: routeForProtocol(item.title),
+    source: 'not_connected',
+    provider: 'Legacy protocol adapter',
+    checkedAt,
+  }));
+  const health: ArkriliumHealthItem[] = base.health.map((item) => ({
+    ...item,
+    status: 'review',
+  }));
+
   return {
-    ...state,
-    message: state.message.replace(/Voltaire Protocols?/gi, 'Arkrilium protocols').replace(/Voltaire/gi, 'Arkrilium'),
-    protocols: state.protocols.map((item) => ({
-      ...item,
-      title: item.title.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
-      subtitle: item.subtitle.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
-      detail: item.detail.replace(/Voltaire Protocols?/gi, 'Arkrilium').replace(/Voltaire/gi, 'Arkrilium'),
-    })),
+    ...base,
+    status: 'degraded',
+    activeProtocols: 0,
+    networkUptime: 'Not verified',
+    globalNodes: 'Not connected',
+    countries: '—',
+    message: base.message.replace(/Voltaire Protocols?/gi, 'Arkrilium protocols').replace(/Voltaire/gi, 'Arkrilium'),
+    protocols,
+    health,
+    checkedAt,
+    remoteTelemetryConnected: false,
+    dataSource: 'local_adapter_evidence',
+    check: {
+      id: `legacy-protocol-check-${Date.now()}`,
+      checkedAt,
+      status: 'attention_required',
+      available: 0,
+      limited: protocols.length,
+      notConfigured: 0,
+      unavailable: Math.max(0, 6 - protocols.length),
+    },
   };
 }
 
-export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters) {
+export type NomadProtocolsHookState = {
+  protocols: ArkriliumProtocolsState;
+  loading: boolean;
+  error: string | null;
+  refresh(): Promise<ArkriliumProtocolsState | void>;
+  runCheck(): Promise<ArkriliumProtocolsState | void>;
+};
+
+export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters): NomadProtocolsHookState {
   const providerAdapters = useNomadAdapters();
-  const adapters = adapterOverride ?? providerAdapters;
-  const protocolAdapter = adapters.protocols;
-  const [protocols, setProtocols] = useState<NomadProtocolsState>(fallbackProtocols);
+  const protocolAdapter = (adapterOverride ?? providerAdapters).protocols;
+  const [protocols, setProtocols] = useState<ArkriliumProtocolsState>(fallbackProtocols);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (forceCheck: boolean) => {
     if (!protocolAdapter) {
-      setError('Nomad protocols adapter is not connected.');
+      setError('Arkrilium protocol adapter is not connected.');
       setLoading(false);
       return;
     }
@@ -59,17 +121,30 @@ export function useNomadProtocols(adapterOverride?: NomadOverlayAdapters) {
     try {
       setLoading(true);
       setError(null);
-      setProtocols(normalizeBranding(await protocolAdapter.getProtocolsState()));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load Arkrilium protocol state.');
+      const next = isArkriliumAdapter(protocolAdapter)
+        ? forceCheck
+          ? await protocolAdapter.runProtocolCheck()
+          : await protocolAdapter.getArkriliumProtocolsState()
+        : extendBaseState(await protocolAdapter.getProtocolsState());
+      setProtocols(next);
+      return next;
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to load Arkrilium protocol evidence.');
+      return undefined;
     } finally {
       setLoading(false);
     }
   }, [protocolAdapter]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load(false);
+  }, [load]);
 
-  return useMemo(() => ({ protocols, loading, error, refresh }), [protocols, loading, error, refresh]);
+  const refresh = useCallback(() => load(false), [load]);
+  const runCheck = useCallback(() => load(true), [load]);
+
+  return useMemo(
+    () => ({ protocols, loading, error, refresh, runCheck }),
+    [protocols, loading, error, refresh, runCheck],
+  );
 }
