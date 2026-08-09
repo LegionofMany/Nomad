@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 export const C = {
   bg: '#01060d',
@@ -30,31 +30,6 @@ export const C = {
 
 type GlyphKind = 'home' | 'wallet' | 'travel' | 'security' | 'recovery' | 'insights' | 'scan' | 'watch' | 'settings';
 
-const glyphPaths: Record<GlyphKind, string> = {
-  home: '<path d="M8 25 24 10l16 15v15H28V29h-8v11H8Z"/><path d="M15 18h18" opacity=".45"/>',
-  wallet: '<rect x="6" y="12" width="36" height="27" rx="8"/><path d="M31 21h12v11H31a5.5 5.5 0 0 1 0-11Z"/><circle cx="34" cy="26.5" r="1.8" fill="currentColor" stroke="none"/>',
-  travel: '<path d="m7 27 34-16-10 29-7-11-17-2Z"/><path d="m24 29 7-7"/>',
-  security: '<path d="M24 5 40 12v12c0 11-6 18-16 23C14 42 8 35 8 24V12Z"/><path d="m16 25 6 6 11-13"/>',
-  recovery: '<path d="M12 18a15 15 0 1 1-2 13"/><path d="M12 8v10H2"/><path d="M24 16v10l7 4"/>',
-  insights: '<path d="M7 40V24h8v16M20 40V15h8v25M33 40V8h8v32"/><path d="M5 40h38"/>',
-  scan: '<path d="M17 7H8v10M31 7h9v10M17 41H8V31M31 41h9V31"/><path d="M14 24h20"/><circle cx="24" cy="24" r="7"/>',
-  watch: '<path d="M18 4h12l2 8H16l2-8ZM16 36h16l-2 8H18l-2-8Z"/><rect x="11" y="11" width="26" height="26" rx="8"/><path d="M18 24h12M24 18v12"/>',
-  settings: '<circle cx="24" cy="24" r="7"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2"/>',
-};
-
-const glyphUriCache = new Map<string, string>();
-
-function glyphUri(kind: GlyphKind, color: string) {
-  const key = `${kind}:${color}`;
-  const cached = glyphUriCache.get(key);
-  if (cached) return cached;
-  const uri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${glyphPaths[kind]}</svg>`)}`;
-  glyphUriCache.set(key, uri);
-  return uri;
-}
-
-const brandMarkUri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72" fill="none"><defs><linearGradient id="g" x1="8" y1="4" x2="56" y2="66"><stop stop-color="#54c7ff"/><stop offset="1" stop-color="#1668ff"/></linearGradient></defs><path d="M32 3 57 14v20c0 18-10 30-25 38C17 64 7 52 7 34V14Z" fill="#041425" stroke="url(#g)" stroke-width="4"/><path d="M15 38h9l5-9 7 16 5-10h8" stroke="#3194ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`)}`;
-
 function glyphForRoute(route: string): GlyphKind {
   if (/Wallet|Send|Receive|Swap/.test(route)) return 'wallet';
   if (/Travel|POS|TopUp/.test(route)) return 'travel';
@@ -68,11 +43,49 @@ function glyphForRoute(route: string): GlyphKind {
 }
 
 export function NomadGlyph({ kind, color = C.blue, size = 24 }: { kind: GlyphKind; color?: string; size?: number }) {
-  return <Image accessibilityIgnoresInvertColors source={{ uri: glyphUri(kind, color) }} style={{ width: size, height: size }} />;
+  const stroke = { stroke: color, strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  let artwork: React.ReactNode;
+
+  switch (kind) {
+    case 'wallet':
+      artwork = <><Rect x="6" y="12" width="36" height="27" rx="8" {...stroke} /><Path d="M31 21h12v11H31a5.5 5.5 0 0 1 0-11Z" {...stroke} /><Circle cx="34" cy="26.5" r="1.8" fill={color} /></>;
+      break;
+    case 'travel':
+      artwork = <><Path d="m7 27 34-16-10 29-7-11-17-2Z" {...stroke} /><Path d="m24 29 7-7" {...stroke} /></>;
+      break;
+    case 'security':
+      artwork = <><Path d="M24 5 40 12v12c0 11-6 18-16 23C14 42 8 35 8 24V12Z" {...stroke} /><Path d="m16 25 6 6 11-13" {...stroke} /></>;
+      break;
+    case 'recovery':
+      artwork = <><Path d="M12 18a15 15 0 1 1-2 13" {...stroke} /><Path d="M12 8v10H2" {...stroke} /><Path d="M24 16v10l7 4" {...stroke} /></>;
+      break;
+    case 'insights':
+      artwork = <><Path d="M7 40V24h8v16M20 40V15h8v25M33 40V8h8v32" {...stroke} /><Path d="M5 40h38" {...stroke} /></>;
+      break;
+    case 'scan':
+      artwork = <><Path d="M17 7H8v10M31 7h9v10M17 41H8V31M31 41h9V31" {...stroke} /><Path d="M14 24h20" {...stroke} /><Circle cx="24" cy="24" r="7" {...stroke} /></>;
+      break;
+    case 'watch':
+      artwork = <><Path d="M18 4h12l2 8H16l2-8ZM16 36h16l-2 8H18l-2-8Z" {...stroke} /><Rect x="11" y="11" width="26" height="26" rx="8" {...stroke} /><Path d="M18 24h12M24 18v12" {...stroke} /></>;
+      break;
+    case 'settings':
+      artwork = <><Circle cx="24" cy="24" r="7" {...stroke} /><Path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2" {...stroke} /></>;
+      break;
+    default:
+      artwork = <><Path d="M8 25 24 10l16 15v15H28V29h-8v11H8Z" {...stroke} /><Path d="M15 18h18" opacity={0.45} {...stroke} /></>;
+  }
+
+  return <Svg accessibilityLabel={`${kind} icon`} width={size} height={size} viewBox="0 0 48 48" fill="none">{artwork}</Svg>;
 }
 
 function NomadBrandMark({ size = 44 }: { size?: number }) {
-  return <Image accessibilityIgnoresInvertColors source={{ uri: brandMarkUri }} style={{ width: size, height: size * 1.125 }} />;
+  return (
+    <Svg accessibilityLabel="Nomad shield" width={size} height={size * 1.125} viewBox="0 0 64 72" fill="none">
+      <Defs><LinearGradient id="nomadBrand" x1="8" y1="4" x2="56" y2="66"><Stop stopColor="#54c7ff" /><Stop offset="1" stopColor="#1668ff" /></LinearGradient></Defs>
+      <Path d="M32 3 57 14v20c0 18-10 30-25 38C17 64 7 52 7 34V14Z" fill="#041425" stroke="url(#nomadBrand)" strokeWidth="4" />
+      <Path d="M15 38h9l5-9 7 16 5-10h8" stroke={C.blue} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 const railNav: Array<{ label: string; route: string; kind: GlyphKind }> = [
