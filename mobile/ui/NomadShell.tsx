@@ -163,6 +163,7 @@ export function NomadPage({ children, maxWidth = 860 }: { children: React.ReactN
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.page,
+          compact && styles.pageCompact,
           { paddingHorizontal: compact ? 14 : desktop ? 34 : 24, maxWidth: desktop ? Math.max(maxWidth, 1080) : maxWidth },
         ]}
       >
@@ -273,18 +274,18 @@ const defaultNav = [
 export function BottomNav({ active, fifth, items }: { active: string; fifth?: readonly [string, string, string]; items?: ReadonlyArray<readonly [string, string, string]> }) {
   const navigation = useNavigation<any>();
   const currentRoute = useRoute();
-  const { desktop } = useNomadLayout();
+  const { compact, desktop } = useNomadLayout();
   const nav = items ?? (fifth ? [...defaultNav.slice(0, 4), fifth] : defaultNav);
   const hasNamedActiveItem = nav.some(([, label]) => label === active);
   if (desktop) return null;
   return (
-    <View style={styles.bottomNav}>
+    <View style={[styles.bottomNav, compact && styles.bottomNavCompact]}>
       {nav.map(([, label, route]) => {
         const selected = hasNamedActiveItem ? label === active : routeIsActive(currentRoute.name, route);
         return (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, selected && styles.navItemActive]}>
-            <NomadGlyph kind={glyphForRoute(route)} color={selected ? C.blue : C.muted} size={24} />
-            <Text style={[styles.navLabel, selected && styles.navSelected]}>{label}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, compact && styles.navItemCompact, selected && styles.navItemActive]}>
+            <NomadGlyph kind={glyphForRoute(route)} color={selected ? C.blue : C.muted} size={compact ? 20 : 24} />
+            <Text style={[styles.navLabel, compact && styles.navLabelCompact, selected && styles.navSelected]}>{label}</Text>
           </Pressable>
         );
       })}
@@ -314,6 +315,7 @@ const styles = StyleSheet.create({
   ambientPurple: { position: 'absolute', right: -260, bottom: -260, width: 620, height: 620, borderRadius: 310, opacity: .1, backgroundColor: '#5724b7', ...Platform.select({ web: { filter: 'blur(130px)' } as any, default: {} }) },
   contentScroll: { flex: 1 },
   page: { width: '100%', alignSelf: 'center', paddingTop: 22, paddingBottom: 28 },
+  pageCompact: { paddingTop: 12, paddingBottom: 12 },
   panel: { borderWidth: 1, borderRadius: 20, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0 18px 58px rgba(0,0,0,.3)', backdropFilter: 'blur(18px)' } as any, default: {} }) },
   rail: { width: 242, flexShrink: 0, borderRightWidth: 1, borderRightColor: 'rgba(49,148,255,.16)', backgroundColor: 'rgba(2,10,20,.94)', paddingHorizontal: 15, paddingTop: 21, paddingBottom: 19, zIndex: 10, ...Platform.select({ web: { boxShadow: '18px 0 55px rgba(0,0,0,.22)', backdropFilter: 'blur(24px)' } as any, default: {} }) },
   railBrand: { minHeight: 61, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 5 },
@@ -362,9 +364,12 @@ const styles = StyleSheet.create({
   primarySub: { color: 'rgba(255,255,255,.78)', fontSize: 12, marginTop: 4 },
   primaryArrow: { color: '#fff', fontSize: 34 },
   bottomNav: { minHeight: 76, marginTop: 20, borderWidth: 1, borderColor: '#0a426e', borderRadius: 19, backgroundColor: 'rgba(3,13,25,.98)', flexDirection: 'row', alignItems: 'center', padding: 6, zIndex: 30, ...Platform.select({ web: { position: 'sticky', bottom: 10, boxShadow: '0 18px 45px rgba(0,0,0,.54)', backdropFilter: 'blur(24px)' } as any, default: {} }) },
+  bottomNavCompact: { minHeight: 52, marginTop: 10, borderRadius: 12, padding: 4, ...Platform.select({ web: { bottom: 4 } as any, default: {} }) },
   navItem: { flex: 1, minHeight: 66, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  navItemCompact: { minHeight: 43, borderRadius: 9 },
   navItemActive: { backgroundColor: 'rgba(0,78,170,.12)' },
   navLabel: { color: '#aebacc', fontSize: 10, marginTop: 5 },
+  navLabelCompact: { fontSize: 8, marginTop: 2 },
   navSelected: { color: C.blue },
   infoRow: { minHeight: 78, paddingHorizontal: 15, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
   infoBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
