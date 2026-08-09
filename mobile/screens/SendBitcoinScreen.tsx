@@ -57,6 +57,10 @@ function parseNumber(value?: string) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function formatUsd(value: number) {
+  return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
+}
+
 function isReqriumIdentity(value: string) {
   return /^[a-z0-9][a-z0-9._-]{2,31}$/i.test(value.trim()) && !value.trim().includes(' ');
 }
@@ -314,7 +318,7 @@ export default function SendBitcoinScreen() {
               placeholderTextColor="#66798f"
               style={[styles.amountInput, compact && styles.amountInputCompact]}
             />
-            <Text style={[styles.amountUsd, compact && styles.amountUsdCompact]}>≈ ${amountUsd.toFixed(2)} USD</Text>
+            <Text style={[styles.amountUsd, compact && styles.amountUsdCompact]}>≈ ${formatUsd(amountUsd)} USD</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Choose asset" onPress={() => setAssetOpen((value) => !value)} style={[styles.assetSelector, compact && styles.assetSelectorCompact]}>
             <BtcBadge size={compact ? 30 : 42} />
@@ -391,7 +395,7 @@ export default function SendBitcoinScreen() {
           </View>
           <View style={[styles.feeTrailing, compact && styles.feeTrailingCompact]}>
             <Text style={[styles.feeValue, compact && styles.feeValueCompact]}>{formatted.fee} BTC</Text>
-            <Text style={[styles.feeUsd, compact && styles.feeUsdCompact]}>≈ ${feeUsd.toFixed(2)} USD</Text>
+            <Text style={[styles.feeUsd, compact && styles.feeUsdCompact]}>≈ ${formatUsd(feeUsd)} USD</Text>
           </View>
           <Text style={[styles.rowChevron, compact && styles.rowChevronCompact]}>{feeOpen ? '⌃' : '⌄'}</Text>
         </Pressable>
@@ -409,7 +413,7 @@ export default function SendBitcoinScreen() {
                   style={[styles.menuChoice, feeChoice === choice && styles.menuChoiceActive]}
                 >
                   <Text style={styles.menuChoiceTitle}>{choice} • {option.speed}</Text>
-                  <Text style={styles.menuChoiceSub}>{option.rate} • {option.fee.toFixed(6)} BTC • ${(option.fee * btcPrice).toFixed(2)}</Text>
+                  <Text style={styles.menuChoiceSub}>{option.rate} • {option.fee.toFixed(6)} BTC • ${formatUsd(option.fee * btcPrice)}</Text>
                   <Text style={[styles.menuChoiceCheck, feeChoice === choice && { color: C.green }]}>{feeChoice === choice ? '✓' : '○'}</Text>
                 </Pressable>
               );
@@ -421,9 +425,9 @@ export default function SendBitcoinScreen() {
       <Panel style={[styles.sectionPanel, compact && styles.sectionPanelCompact]}>
         <StepTitle number={5} title="Summary" compact={compact} />
         <View style={[styles.summaryBox, compact && styles.summaryBoxCompact]}>
-          <SummaryRow label="You are sending" value={`${formatted.amount} BTC`} sub={`≈ $${amountUsd.toFixed(2)} USD`} compact={compact} />
-          <SummaryRow label="Network Fee" value={`${formatted.fee} BTC`} sub={`≈ $${feeUsd.toFixed(2)} USD`} compact={compact} />
-          <SummaryRow label="Total" value={`${formatted.total} BTC`} sub={`≈ $${totalUsd.toFixed(2)} USD`} strong last compact={compact} />
+          <SummaryRow label="You are sending" value={`${formatted.amount} BTC`} sub={`≈ $${formatUsd(amountUsd)} USD`} compact={compact} />
+          <SummaryRow label="Network Fee" value={`${formatted.fee} BTC`} sub={`≈ $${formatUsd(feeUsd)} USD`} compact={compact} />
+          <SummaryRow label="Total" value={`${formatted.total} BTC`} sub={`≈ $${formatUsd(totalUsd)} USD`} strong last compact={compact} />
         </View>
       </Panel>
 
