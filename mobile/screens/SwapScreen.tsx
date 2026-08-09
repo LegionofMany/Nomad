@@ -336,7 +336,7 @@ export default function SwapScreen() {
         return;
       }
       setReviewOpen(false);
-      setFeedback('Swap draft created. The connected wallet still controls final signing and broadcast.');
+      setFeedback('Swap draft created. A wallet must still approve final signing and broadcast.');
     } catch (draftError) {
       setFeedback(draftError instanceof Error ? draftError.message : 'Unable to create the swap draft.');
     }
