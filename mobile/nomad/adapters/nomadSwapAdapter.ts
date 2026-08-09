@@ -44,7 +44,7 @@ const networkByAsset: Record<string, string> = {
 };
 
 const networkFeeByAsset: Record<string, number> = {
-  BTC: 0.000028,
+  BTC: 0.000012,
   ETH: 0.0009,
   HBAR: 0.05,
   XRP: 0.000012,
@@ -60,7 +60,7 @@ const networkFeeByAsset: Record<string, number> = {
 const estimatedTimeByAsset: Record<string, string> = {
   BTC: '10–30 minutes',
   ETH: '1–3 minutes',
-  HBAR: '~ 5 seconds',
+  HBAR: '~ 15 seconds',
   XRP: '~ 5 seconds',
   XLM: '~ 6 seconds',
   XDC: '~ 5 seconds',
@@ -102,7 +102,7 @@ function failedQuote(
     toBalance: `Balance unavailable • ${toAsset}`,
     rateLabel: `1 ${fromAsset} = — ${toAsset}`,
     priceImpact: '—',
-    network: networkByAsset[toAsset] ?? 'Arkrilium Smart Route',
+    network: `${fromAsset} → ${networkByAsset[toAsset] ?? `${toAsset} network`}`,
     networkFee: 'Unavailable',
     estimatedTime: 'Unavailable',
     slippageTolerance: '0.50%',
@@ -175,12 +175,12 @@ async function buildQuote(fromAssetInput: string, toAssetInput: string, amountIn
     toBalance: `Balance: ${formatAssetAmount(toBalance, toAsset)} ${toAsset}`,
     rateLabel: `1 ${fromAsset} ≈ ${formatAssetAmount(marketRate, toAsset)} ${toAsset}`,
     priceImpact: `${priceImpactPercent.toFixed(2)}%`,
-    network: `Arkrilium Smart Route • ${networkByAsset[toAsset] ?? `${toAsset} network`}`,
+    network: `${fromAsset} → ${networkByAsset[toAsset] ?? `${toAsset} network`}`,
     networkFee: `${formatAssetAmount(feeAmount, fromAsset)} ${fromAsset} (≈ ${USD.format(feeUsd)})`,
     estimatedTime: estimatedTimeByAsset[toAsset] ?? '~ 30 seconds',
     slippageTolerance: '0.50%',
     status: 'quote',
-    quoteId: `ark-local-${quotedAt}-${fromAsset}-${toAsset}`,
+    quoteId: `voltaire-local-${quotedAt}-${fromAsset}-${toAsset}`,
     expiresAt: new Date(quotedAt + 45_000).toISOString(),
   };
 }
