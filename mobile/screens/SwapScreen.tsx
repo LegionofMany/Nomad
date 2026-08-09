@@ -244,6 +244,8 @@ export default function SwapScreen() {
   const walletFrozen = security.freezeStatus === 'full';
   const amountValid = numericAmount > 0 && numericAmount <= spendableMaximum;
   const canReview = quote.status === 'quote' && !loading && !quoteExpired && !walletFrozen && amountValid && fromAsset !== toAsset;
+  const canRefresh = quoteExpired && !loading && !walletFrozen && amountValid && fromAsset !== toAsset;
+  const primaryActionEnabled = canReview || canRefresh;
   const quoteSource = 'LOCAL ADAPTER QUOTE';
   const fromValue = parseNumber(quote.fromValueUsd);
   const toValue = parseNumber(quote.toValueUsd);
@@ -309,15 +311,35 @@ export default function SwapScreen() {
     setReviewOpen(true);
   };
 
-  const confirmDraft = async () => {
-    setFeedback('Creating a wallet-controlled Voltaire swap draft…');
-    const result = await createDraft({ ...quote, slippageTolerance: slippage });
-    if (result.status === 'failed') {
-      setFeedback(result.failure?.message ?? 'Unable to create the swap draft.');
+  const handlePrimaryAction = () => {
+    if (!quoteExpired) {
+      openReview();
       return;
     }
-    setReviewOpen(false);
-    setFeedback('Swap draft created. The connected wallet still controls final signing and broadcast.');
+    setFeedback('');
+    void refreshQuote(fromAsset, toAsset, amount).catch((refreshError) => {
+      setFeedback(refreshError instanceof Error ? refreshError.message : 'Unable to refresh the swap quote.');
+    });
+  };
+
+  const confirmDraft = async () => {
+    if (quoteExpired) {
+      setReviewOpen(false);
+      setFeedback('The quote expired. Refresh it before creating a draft.');
+      return;
+    }
+    setFeedback('Creating a wallet-controlled Voltaire swap draft…');
+    try {
+      const result = await createDraft({ ...quote, slippageTolerance: slippage });
+      if (result.status === 'failed') {
+        setFeedback(result.failure?.message ?? 'Unable to create the swap draft.');
+        return;
+      }
+      setReviewOpen(false);
+      setFeedback('Swap draft created. The connected wallet still controls final signing and broadcast.');
+    } catch (draftError) {
+      setFeedback(draftError instanceof Error ? draftError.message : 'Unable to create the swap draft.');
+    }
   };
 
   return (
@@ -482,7 +504,7 @@ export default function SwapScreen() {
         </Panel>
       ) : null}
 
-      <Pressable accessibilityLabel="Review swap" accessibilityRole="button" disabled={!canReview} onPress={openReview} style={({ pressed }) => [styles.swapButton, compact && styles.swapButtonCompact, !canReview && styles.swapButtonDisabled, pressed && canReview && styles.pressed]}>
+      <Pressable accessibilityLabel={quoteExpired ? 'Refresh swap quote' : 'Review swap'} accessibilityRole="button" disabled={!primaryActionEnabled} onPress={handlePrimaryAction} style={({ pressed }) => [styles.swapButton, compact && styles.swapButtonCompact, !primaryActionEnabled && styles.swapButtonDisabled, pressed && primaryActionEnabled && styles.pressed]}>
         <SwapIcon kind="swap" color="#fff" size={compact ? 31 : 38} />
         <View style={styles.swapButtonCopy}>
           <Text style={[styles.swapButtonTitle, compact && styles.swapButtonTitleCompact]}>{loading ? 'Refreshing Quote…' : quoteExpired ? 'Refresh Quote' : lastDraft?.status === 'created' ? 'Swap Draft Ready' : 'Swap Now'}</Text>
@@ -510,7 +532,7 @@ export default function SwapScreen() {
           </View>
           <View style={styles.reviewActions}>
             <Pressable accessibilityLabel="Cancel swap review" accessibilityRole="button" onPress={() => setReviewOpen(false)} style={styles.cancelButton}><Text style={styles.cancelText}>Cancel</Text></Pressable>
-            <Pressable accessibilityLabel="Create swap draft" accessibilityRole="button" onPress={() => void confirmDraft()} style={styles.confirmButton}><Text style={styles.confirmText}>Create Swap Draft</Text></Pressable>
+            <Pressable accessibilityLabel="Create swap draft" accessibilityRole="button" disabled={quoteExpired || loading} onPress={() => void confirmDraft()} style={[styles.confirmButton, (quoteExpired || loading) && styles.swapButtonDisabled]}><Text style={styles.confirmText}>Create Swap Draft</Text></Pressable>
           </View>
         </Panel>
       ) : null}

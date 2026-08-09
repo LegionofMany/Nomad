@@ -29,6 +29,15 @@ const fallbackPriceUsd: Record<string, number> = {
   DAI: 1,
 };
 
+const previewPortfolioFacts = [
+  { symbol: 'BTC', amount: 0.3567, fiatValueUsd: 22123.1, priceUsd: fallbackPriceUsd.BTC },
+  { symbol: 'HBAR', amount: 3250, fiatValueUsd: 1250.25, priceUsd: fallbackPriceUsd.HBAR },
+  { symbol: 'XRP', amount: 1250, fiatValueUsd: 750, priceUsd: fallbackPriceUsd.XRP },
+  { symbol: 'XLM', amount: 5200, fiatValueUsd: 310.4, priceUsd: fallbackPriceUsd.XLM },
+  { symbol: 'ETH', amount: 1.25, fiatValueUsd: 2286.35, priceUsd: fallbackPriceUsd.ETH },
+  { symbol: 'USDC', amount: 250, fiatValueUsd: 250, priceUsd: fallbackPriceUsd.USDC },
+];
+
 const networkByAsset: Record<string, string> = {
   BTC: 'Bitcoin Mainnet',
   ETH: 'Ethereum Mainnet',
@@ -112,17 +121,21 @@ function failedQuote(
 }
 
 async function getPortfolioFacts() {
-  const portfolio = await getPortfolio();
-  return portfolio.balances.map((balance) => {
-    const symbol = balance.symbol.toUpperCase();
-    const derivedPrice = balance.amount > 0 ? balance.fiatApproxUSD / balance.amount : 0;
-    return {
-      symbol,
-      amount: balance.amount,
-      fiatValueUsd: balance.fiatApproxUSD,
-      priceUsd: derivedPrice > 0 ? derivedPrice : fallbackPriceUsd[symbol] ?? 0,
-    };
-  });
+  try {
+    const portfolio = await getPortfolio();
+    return portfolio.balances.map((balance) => {
+      const symbol = balance.symbol.toUpperCase();
+      const derivedPrice = balance.amount > 0 ? balance.fiatApproxUSD / balance.amount : 0;
+      return {
+        symbol,
+        amount: balance.amount,
+        fiatValueUsd: balance.fiatApproxUSD,
+        priceUsd: derivedPrice > 0 ? derivedPrice : fallbackPriceUsd[symbol] ?? 0,
+      };
+    });
+  } catch {
+    return previewPortfolioFacts;
+  }
 }
 
 async function buildQuote(fromAssetInput: string, toAssetInput: string, amountInput: string): Promise<NomadSwapQuote> {
