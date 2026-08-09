@@ -244,7 +244,7 @@ export default function SwapScreen() {
   const walletFrozen = security.freezeStatus === 'full';
   const amountValid = numericAmount > 0 && numericAmount <= spendableMaximum;
   const canReview = quote.status === 'quote' && !loading && !quoteExpired && !walletFrozen && amountValid && fromAsset !== toAsset;
-  const quoteSource = quote.quoteId?.includes('local') ? 'LOCAL ADAPTER QUOTE' : quote.quoteId ? 'CONNECTED QUOTE' : 'PREVIEW QUOTE';
+  const quoteSource = 'LOCAL ADAPTER QUOTE';
   const fromValue = parseNumber(quote.fromValueUsd);
   const toValue = parseNumber(quote.toValueUsd);
   const valueDifference = fromValue > 0 ? ((toValue / fromValue) - 1) * 100 : 0;

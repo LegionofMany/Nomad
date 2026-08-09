@@ -222,11 +222,11 @@ async function createDraft(quote: NomadSwapQuote): Promise<NomadSignedTransactio
 
   return localNomadWalletAdapter.createTransaction({
     fromAsset: quote.fromAsset,
-    toAddress: `ARKRILIUM_SWAP:${quote.toAsset}`,
+    toAddress: `VOLTAIRE_SWAP:${quote.toAsset}`,
     amount: quote.fromAmount,
     networkFee: quote.networkFee,
-    chainId: networkByAsset[quote.toAsset]?.toLowerCase().replace(/\s+/g, '-') ?? `arkrilium-${quote.toAsset.toLowerCase()}`,
-    memo: `Arkrilium swap ${quote.quoteId ?? 'unquoted'} • Receive ${quote.toAmount} ${quote.toAsset} • Minimum ${formatAssetAmount(minimumReceived, quote.toAsset)} ${quote.toAsset} • Slippage ${quote.slippageTolerance}`,
+    chainId: networkByAsset[quote.toAsset]?.toLowerCase().replace(/\s+/g, '-') ?? `voltaire-${quote.toAsset.toLowerCase()}`,
+    memo: `Voltaire local swap ${quote.quoteId ?? 'unquoted'} • Receive ${quote.toAmount} ${quote.toAsset} • Minimum ${formatAssetAmount(minimumReceived, quote.toAsset)} ${quote.toAsset} • Slippage ${quote.slippageTolerance}`,
     intent: 'swap',
     requiresUserApproval: true,
     createdBy: 'nomad_overlay',
