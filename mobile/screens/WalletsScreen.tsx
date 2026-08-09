@@ -51,6 +51,7 @@ const fallbackAssets: AssetRow[] = [
   { id: 'usdc', name: 'USD Coin', symbol: 'USDC', amount: '250.00', subValue: '$250.00', value: '$250.00', change: '0.00%', changeColor: '#d6dce8', badge: '$', tint: '#1684ff', group: 'Stablecoins' },
   { id: 'custom', name: 'My Custom Token', symbol: 'CUSTOM', amount: '12,500.00', subValue: '$52.75', value: '$52.75', change: '+3.45%', changeColor: GREEN, badge: '◇', tint: '#079b52', group: 'Custom' },
 ];
+const fallbackSymbols = new Set(fallbackAssets.map((asset) => asset.symbol));
 
 const badgeBySymbol: Record<string, string> = {
   BTC: '₿', HBAR: 'H', XRP: 'X', XLM: 'S', XDC: 'X', ADA: '✣', ALGO: 'A', ETH: '♦',
@@ -111,9 +112,26 @@ function ActionGlyph({ kind, size }: { kind: 'search' | 'filter' | 'plus'; size:
   );
 }
 
+function EyeIcon({ size = 20 }: { size?: number }) {
+  return <Svg accessibilityLabel="Balance visibility" width={size} height={size * .7} viewBox="0 0 32 22" fill="none"><Path d="M2 11s5-9 14-9 14 9 14 9-5 9-14 9S2 11 2 11Z" stroke="#b9c6d8" strokeWidth="2" /><Circle cx="16" cy="11" r="4" stroke="#b9c6d8" strokeWidth="2" /></Svg>;
+}
+
+function AssetMark({ symbol, fallback, size }: { symbol: string; fallback: string; size: number }) {
+  const markSize = size * .68;
+  if (symbol === 'HBAR') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Path d="M8 5v22M24 5v22M8 12h16M8 20h16" stroke="#fff" strokeWidth="3" strokeLinecap="round" /></Svg>;
+  if (symbol === 'XRP') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Path d="M5 7c3 0 4 1 6 3l5 5 5-5c2-2 3-3 6-3M5 25c3 0 4-1 6-3l5-5 5 5c2 2 3 3 6 3" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" /></Svg>;
+  if (symbol === 'XLM') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Circle cx="16" cy="16" r="10" stroke="#fff" strokeWidth="2.4" /><Path d="M4 21 28 10M5 25l23-11" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></Svg>;
+  if (symbol === 'ADA') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="#fff"><Circle cx="16" cy="16" r="3" /><Circle cx="16" cy="5" r="1.5" /><Circle cx="16" cy="27" r="1.5" /><Circle cx="5" cy="16" r="1.5" /><Circle cx="27" cy="16" r="1.5" /><Circle cx="8" cy="8" r="1.3" /><Circle cx="24" cy="8" r="1.3" /><Circle cx="8" cy="24" r="1.3" /><Circle cx="24" cy="24" r="1.3" /><Circle cx="11" cy="16" r="1.2" /><Circle cx="21" cy="16" r="1.2" /><Circle cx="16" cy="11" r="1.2" /><Circle cx="16" cy="21" r="1.2" /></Svg>;
+  if (symbol === 'ALGO') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Path d="m8 25 9-19h6l-2 5h4l-2 4h-4l-5 10H8Zm8-4h9" stroke="#fff" strokeWidth="2.7" strokeLinejoin="round" /></Svg>;
+  if (symbol === 'ETH') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Path d="m16 3 9 14-9 5-9-5 9-14Z" fill="#cdd3ff" /><Path d="m16 3 9 14-9-4V3Z" fill="#8c96d9" /><Path d="m16 24 9-5-9 10-9-10 9 5Z" fill="#aeb7ee" /></Svg>;
+  if (symbol === 'USDC') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Circle cx="16" cy="16" r="12" stroke="#fff" strokeWidth="2.2" /><Path d="M12 11c1-2 7-2 8 0m-8 10c1 2 7 2 8 0M16 7v18m-6-14a8 8 0 0 0 0 10m12-10a8 8 0 0 1 0 10" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></Svg>;
+  if (symbol === 'CUSTOM') return <Svg width={markSize} height={markSize} viewBox="0 0 32 32" fill="none"><Path d="m16 3 11 6v14l-11 6-11-6V9l11-6Z" stroke={GREEN} strokeWidth="2.4" /><Path d="m5 9 11 6 11-6M16 15v14" stroke={GREEN} strokeWidth="2.4" /></Svg>;
+  return <Text style={{ color: '#fff', fontSize: fallback.length > 1 ? size * .34 : size * .48, fontWeight: '900' }}>{fallback}</Text>;
+}
+
 function WalletArtwork({ compact }: { compact: boolean }) {
   return (
-    <Svg accessibilityLabel="Nomad wallet illustration" width={compact ? 132 : 230} height={compact ? 96 : 150} viewBox="0 0 280 165" fill="none" style={styles.walletArt}>
+    <Svg accessibilityLabel="Nomad wallet illustration" width={compact ? 120 : 230} height={compact ? 82 : 150} viewBox="0 0 280 165" fill="none" style={styles.walletArt}>
       <Defs><LinearGradient id="walletGradient" x1="78" y1="18" x2="225" y2="123"><Stop stopColor="#0a2d69" /><Stop offset="1" stopColor="#02152f" /></LinearGradient></Defs>
       <Ellipse cx="155" cy="84" rx="112" ry="55" stroke="#087cff" strokeOpacity={0.35} />
       <Ellipse cx="155" cy="84" rx="87" ry="39" stroke="#21baff" strokeOpacity={0.3} strokeDasharray="4 7" />
@@ -130,7 +148,7 @@ function WalletArtwork({ compact }: { compact: boolean }) {
 function AssetBadge({ asset, size = 46 }: { asset: AssetRow; size?: number }) {
   return (
     <View style={[styles.assetBadge, { width: size, height: size, borderRadius: size / 2, backgroundColor: asset.tint }]}>
-      <Text style={{ color: asset.textColor ?? '#fff', fontSize: asset.badge.length > 1 ? size * .34 : size * .48, fontWeight: '900' }}>{asset.badge}</Text>
+      <AssetMark symbol={asset.symbol} fallback={asset.badge} size={size} />
     </View>
   );
 }
@@ -169,10 +187,14 @@ export default function WalletsScreen() {
   const [customContract, setCustomContract] = useState('');
   const [feedback, setFeedback] = useState('');
 
-  const baseAssets = useMemo(
-    () => liveAssets.length ? liveAssets.map(mapNomadAsset) : fallbackAssets,
-    [liveAssets],
-  );
+  const baseAssets = useMemo(() => {
+    if (!liveAssets.length) return fallbackAssets;
+    const mapped = liveAssets.map(mapNomadAsset);
+    const mappedBySymbol = new Map(mapped.map((asset) => [asset.symbol, asset]));
+    const approvedRows = fallbackAssets.map((fallback) => mappedBySymbol.get(fallback.symbol) ?? fallback);
+    const additionalRows = mapped.filter((asset) => !fallbackSymbols.has(asset.symbol));
+    return [...approvedRows, ...additionalRows];
+  }, [liveAssets]);
 
   const assets = useMemo(() => [...baseAssets, ...customAssets], [baseAssets, customAssets]);
 
@@ -238,23 +260,23 @@ export default function WalletsScreen() {
 
   return (
     <NomadPage maxWidth={1120}>
-        <View style={styles.header}>
+        <View style={[styles.header, compact && styles.headerCompact]}>
           <View style={styles.titleGroup}>
-            <NomadBrandMark size={compact ? 48 : 58} />
+            <NomadBrandMark size={compact ? 38 : 58} />
             <View style={styles.titleCopy}>
-              <Text style={[styles.title, { fontSize: compact ? 28 : 35 }]}>Wallets</Text>
-              <Text style={[styles.subtitle, { fontSize: compact ? 12 : 15 }]}>Manage all your digital assets</Text>
+              <Text style={[styles.title, { fontSize: compact ? 20 : 35 }]}>Wallets</Text>
+              <Text style={[styles.subtitle, { fontSize: compact ? 9 : 15 }]}>Manage all your digital assets</Text>
             </View>
           </View>
-          <View style={styles.headerButtons}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Search assets" onPress={() => setSearchOpen((value) => !value)} style={styles.circleButton}>
-              <ActionGlyph kind="search" size={compact ? 24 : 28} />
+          <View style={[styles.headerButtons, compact && styles.headerButtonsCompact]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Search assets" onPress={() => setSearchOpen((value) => !value)} style={[styles.circleButton, compact && styles.circleButtonCompact]}>
+              <ActionGlyph kind="search" size={compact ? 18 : 28} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Open wallet filters" onPress={() => setFilterOpen((value) => !value)} style={[styles.circleButton, filterOpen && styles.circleButtonActive]}>
-              <ActionGlyph kind="filter" size={compact ? 23 : 27} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Open wallet filters" onPress={() => setFilterOpen((value) => !value)} style={[styles.circleButton, compact && styles.circleButtonCompact, filterOpen && styles.circleButtonActive]}>
+              <ActionGlyph kind="filter" size={compact ? 18 : 27} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={styles.circleButton}>
-              <ActionGlyph kind="plus" size={compact ? 25 : 30} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={[styles.circleButton, compact && styles.circleButtonCompact]}>
+              <ActionGlyph kind="plus" size={compact ? 19 : 30} />
             </Pressable>
           </View>
         </View>
@@ -270,7 +292,7 @@ export default function WalletsScreen() {
               autoFocus
               style={styles.searchInput}
             />
-            {query ? <Pressable accessibilityLabel="Clear search" onPress={() => setQuery('')}><Text style={styles.clearSearch}>×</Text></Pressable> : null}
+            {query ? <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setQuery('')}><Text style={styles.clearSearch}>×</Text></Pressable> : null}
           </View>
         ) : null}
 
@@ -278,7 +300,7 @@ export default function WalletsScreen() {
           <View style={styles.filterPanel}>
             <View style={styles.filterPanelHead}>
               <View><Text style={styles.filterPanelTitle}>Sort & filter</Text><Text style={styles.filterPanelSub}>{filteredAssets.length} assets shown</Text></View>
-              <Pressable onPress={() => { setSortMode('default'); setActiveFilter('All Assets'); }}><Text style={styles.resetText}>Reset</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Reset wallet filters" onPress={() => { setSortMode('default'); setActiveFilter('All Assets'); }}><Text style={styles.resetText}>Reset</Text></Pressable>
             </View>
             <View style={styles.sortRow}>
               {([
@@ -287,7 +309,7 @@ export default function WalletsScreen() {
                 ['change-desc', 'Top movers'],
                 ['name', 'A–Z'],
               ] as const).map(([mode, label]) => (
-                <Pressable key={mode} onPress={() => setSortMode(mode)} style={[styles.sortChip, sortMode === mode && styles.sortChipActive]}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Sort wallets by ${label}`} accessibilityState={{ selected: sortMode === mode }} key={mode} onPress={() => setSortMode(mode)} style={[styles.sortChip, sortMode === mode && styles.sortChipActive]}>
                   <Text style={[styles.sortChipText, sortMode === mode && styles.sortChipTextActive]}>{label}</Text>
                 </Pressable>
               ))}
@@ -295,38 +317,38 @@ export default function WalletsScreen() {
           </View>
         ) : null}
 
-        <View style={[styles.card, styles.hero, { padding: compact ? 18 : 25 }]}>
+        <View style={[styles.card, styles.hero, compact && styles.heroCompact, { padding: compact ? 14 : 25 }]}>
           <View style={styles.heroCopy}>
-            <Text style={[styles.eyebrow, { fontSize: compact ? 14 : 18 }]}>Total Wallet Balance  ◉</Text>
+            <View style={styles.eyebrowRow}><Text style={[styles.eyebrow, { fontSize: compact ? 10 : 18 }]}>Total Wallet Balance</Text><EyeIcon size={compact ? 16 : 20} /></View>
             <View style={styles.balanceRow}>
-              <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.balance, { fontSize: compact ? 43 : 62, maxWidth: compact ? 250 : undefined }]}>{balanceLabel}</Text>
-              {!loading ? <Text style={[styles.currency, { fontSize: compact ? 14 : 20 }]}>USD</Text> : null}
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.balance, compact && styles.balanceCompact, { fontSize: compact ? 31 : 62, maxWidth: compact ? 220 : undefined }]}>{balanceLabel}</Text>
+              {!loading ? <Text style={[styles.currency, { fontSize: compact ? 10 : 20 }]}>USD</Text> : null}
             </View>
-            <Text style={[styles.change, { fontSize: compact ? 15 : 19 }]}>+1.82% (24h)</Text>
+            <Text style={[styles.change, { fontSize: compact ? 10 : 19 }]}>+1.82% (24h)</Text>
           </View>
           <WalletArtwork compact={compact} />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filters, compact && styles.filtersCompact]}>
           {filters.map((filter) => {
             const active = filter === activeFilter;
             return (
-              <Pressable key={filter} onPress={() => setActiveFilter(filter)} style={[styles.filter, active && styles.filterActive]}>
-                <Text style={[styles.filterText, active && styles.filterTextActive]}>{filter}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Show ${filter}`} accessibilityState={{ selected: active }} key={filter} onPress={() => setActiveFilter(filter)} style={[styles.filter, compact && styles.filterCompact, active && styles.filterActive]}>
+                <Text style={[styles.filterText, compact && styles.filterTextCompact, active && styles.filterTextActive]}>{filter}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
-        <View style={styles.card}>
+        <View style={[styles.card, compact && styles.cardCompact]}>
           <View style={[styles.tableHeader, compact && styles.tableHeaderCompact]}>
-            <Text style={[styles.columnHeader, styles.assetColumn]}>Asset</Text>
-            <Text style={[styles.columnHeader, styles.balanceColumn]}>Balance  ↓</Text>
-            <Pressable onPress={toggleValueSort} style={styles.valueHeaderPress}>
-              <Text style={[styles.columnHeader, styles.valueColumn]}>Value (USD)</Text>
+            <Text style={[styles.columnHeader, compact && styles.columnHeaderCompact, styles.assetColumn]}>Asset</Text>
+            <Text style={[styles.columnHeader, compact && styles.columnHeaderCompact, styles.balanceColumn]}>Balance  ↓</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Sort by wallet value" onPress={toggleValueSort} style={styles.valueHeaderPress}>
+              <Text style={[styles.columnHeader, compact && styles.columnHeaderCompact, styles.valueColumn]}>Value (USD)</Text>
             </Pressable>
-            <Text style={[styles.columnHeader, styles.changeColumn]}>24h Change</Text>
-            <View style={styles.chevronColumn} />
+            <Text style={[styles.columnHeader, compact && styles.columnHeaderCompact, styles.changeColumn, compact && styles.changeColumnCompact]}>24h Change</Text>
+            <View style={[styles.chevronColumn, compact && styles.chevronColumnCompact]} />
           </View>
 
           {filteredAssets.map((asset) => (
@@ -338,19 +360,19 @@ export default function WalletsScreen() {
               style={({ pressed }) => [styles.assetRow, compact && styles.assetRowCompact, pressed && styles.rowPressed]}
             >
               <View style={[styles.assetIdentity, styles.assetColumn]}>
-                <AssetBadge asset={asset} size={compact ? 39 : 48} />
+                <AssetBadge asset={asset} size={compact ? 28 : 48} />
                 <View style={styles.assetCopy}>
-                  <Text numberOfLines={1} style={[styles.assetName, { fontSize: compact ? 13 : 17 }]}>{asset.name}</Text>
-                  <Text style={[styles.assetSymbol, { fontSize: compact ? 11 : 14 }]}>{asset.symbol}</Text>
+                  <Text numberOfLines={1} style={[styles.assetName, { fontSize: compact ? 10 : 17 }]}>{asset.name}</Text>
+                  <Text style={[styles.assetSymbol, { fontSize: compact ? 9 : 14 }]}>{asset.symbol}</Text>
                 </View>
               </View>
               <View style={styles.balanceColumn}>
-                <Text numberOfLines={1} style={[styles.assetAmount, { fontSize: compact ? 12 : 16 }]}>{asset.amount}</Text>
-                <Text numberOfLines={1} style={[styles.assetSub, { fontSize: compact ? 9 : 11 }]}>{asset.subValue}</Text>
+                <Text numberOfLines={1} style={[styles.assetAmount, { fontSize: compact ? 10 : 16 }]}>{asset.amount}</Text>
+                <Text numberOfLines={1} style={[styles.assetSub, { fontSize: compact ? 8 : 11 }]}>{asset.subValue}</Text>
               </View>
-              <Text numberOfLines={1} style={[styles.assetValue, styles.valueColumn, { fontSize: compact ? 11 : 16 }]}>{asset.value}</Text>
-              <Text numberOfLines={1} style={[styles.assetChange, styles.changeColumn, { color: asset.changeColor, fontSize: compact ? 11 : 16 }]}>{asset.change}</Text>
-              <Text style={[styles.chevron, styles.chevronColumn]}>›</Text>
+              <Text numberOfLines={1} style={[styles.assetValue, styles.valueColumn, { fontSize: compact ? 10 : 16 }]}>{asset.value}</Text>
+              <Text numberOfLines={1} style={[styles.assetChange, styles.changeColumn, compact && styles.changeColumnCompact, { color: asset.changeColor, fontSize: compact ? 10 : 16 }]}>{asset.change}</Text>
+              <Text style={[styles.chevron, styles.chevronColumn, compact && styles.chevronCompact]}>›</Text>
             </Pressable>
           ))}
 
@@ -364,7 +386,7 @@ export default function WalletsScreen() {
                 <AssetBadge asset={selected} size={50} />
                 <View><Text style={styles.selectedTitle}>{selected.name}</Text><Text style={styles.assetSymbol}>{selected.symbol} wallet</Text></View>
               </View>
-              <Pressable accessibilityLabel="Close asset details" onPress={() => setSelected(null)}><Text style={styles.close}>×</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close asset details" onPress={() => setSelected(null)}><Text style={styles.close}>×</Text></Pressable>
             </View>
             <View style={styles.selectedMetrics}>
               <View style={styles.selectedMetric}><Text style={styles.selectedLabel}>Balance</Text><Text style={styles.selectedValue}>{selected.amount} {selected.symbol}</Text></View>
@@ -372,22 +394,22 @@ export default function WalletsScreen() {
               <View style={styles.selectedMetric}><Text style={styles.selectedLabel}>24h</Text><Text style={[styles.selectedValue, { color: selected.changeColor }]}>{selected.change}</Text></View>
             </View>
             <View style={styles.selectedActions}>
-              <Pressable onPress={() => navigation.navigate('SendBitcoin')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Send</Text></Pressable>
-              <Pressable onPress={() => navigation.navigate('ReceiveBitcoin')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Receive</Text></Pressable>
-              <Pressable onPress={() => navigation.navigate('Swap')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Swap</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Send ${selected.name}`} onPress={() => navigation.navigate('SendBitcoin')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Send</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Receive ${selected.name}`} onPress={() => navigation.navigate('ReceiveBitcoin')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Receive</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Swap ${selected.name}`} onPress={() => navigation.navigate('Swap')} style={styles.selectedButton}><Text style={styles.selectedButtonText}>Swap</Text></Pressable>
             </View>
           </View>
         ) : null}
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={styles.addAsset}>
-          <View style={styles.addIcon}><ActionGlyph kind="plus" size={29} /></View>
-          <View style={styles.addCopy}><Text style={styles.addTitle}>Add Custom Asset</Text><Text style={styles.addSub}>Add tokens or assets to your wallet</Text></View>
-          <Text style={styles.chevron}>›</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={[styles.addAsset, compact && styles.addAssetCompact]}>
+          <View style={[styles.addIcon, compact && styles.addIconCompact]}><ActionGlyph kind="plus" size={compact ? 20 : 29} /></View>
+          <View style={styles.addCopy}><Text style={[styles.addTitle, compact && styles.addTitleCompact]}>Add Custom Asset</Text><Text style={[styles.addSub, compact && styles.addSubCompact]}>Add tokens or assets to your wallet</Text></View>
+          <Text style={[styles.chevron, compact && styles.chevronCompact]}>›</Text>
         </Pressable>
 
         {customPanel ? (
           <View style={[styles.card, styles.customPanel]}>
-            <View style={styles.customHead}><View><Text style={styles.customTitle}>Add Custom Asset</Text><Text style={styles.customSub}>Add a token to this wallet view</Text></View><Pressable onPress={() => setCustomPanel(false)}><Text style={styles.close}>×</Text></Pressable></View>
+            <View style={styles.customHead}><View><Text style={styles.customTitle}>Add Custom Asset</Text><Text style={styles.customSub}>Add a token to this wallet view</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close custom asset form" onPress={() => setCustomPanel(false)}><Text style={styles.close}>×</Text></Pressable></View>
             <View style={[styles.fields, compact && styles.fieldsCompact]}>
               <Field label="Asset name" value={customName} onChangeText={setCustomName} placeholder="Example Token" />
               <Field label="Symbol" value={customSymbol} onChangeText={setCustomSymbol} placeholder="TOKEN" />
@@ -395,7 +417,7 @@ export default function WalletsScreen() {
             <Field label="Contract or asset ID (optional)" value={customContract} onChangeText={setCustomContract} placeholder="0x… or network asset ID" />
             <Text style={styles.previewNotice}>This preview adds the asset locally. Persistent token import will use the connected wallet adapter.</Text>
             {feedback ? <Text style={[styles.feedback, feedback.includes('added') && styles.feedbackSuccess]}>{feedback}</Text> : null}
-            <Pressable onPress={addCustomAsset} style={({ pressed }) => [styles.addCustomButton, pressed && { opacity: .75 }]}><Text style={styles.addCustomButtonText}>Add Asset</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Add asset" onPress={addCustomAsset} style={({ pressed }) => [styles.addCustomButton, pressed && { opacity: .75 }]}><Text style={styles.addCustomButtonText}>Add Asset</Text></Pressable>
           </View>
         ) : null}
 
@@ -406,12 +428,15 @@ export default function WalletsScreen() {
 
 const styles = StyleSheet.create({
   header: { minHeight: 76, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
+  headerCompact: { minHeight: 43, gap: 5, marginBottom: 10 },
   titleGroup: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
-  titleCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  titleCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
   title: { color: '#fff', fontWeight: '900' },
-  subtitle: { color: '#c5d0df', marginTop: 3 },
+  subtitle: { color: '#c5d0df', marginTop: 2 },
   headerButtons: { flexDirection: 'row', gap: 7 },
+  headerButtonsCompact: { gap: 5 },
   circleButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#0a3c64', backgroundColor: 'rgba(3,16,30,.96)', alignItems: 'center', justifyContent: 'center' },
+  circleButtonCompact: { width: 33, height: 33, borderRadius: 17 },
   circleButtonActive: { borderColor: BLUE, backgroundColor: 'rgba(22,132,255,.13)' },
   searchBar: { minHeight: 54, marginBottom: 14, borderWidth: 1, borderColor: BORDER, borderRadius: 14, backgroundColor: PANEL, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 15 },
   searchInput: { flex: 1, color: '#fff', fontSize: 15, outlineStyle: 'none' } as any,
@@ -427,34 +452,44 @@ const styles = StyleSheet.create({
   sortChipText: { color: '#c5d0df', fontSize: 11 },
   sortChipTextActive: { color: '#fff', fontWeight: '800' },
   card: { borderWidth: 1, borderColor: BORDER, backgroundColor: PANEL, borderRadius: 18, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0 16px 50px rgba(0,0,0,.28)' } as any, default: {} }) },
+  cardCompact: { borderRadius: 12 },
   hero: { flexDirection: 'row', alignItems: 'center', minHeight: 190 },
+  heroCompact: { minHeight: 107, borderRadius: 12 },
   heroCopy: { flex: 1, minWidth: 0 },
   eyebrow: { color: '#f1f6fc' },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   balanceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 10 },
   balance: { color: '#fff', fontWeight: '900', letterSpacing: -2, lineHeight: 66 },
+  balanceCompact: { lineHeight: 36, letterSpacing: -1, marginTop: -2 },
   currency: { color: '#fff' },
   change: { color: GREEN, fontWeight: '800', marginTop: 4 },
   walletArt: { marginLeft: 2, flexShrink: 0 },
   filters: { paddingVertical: 20, paddingRight: 10 },
+  filtersCompact: { paddingVertical: 10, paddingRight: 0 },
   filter: { minHeight: 49, minWidth: 112, marginRight: 11, borderWidth: 1, borderColor: '#1a2b40', borderRadius: 13, backgroundColor: 'rgba(8,14,24,.9)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  filterCompact: { minHeight: 28, minWidth: 0, marginRight: 7, borderRadius: 9, paddingHorizontal: 14 },
   filterActive: { borderColor: BLUE, backgroundColor: 'rgba(22,132,255,.21)', ...Platform.select({ web: { boxShadow: '0 0 18px rgba(22,132,255,.25)' } as any, default: {} }) },
   filterText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  filterTextCompact: { fontSize: 10 },
   filterTextActive: { fontWeight: '900' },
   tableHeader: { minHeight: 49, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
-  tableHeaderCompact: { paddingHorizontal: 9 },
+  tableHeaderCompact: { minHeight: 27, paddingHorizontal: 9 },
   columnHeader: { color: '#cbd7e8', fontWeight: '700', fontSize: 12 },
+  columnHeaderCompact: { fontSize: 9 },
   assetColumn: { flex: 1.48, minWidth: 0 },
   balanceColumn: { flex: .9, minWidth: 0 },
   valueHeaderPress: { flex: .92, minWidth: 0 },
   valueColumn: { flex: .92, minWidth: 0, textAlign: 'right' },
   changeColumn: { width: 86, textAlign: 'right' },
+  changeColumnCompact: { width: 56 },
   chevronColumn: { width: 18, textAlign: 'right' },
+  chevronColumnCompact: { width: 12 },
   assetRow: { minHeight: 88, paddingHorizontal: 20, paddingVertical: 13, borderTopWidth: 1, borderTopColor: 'rgba(22,132,255,.13)', flexDirection: 'row', alignItems: 'center' },
-  assetRowCompact: { paddingHorizontal: 9, minHeight: 81 },
+  assetRowCompact: { paddingHorizontal: 9, paddingVertical: 5, minHeight: 47 },
   rowPressed: { backgroundColor: 'rgba(22,132,255,.08)' },
   assetIdentity: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   assetCopy: { flex: 1, minWidth: 0 },
-  assetBadge: { alignItems: 'center', justifyContent: 'center', marginRight: 11, borderWidth: 1, borderColor: 'rgba(255,255,255,.14)', ...Platform.select({ web: { boxShadow: '0 0 18px rgba(22,132,255,.12)' } as any, default: {} }) },
+  assetBadge: { alignItems: 'center', justifyContent: 'center', marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,.14)', ...Platform.select({ web: { boxShadow: '0 0 18px rgba(22,132,255,.12)' } as any, default: {} }) },
   assetName: { color: '#fff', fontWeight: '800' },
   assetSymbol: { color: '#c5d0df', marginTop: 4 },
   assetAmount: { color: '#fff', fontWeight: '700' },
@@ -462,6 +497,7 @@ const styles = StyleSheet.create({
   assetValue: { color: '#fff' },
   assetChange: { textAlign: 'right' },
   chevron: { color: BLUE, fontSize: 29, marginLeft: 1 },
+  chevronCompact: { width: 12, fontSize: 20 },
   empty: { color: '#9cafc6', textAlign: 'center', padding: 28 },
   selectedCard: { marginTop: 16, padding: 18 },
   selectedTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -475,10 +511,14 @@ const styles = StyleSheet.create({
   selectedButton: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: BLUE, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(22,132,255,.12)' },
   selectedButtonText: { color: BLUE, fontWeight: '800' },
   addAsset: { minHeight: 82, marginTop: 18, borderWidth: 1, borderColor: BORDER, backgroundColor: PANEL, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center' },
+  addAssetCompact: { minHeight: 53, marginTop: 10, borderRadius: 11, padding: 10 },
   addIcon: { width: 50, height: 50, borderRadius: 9, borderWidth: 1, borderStyle: 'dashed', borderColor: BLUE, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  addIconCompact: { width: 34, height: 34, borderRadius: 7, marginRight: 10 },
   addCopy: { flex: 1, minWidth: 0 },
   addTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  addTitleCompact: { fontSize: 11 },
   addSub: { color: MUTED, fontSize: 12, marginTop: 5 },
+  addSubCompact: { fontSize: 9, marginTop: 2 },
   customPanel: { marginTop: 14, padding: 18 },
   customHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   customTitle: { color: '#fff', fontWeight: '900', fontSize: 17 },
