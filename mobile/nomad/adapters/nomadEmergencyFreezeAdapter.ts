@@ -87,7 +87,7 @@ export type NomadEmergencyFreezeState = {
   canRequestRelease: boolean;
   directReleaseAllowed: false;
   specificAssetPolicyEnforced: false;
-  walletPolicyProviderConnected: true;
+  walletPolicyProviderConnected: boolean;
   remoteAuthorityDeliveryConnected: false;
   signedReleaseReceiptProviderConnected: false;
   hardwareAttestationConnected: false;

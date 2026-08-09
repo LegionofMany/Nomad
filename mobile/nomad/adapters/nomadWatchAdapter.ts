@@ -144,7 +144,7 @@ export type NomadWatchAdapterInput = {
   confirmLocalDraftOnly: boolean;
 };
 
-export type NomadExtendedWatchAdapter = NomadWatchAdapter & {
+export type NomadExtendedWatchAdapter = Omit<NomadWatchAdapter, 'getWatchState' | 'syncNow' | 'triggerEmergencyAction'> & {
   getWatchState(): Promise<NomadExtendedWatchState>;
   createPairingDraft(input: NomadWatchAdapterInput): Promise<NomadExtendedWatchState>;
   cancelPairingDraft(profileId: string): Promise<NomadExtendedWatchState>;

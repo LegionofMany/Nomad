@@ -689,14 +689,15 @@ async function buildWalletDraft(quote: NomadPOSQuote): Promise<NomadTransactionD
   }
   const stored = await loadStoredState();
   if (stored.drafts.some((item) => item.nonce === quote.request.nonce && item.walletDraftStatus !== 'failed')) {
-    stored.events = [{
+    const replayEvent: NomadPOSEvent = {
       id: identifier('pos-event'),
       type: 'replay',
       title: 'Duplicate POS request blocked',
       detail: `${quote.request.merchantName} • nonce ${quote.request.nonce.slice(0, 8)}… already has a local wallet-draft receipt`,
       timestamp: nowIso(),
       severity: 'critical',
-    }, ...stored.events].slice(0, MAX_EVENTS);
+    };
+    stored.events = [replayEvent, ...stored.events].slice(0, MAX_EVENTS);
     await saveStoredState(stored);
     throw new Error('This merchant request nonce has already been used locally.');
   }

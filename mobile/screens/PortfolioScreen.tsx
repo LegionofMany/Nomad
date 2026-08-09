@@ -201,7 +201,7 @@ export default function PortfolioScreen() {
           <ShieldLogo size={compact ? 54 : 68} />
           <View style={styles.brandCopy}>
             <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]}>NOMAD</Text>
-            <Text style={styles.brandSub}>Built on <Text style={styles.blue}>Arkrilium Protocols</Text></Text>
+            <Text style={styles.brandSub}>Built on <Text style={styles.blue}>Voltaire Protocols</Text></Text>
           </View>
         </View>
 
@@ -226,7 +226,7 @@ export default function PortfolioScreen() {
       </View>
 
       <Panel style={[styles.heroCard, compact && styles.heroCardCompact]}>
-        <Image pointerEvents="none" source={{ uri: worldUri }} style={styles.heroBackdrop} resizeMode="stretch" />
+        <Image source={{ uri: worldUri }} style={styles.heroBackdrop} resizeMode="stretch" />
         <View style={[styles.heroTop, compact && styles.heroTopCompact]}>
           <View style={styles.balanceArea}>
             <Pressable accessibilityRole="button" accessibilityLabel={hideBalance ? 'Show portfolio balance' : 'Hide portfolio balance'} onPress={() => setHideBalance((value) => !value)} style={styles.eyebrowRow}>
@@ -269,7 +269,7 @@ export default function PortfolioScreen() {
       </View>
 
       <Panel tone="green" style={styles.travelCard}>
-        <Image pointerEvents="none" source={{ uri: worldUri }} resizeMode="stretch" style={styles.travelBackdrop} />
+        <Image source={{ uri: worldUri }} resizeMode="stretch" style={styles.travelBackdrop} />
         <Pressable accessibilityRole="button" accessibilityLabel="Open Travel Pocket" onPress={() => navigation.navigate('TravelMode')} style={styles.cardHeader}>
           <View style={styles.titleRow}>
             <Text style={styles.travelPlane}>✈</Text>
@@ -333,10 +333,10 @@ export default function PortfolioScreen() {
       </Panel>
 
       <Panel style={styles.ecosystemCard}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Explore Arkrilium Ecosystem" onPress={() => navigation.navigate('VoltaireProtocols')} style={styles.cardHeader}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Explore Arkrilium Labs Ecosystem" onPress={() => navigation.navigate('VoltaireProtocols')} style={styles.cardHeader}>
           <View style={styles.titleRow}>
             <View style={styles.arkriliumBadge}><Text style={styles.arkriliumBadgeText}>A</Text></View>
-            <Text style={styles.ecoTitle}>Arkrilium Ecosystem</Text>
+            <Text style={styles.ecoTitle}>Arkrilium Labs Ecosystem</Text>
           </View>
           <Text style={styles.exploreText}>Explore All  ›</Text>
         </Pressable>

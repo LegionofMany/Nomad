@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -8,17 +9,17 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 export const C = {
-  bg: '#020812',
-  panel: 'rgba(3,16,29,.97)',
-  panel2: 'rgba(2,13,25,.82)',
-  border: '#0a426d',
-  borderSoft: 'rgba(22,132,255,.16)',
-  blue: '#168cff',
-  green: '#20ef70',
-  purple: '#8752ff',
+  bg: '#01060d',
+  panel: 'rgba(4,16,30,.96)',
+  panel2: 'rgba(3,13,26,.84)',
+  border: '#0b4778',
+  borderSoft: 'rgba(49,148,255,.17)',
+  blue: '#3194ff',
+  green: '#28e978',
+  purple: '#9270ff',
   orange: '#ffad18',
   red: '#ff4b4b',
   yellow: '#ffbd18',
@@ -27,6 +28,110 @@ export const C = {
   muted2: '#7f91a8',
 };
 
+type GlyphKind = 'home' | 'wallet' | 'travel' | 'security' | 'recovery' | 'insights' | 'scan' | 'watch' | 'settings';
+
+const glyphPaths: Record<GlyphKind, string> = {
+  home: '<path d="M8 25 24 10l16 15v15H28V29h-8v11H8Z"/><path d="M15 18h18" opacity=".45"/>',
+  wallet: '<rect x="6" y="12" width="36" height="27" rx="8"/><path d="M31 21h12v11H31a5.5 5.5 0 0 1 0-11Z"/><circle cx="34" cy="26.5" r="1.8" fill="currentColor" stroke="none"/>',
+  travel: '<path d="m7 27 34-16-10 29-7-11-17-2Z"/><path d="m24 29 7-7"/>',
+  security: '<path d="M24 5 40 12v12c0 11-6 18-16 23C14 42 8 35 8 24V12Z"/><path d="m16 25 6 6 11-13"/>',
+  recovery: '<path d="M12 18a15 15 0 1 1-2 13"/><path d="M12 8v10H2"/><path d="M24 16v10l7 4"/>',
+  insights: '<path d="M7 40V24h8v16M20 40V15h8v25M33 40V8h8v32"/><path d="M5 40h38"/>',
+  scan: '<path d="M17 7H8v10M31 7h9v10M17 41H8V31M31 41h9V31"/><path d="M14 24h20"/><circle cx="24" cy="24" r="7"/>',
+  watch: '<path d="M18 4h12l2 8H16l2-8ZM16 36h16l-2 8H18l-2-8Z"/><rect x="11" y="11" width="26" height="26" rx="8"/><path d="M18 24h12M24 18v12"/>',
+  settings: '<circle cx="24" cy="24" r="7"/><path d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2"/>',
+};
+
+const glyphUriCache = new Map<string, string>();
+
+function glyphUri(kind: GlyphKind, color: string) {
+  const key = `${kind}:${color}`;
+  const cached = glyphUriCache.get(key);
+  if (cached) return cached;
+  const uri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${glyphPaths[kind]}</svg>`)}`;
+  glyphUriCache.set(key, uri);
+  return uri;
+}
+
+const brandMarkUri = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72" fill="none"><defs><linearGradient id="g" x1="8" y1="4" x2="56" y2="66"><stop stop-color="#54c7ff"/><stop offset="1" stop-color="#1668ff"/></linearGradient></defs><path d="M32 3 57 14v20c0 18-10 30-25 38C17 64 7 52 7 34V14Z" fill="#041425" stroke="url(#g)" stroke-width="4"/><path d="M15 38h9l5-9 7 16 5-10h8" stroke="#3194ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`)}`;
+
+function glyphForRoute(route: string): GlyphKind {
+  if (/Wallet|Send|Receive|Swap/.test(route)) return 'wallet';
+  if (/Travel|POS|TopUp/.test(route)) return 'travel';
+  if (/Recovery|Unlock|Clock|Authority|Recovered/.test(route)) return 'recovery';
+  if (/Security|Emergency/.test(route)) return 'security';
+  if (/Insights/.test(route)) return 'insights';
+  if (/BlockPages|AddressSafety/.test(route)) return 'scan';
+  if (/Watch/.test(route)) return 'watch';
+  if (/Settings/.test(route)) return 'settings';
+  return 'home';
+}
+
+export function NomadGlyph({ kind, color = C.blue, size = 24 }: { kind: GlyphKind; color?: string; size?: number }) {
+  return <Image accessibilityIgnoresInvertColors source={{ uri: glyphUri(kind, color) }} style={{ width: size, height: size }} />;
+}
+
+function NomadBrandMark({ size = 44 }: { size?: number }) {
+  return <Image accessibilityIgnoresInvertColors source={{ uri: brandMarkUri }} style={{ width: size, height: size * 1.125 }} />;
+}
+
+const railNav: Array<{ label: string; route: string; kind: GlyphKind }> = [
+  { label: 'Home', route: 'Portfolio', kind: 'home' },
+  { label: 'Wallets', route: 'Wallets', kind: 'wallet' },
+  { label: 'Travel', route: 'TravelMode', kind: 'travel' },
+  { label: 'Security', route: 'SecurityCenter', kind: 'security' },
+  { label: 'Recovery', route: 'RecoveryCenter', kind: 'recovery' },
+  { label: 'Insights', route: 'NomadInsights', kind: 'insights' },
+  { label: 'Reqrium', route: 'BlockPagesSafety', kind: 'scan' },
+  { label: 'Nomad Watch', route: 'NomadWatch', kind: 'watch' },
+];
+
+function routeIsActive(current: string, route: string) {
+  if (route === 'Wallets') return /Wallets|SendBitcoin|ReceiveBitcoin|Swap/.test(current);
+  if (route === 'TravelMode') return /Travel|TopUp|POS/.test(current);
+  if (route === 'SecurityCenter') return /Security|Emergency/.test(current);
+  if (route === 'RecoveryCenter') return /Recovery|Unlock|Clock|Authority|Recovered/.test(current);
+  if (route === 'NomadInsights') return /Insights/.test(current);
+  if (route === 'BlockPagesSafety') return /BlockPages|AddressSafety/.test(current);
+  return current === route;
+}
+
+function DesktopRail({ activeRoute }: { activeRoute: string }) {
+  const navigation = useNavigation<any>();
+  return (
+    <View style={styles.rail}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open Nomad Home" onPress={() => navigation.navigate('Portfolio')} style={styles.railBrand}>
+        <NomadBrandMark size={43} />
+        <View>
+          <Text style={styles.railWordmark}>NOMAD</Text>
+          <Text style={styles.railFoundation}>VOLTAIRE PROTOCOLS</Text>
+        </View>
+      </Pressable>
+      <View style={styles.railMode}><View style={styles.railModeDot} /><Text style={styles.railModeText}>CLOSED BETA · TEST MODE</Text></View>
+      <View style={styles.railNav}>
+        {railNav.map((item) => {
+          const selected = routeIsActive(activeRoute, item.route);
+          return (
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.label}`} key={item.route} onPress={() => navigation.navigate(item.route)} style={({ pressed }) => [styles.railItem, selected && styles.railItemActive, pressed && styles.railItemPressed]}>
+              <View style={[styles.railIcon, selected && styles.railIconActive]}><NomadGlyph kind={item.kind} color={selected ? C.blue : C.muted2} size={21} /></View>
+              <Text style={[styles.railLabel, selected && styles.railLabelActive]}>{item.label}</Text>
+              {selected ? <View style={styles.railIndicator} /> : null}
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.railFooter}>
+        <View style={styles.railNetwork}><View style={styles.railNetworkDot} /><Text style={styles.railNetworkText}>LOCAL SAFETY LAYER</Text></View>
+        <Text style={styles.railFootnote}>Non-custodial preview</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open Settings" onPress={() => navigation.navigate('Settings')} style={styles.railSettings}>
+          <NomadGlyph kind="settings" color={activeRoute === 'Settings' ? C.blue : C.muted} size={20} />
+          <Text style={[styles.railSettingsText, activeRoute === 'Settings' && { color: C.blue }]}>Settings</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function useNomadLayout() {
   const { width } = useWindowDimensions();
   return { width, compact: width < 620, desktop: width >= 980 };
@@ -34,13 +139,18 @@ export function useNomadLayout() {
 
 export function NomadPage({ children, maxWidth = 860 }: { children: React.ReactNode; maxWidth?: number }) {
   const { compact, desktop } = useNomadLayout();
+  const route = useRoute();
   return (
     <View style={styles.root}>
+      <View pointerEvents="none" style={styles.ambientBlue} />
+      <View pointerEvents="none" style={styles.ambientPurple} />
+      {desktop ? <DesktopRail activeRoute={route.name} /> : null}
       <ScrollView
+        style={styles.contentScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.page,
-          { paddingHorizontal: compact ? 14 : 24, maxWidth: desktop ? Math.max(maxWidth, 1080) : maxWidth },
+          { paddingHorizontal: compact ? 14 : desktop ? 34 : 24, maxWidth: desktop ? Math.max(maxWidth, 1080) : maxWidth },
         ]}
       >
         {children}
@@ -149,14 +259,18 @@ const defaultNav = [
 
 export function BottomNav({ active, fifth, items }: { active: string; fifth?: readonly [string, string, string]; items?: ReadonlyArray<readonly [string, string, string]> }) {
   const navigation = useNavigation<any>();
+  const currentRoute = useRoute();
+  const { desktop } = useNomadLayout();
   const nav = items ?? (fifth ? [...defaultNav.slice(0, 4), fifth] : defaultNav);
+  const hasNamedActiveItem = nav.some(([, label]) => label === active);
+  if (desktop) return null;
   return (
     <View style={styles.bottomNav}>
-      {nav.map(([icon, label, route]) => {
-        const selected = label === active;
+      {nav.map(([, label, route]) => {
+        const selected = hasNamedActiveItem ? label === active : routeIsActive(currentRoute.name, route);
         return (
           <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, selected && styles.navItemActive]}>
-            <Text style={[styles.navIcon, selected && styles.navSelected]}>{icon}</Text>
+            <NomadGlyph kind={glyphForRoute(route)} color={selected ? C.blue : C.muted} size={24} />
             <Text style={[styles.navLabel, selected && styles.navSelected]}>{label}</Text>
           </Pressable>
         );
@@ -182,9 +296,35 @@ export function MiniMetric({ label, value, sub, color = C.green }: { label: stri
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  page: { width: '100%', alignSelf: 'center', paddingTop: 18, paddingBottom: 24 },
-  panel: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0 16px 55px rgba(0,0,0,.28)' } as any, default: {} }) },
+  root: { flex: 1, flexDirection: 'row', backgroundColor: C.bg, position: 'relative', overflow: 'hidden' },
+  ambientBlue: { position: 'absolute', top: -240, left: '16%', width: 620, height: 620, borderRadius: 310, opacity: .14, backgroundColor: '#0755b8', ...Platform.select({ web: { filter: 'blur(120px)' } as any, default: {} }) },
+  ambientPurple: { position: 'absolute', right: -260, bottom: -260, width: 620, height: 620, borderRadius: 310, opacity: .1, backgroundColor: '#5724b7', ...Platform.select({ web: { filter: 'blur(130px)' } as any, default: {} }) },
+  contentScroll: { flex: 1 },
+  page: { width: '100%', alignSelf: 'center', paddingTop: 22, paddingBottom: 28 },
+  panel: { borderWidth: 1, borderRadius: 20, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0 18px 58px rgba(0,0,0,.3)', backdropFilter: 'blur(18px)' } as any, default: {} }) },
+  rail: { width: 242, flexShrink: 0, borderRightWidth: 1, borderRightColor: 'rgba(49,148,255,.16)', backgroundColor: 'rgba(2,10,20,.94)', paddingHorizontal: 15, paddingTop: 21, paddingBottom: 19, zIndex: 10, ...Platform.select({ web: { boxShadow: '18px 0 55px rgba(0,0,0,.22)', backdropFilter: 'blur(24px)' } as any, default: {} }) },
+  railBrand: { minHeight: 61, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 5 },
+  railWordmark: { color: C.text, fontSize: 22, fontWeight: '900', letterSpacing: 1.7 },
+  railFoundation: { color: C.blue, fontSize: 7, fontWeight: '900', letterSpacing: 1.2, marginTop: 2 },
+  railMode: { minHeight: 31, marginTop: 14, marginHorizontal: 4, borderWidth: 1, borderColor: 'rgba(40,233,120,.24)', borderRadius: 10, backgroundColor: 'rgba(40,233,120,.05)', paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  railModeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, ...Platform.select({ web: { boxShadow: '0 0 10px rgba(40,233,120,.85)' } as any, default: {} }) },
+  railModeText: { color: '#aeeec8', fontSize: 7, fontWeight: '900', letterSpacing: .8 },
+  railNav: { marginTop: 24, gap: 5 },
+  railItem: { minHeight: 48, borderRadius: 13, paddingHorizontal: 9, flexDirection: 'row', alignItems: 'center', position: 'relative' },
+  railItemActive: { borderWidth: 1, borderColor: 'rgba(49,148,255,.2)', backgroundColor: 'rgba(49,148,255,.1)' },
+  railItemPressed: { opacity: .72 },
+  railIcon: { width: 31, height: 31, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  railIconActive: { backgroundColor: 'rgba(49,148,255,.11)' },
+  railLabel: { color: C.muted, fontSize: 12, fontWeight: '700', marginLeft: 8 },
+  railLabelActive: { color: C.text, fontWeight: '900' },
+  railIndicator: { position: 'absolute', right: -1, width: 3, height: 22, borderRadius: 3, backgroundColor: C.blue, ...Platform.select({ web: { boxShadow: '0 0 13px rgba(49,148,255,.8)' } as any, default: {} }) },
+  railFooter: { marginTop: 'auto', borderTopWidth: 1, borderTopColor: C.borderSoft, paddingTop: 15, paddingHorizontal: 4 },
+  railNetwork: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  railNetworkDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green },
+  railNetworkText: { color: C.green, fontSize: 7, fontWeight: '900', letterSpacing: .8 },
+  railFootnote: { color: C.muted2, fontSize: 9, marginTop: 6 },
+  railSettings: { minHeight: 42, marginTop: 13, borderRadius: 11, backgroundColor: 'rgba(255,255,255,.025)', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' },
+  railSettingsText: { color: C.muted, fontSize: 11, fontWeight: '800', marginLeft: 10 },
   header: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
   headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -208,10 +348,9 @@ const styles = StyleSheet.create({
   primaryLabel: { color: '#fff', fontSize: 20, fontWeight: '900' },
   primarySub: { color: 'rgba(255,255,255,.78)', fontSize: 12, marginTop: 4 },
   primaryArrow: { color: '#fff', fontSize: 34 },
-  bottomNav: { minHeight: 84, marginTop: 20, borderWidth: 1, borderColor: '#0a3559', borderRadius: 18, backgroundColor: 'rgba(3,14,25,.98)', flexDirection: 'row', alignItems: 'center', padding: 6 },
+  bottomNav: { minHeight: 76, marginTop: 20, borderWidth: 1, borderColor: '#0a426e', borderRadius: 19, backgroundColor: 'rgba(3,13,25,.98)', flexDirection: 'row', alignItems: 'center', padding: 6, zIndex: 30, ...Platform.select({ web: { position: 'sticky', bottom: 10, boxShadow: '0 18px 45px rgba(0,0,0,.54)', backdropFilter: 'blur(24px)' } as any, default: {} }) },
   navItem: { flex: 1, minHeight: 66, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   navItemActive: { backgroundColor: 'rgba(0,78,170,.12)' },
-  navIcon: { color: '#aebacc', fontSize: 25 },
   navLabel: { color: '#aebacc', fontSize: 10, marginTop: 5 },
   navSelected: { color: C.blue },
   infoRow: { minHeight: 78, paddingHorizontal: 15, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },

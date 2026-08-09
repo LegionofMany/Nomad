@@ -39,6 +39,12 @@ export type NomadAdapterFailure = {
   recoverable: boolean;
 };
 
+export function createMissingAdapterError(methodName: string): Error {
+  const error = new Error(`Nomad adapter method is not connected: ${methodName}`);
+  error.name = 'NomadMissingAdapterError';
+  return error;
+}
+
 export type NomadAsset = {
   symbol: string;
   name: string;

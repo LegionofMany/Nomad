@@ -20,6 +20,41 @@ import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } fr
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const isWebPreview = Platform.OS === 'web';
+const webLinking = {
+  prefixes: [],
+  config: {
+    screens: {
+      Portfolio: '',
+      Wallets: 'wallets',
+      SendBitcoin: 'wallets/send',
+      ReceiveBitcoin: 'wallets/receive',
+      Swap: 'wallets/swap',
+      TravelMode: 'travel',
+      TopUpTravelPocket: 'travel/top-up',
+      ApprovePOSTransaction: 'travel/approve',
+      SecurityCenter: 'security',
+      EmergencyFreeze: 'security/emergency-freeze',
+      RecoveryCenter: 'recovery',
+      TimeClockAccess: 'recovery/time-clock',
+      UnlockWallet: 'recovery/unlock',
+      RecoverLostWallet: 'recovery/lost-wallet',
+      VerifyRecoverySequence: 'recovery/verify',
+      WalletRecovered: 'recovery/complete',
+      OwnerAuthorityApproval: 'recovery/owner-authority',
+      CreateOwnerAuthority: 'recovery/owner-authority/create',
+      Settings: 'settings',
+      NomadInsights: 'insights',
+      NomadInsightsSpending: 'insights/spending',
+      VoltaireProtocols: 'ecosystem',
+      BlockPagesSafety: 'reqrium',
+      BlockPagesURLScanner: 'reqrium/url-scanner',
+      AddressSafetyDetail: 'reqrium/address-safety',
+      NomadWatch: 'watch',
+      ClockUnlock: 'clock-unlock',
+      Lock: 'lock',
+    },
+  },
+};
 
 function NavigationGate() {
   const { walletStatus } = useAppState();
@@ -63,8 +98,8 @@ export default function App() {
     <AppStateProvider>
       <NomadAdaptersProvider>
         <SafeAreaProvider>
-          <NavigationContainer ref={navigationRef}>
-            <SafeAreaView style={{ flex: 1 }}>
+          <NavigationContainer ref={navigationRef} linking={isWebPreview ? webLinking : undefined}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#01060d' }}>
               <NavigationGate />
               <AppNavigator />
               <StatusBar style="light" />

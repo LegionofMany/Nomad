@@ -408,7 +408,7 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
 
   return {
     walletStatus,
-    dailyUnlockTime: dailyUnlockTime ? { ...dailyUnlockTime, second: dailyUnlockTime.second ?? 0 } : null,
+    dailyUnlockTime: dailyUnlockTime ? { ...dailyUnlockTime, second: 0 } : null,
     recoveryStatus,
     recoverySetupDate: formatDate(setupAt),
     verificationStatus: sequenceReady ? '24 Time Sets enrolled' : `${enrolledTimeSets}/${TIME_SET_TOTAL} Time Sets enrolled`,
@@ -629,7 +629,7 @@ async function verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime
   return buildSequenceState();
 }
 
-async function completeRecoverySequence() {
+async function completeRecoverySequence(): Promise<NomadRecoverySequenceState> {
   const stored = await loadStoredState();
   if (stored.sequence.status !== 'ready_to_recover' || stored.sequence.verifiedSets !== TIME_SET_TOTAL) {
     throw new Error('All 24 Time Sets must be verified before recovery authorization.');

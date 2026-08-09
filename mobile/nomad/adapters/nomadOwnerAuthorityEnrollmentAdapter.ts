@@ -362,7 +362,6 @@ async function buildState(): Promise<NomadOwnerAuthorityEnrollmentState> {
   const canCreateProfile = Boolean(walletMeta)
     && walletStatus === 'unlocked'
     && !frozen
-    && walletStatus !== 'recovery'
     && recoveryRequest.status !== 'pending';
 
   return {
