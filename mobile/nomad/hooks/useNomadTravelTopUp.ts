@@ -42,9 +42,9 @@ const fallbackState: NomadTravelTopUpState = {
 };
 
 async function loadWalletSnapshot(wallet: ReturnType<typeof useNomadAdapters>['wallet']) {
-  if (!wallet) throw new Error('Nomad wallet adapter is not connected.');
+  if (!wallet) return { assets: [], session: undefined };
   const [assets, session] = await Promise.all([
-    wallet.getAssets(),
+    wallet.getAssets().catch(() => []),
     wallet.getSessionState
       ? wallet.getSessionState().catch(() => undefined)
       : Promise.resolve(undefined),
