@@ -223,7 +223,7 @@ function buildPerformanceRows(balances: WalletBalance[]): NomadPerformanceRow[] 
 }
 
 function buildSpendingSeries(transactions: NomadTravelPocketTransaction[], days: number): NomadInsightsSeriesPoint[] {
-  const pointCount = days <= 7 ? 7 : days <= 30 ? 6 : days <= 90 ? 6 : 12;
+  const pointCount = days <= 7 ? 7 : days <= 30 ? 30 : days <= 90 ? 13 : 12;
   const bucketDays = Math.max(1, Math.ceil(days / pointCount));
   return Array.from({ length: pointCount }, (_, index) => {
     const end = Date.now() - (pointCount - 1 - index) * bucketDays * 24 * 60 * 60 * 1000;
