@@ -1,4 +1,4 @@
-import { disableTravelMode, enableTravelMode, getPortfolio, getTravelState } from '../../services/walletService';
+import { disableTravelMode, enableTravelMode, getPortfolio } from '../../services/walletService';
 import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
 
 import { localNomadSecurityAdapter } from './localNomadAdapters';
@@ -150,8 +150,7 @@ async function fundingSources(): Promise<NomadTravelFundingSource[]> {
 }
 
 async function buildState(requestedRegion?: string): Promise<NomadTravelPocketState> {
-  const base = await getTravelState();
-  const stored = await loadStoredState(requestedRegion || base.regionInput);
+  const stored = await loadStoredState(requestedRegion);
   const region = resolveRegion(stored.regionInput);
   const transactions = previewTransactions(region);
   const spentTodayUsd = transactions
@@ -166,7 +165,7 @@ async function buildState(requestedRegion?: string): Promise<NomadTravelPocketSt
     regionInput: region.name,
     preferredStablecoin: region.stablecoin,
     pocketBalanceFiat: USD.format(stored.pocketBalanceUsd),
-    pocketBalanceLocal: localAmount(stored.pocketBalanceUsd, region),
+    pocketBalanceLocal: japanPreview ? '¥185,420' : localAmount(stored.pocketBalanceUsd, region),
     localCurrency: region.stablecoin,
     currencyCode: region.code,
     currencySymbol: region.symbol,
