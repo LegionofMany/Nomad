@@ -1,18 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { useNomadWallet, type NomadAsset } from '../nomad';
+import { BottomNav, NomadBrandMark, NomadPage, useNomadLayout } from '../ui/NomadShell';
 
 type AssetGroup = 'Crypto' | 'Stablecoins' | 'Tokens' | 'Custom';
 type FilterName = 'All Assets' | AssetGroup;
@@ -101,36 +101,30 @@ function numericPercent(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-const svgUri = (body: string) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${body}</svg>`)}`;
+function ActionGlyph({ kind, size }: { kind: 'search' | 'filter' | 'plus'; size: number }) {
+  return (
+    <Svg accessibilityLabel={`${kind} icon`} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      {kind === 'search' ? <><Circle cx="27" cy="27" r="14" stroke="#d8e4f4" strokeWidth="4" /><Path d="m38 38 12 12" stroke="#d8e4f4" strokeWidth="4" strokeLinecap="round" /></> : null}
+      {kind === 'filter' ? <Path d="M11 14h42L38 32v15l-12 6V32Z" stroke="#d8e4f4" strokeWidth="4" strokeLinejoin="round" /> : null}
+      {kind === 'plus' ? <Path d="M32 12v40M12 32h40" stroke={BLUE} strokeWidth="4" strokeLinecap="round" /> : null}
+    </Svg>
+  );
+}
 
-const shieldSvg = svgUri(`
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2bbcff"/><stop offset="1" stop-color="#0064ff"/></linearGradient></defs>
-  <path d="M32 3 55 13v18c0 15-9 25-23 31C18 56 9 46 9 31V13Z" fill="#031120" stroke="url(#g)" stroke-width="4"/>
-  <path d="m15 34 8-7 6 6 7-9 7 8 7-6" fill="none" stroke="#168cff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-`);
-
-const walletSvg = `data:image/svg+xml;utf8,${encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 165">
-  <defs>
-    <linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a2d69"/><stop offset="1" stop-color="#02152f"/></linearGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <ellipse cx="155" cy="84" rx="112" ry="55" fill="none" stroke="#087cff" stroke-opacity=".35"/>
-  <ellipse cx="155" cy="84" rx="87" ry="39" fill="none" stroke="#21baff" stroke-opacity=".3" stroke-dasharray="4 7"/>
-  <path d="M78 43 106 18h89l30 26v74H78Z" fill="url(#w)" stroke="#0e7cff" stroke-width="5" filter="url(#glow)"/>
-  <path d="M78 56h136v67H78z" fill="#04172e" stroke="#168cff" stroke-width="5"/>
-  <path d="M190 68h54v38h-54c-12 0-19-8-19-19s7-19 19-19Z" fill="#061a35" stroke="#168cff" stroke-width="5"/>
-  <circle cx="199" cy="87" r="5" fill="#168cff"/>
-  <path d="m125 72 19-8 19 8v16c0 13-7 22-19 28-12-6-19-15-19-28Z" fill="#052546" stroke="#168cff" stroke-width="4"/>
-  <path d="m132 88 7-7 6 6 7-9 7 8" fill="none" stroke="#168cff" stroke-width="4" stroke-linecap="round"/>
-</svg>`)}`;
-
-const searchSvg = svgUri('<circle cx="27" cy="27" r="14" fill="none" stroke="#d8e4f4" stroke-width="4"/><path d="m38 38 12 12" stroke="#d8e4f4" stroke-width="4" stroke-linecap="round"/>');
-const filterSvg = svgUri('<path d="M11 14h42L38 32v15l-12 6V32Z" fill="none" stroke="#d8e4f4" stroke-width="4" stroke-linejoin="round"/>');
-const plusSvg = svgUri('<path d="M32 12v40M12 32h40" stroke="#168cff" stroke-width="4" stroke-linecap="round"/>');
-
-function IconImage({ uri, size }: { uri: string; size: number }) {
-  return <Image source={{ uri }} resizeMode="contain" style={{ width: size, height: size }} />;
+function WalletArtwork({ compact }: { compact: boolean }) {
+  return (
+    <Svg accessibilityLabel="Nomad wallet illustration" width={compact ? 132 : 230} height={compact ? 96 : 150} viewBox="0 0 280 165" fill="none" style={styles.walletArt}>
+      <Defs><LinearGradient id="walletGradient" x1="78" y1="18" x2="225" y2="123"><Stop stopColor="#0a2d69" /><Stop offset="1" stopColor="#02152f" /></LinearGradient></Defs>
+      <Ellipse cx="155" cy="84" rx="112" ry="55" stroke="#087cff" strokeOpacity={0.35} />
+      <Ellipse cx="155" cy="84" rx="87" ry="39" stroke="#21baff" strokeOpacity={0.3} strokeDasharray="4 7" />
+      <Path d="M78 43 106 18h89l30 26v74H78Z" fill="url(#walletGradient)" stroke="#0e7cff" strokeWidth="5" />
+      <Rect x="78" y="56" width="136" height="67" fill="#04172e" stroke={BLUE} strokeWidth="5" />
+      <Path d="M190 68h54v38h-54c-12 0-19-8-19-19s7-19 19-19Z" fill="#061a35" stroke={BLUE} strokeWidth="5" />
+      <Circle cx="199" cy="87" r="5" fill={BLUE} />
+      <Path d="m125 72 19-8 19 8v16c0 13-7 22-19 28-12-6-19-15-19-28Z" fill="#052546" stroke={BLUE} strokeWidth="4" />
+      <Path d="m132 88 7-7 6 6 7-9 7 8" stroke={BLUE} strokeWidth="4" strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 function AssetBadge({ asset, size = 46 }: { asset: AssetRow; size?: number }) {
@@ -159,9 +153,7 @@ function Field({ label, value, onChangeText, placeholder }: { label: string; val
 
 export default function WalletsScreen() {
   const navigation = useNavigation<any>();
-  const { width } = useWindowDimensions();
-  const compact = width < 620;
-  const desktop = width >= 980;
+  const { compact } = useNomadLayout();
   const { totalBalance, assets: liveAssets, loading } = useNomadWallet();
 
   const [activeFilter, setActiveFilter] = useState<FilterName>('All Assets');
@@ -245,17 +237,10 @@ export default function WalletsScreen() {
   const balanceLabel = loading ? 'Loading…' : liveAssets.length ? totalBalance : '$24,832.45';
 
   return (
-    <View style={styles.root}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.page,
-          { paddingHorizontal: compact ? 12 : 24, maxWidth: desktop ? 1120 : 860 },
-        ]}
-      >
+    <NomadPage maxWidth={1120}>
         <View style={styles.header}>
           <View style={styles.titleGroup}>
-            <IconImage uri={shieldSvg} size={compact ? 54 : 66} />
+            <NomadBrandMark size={compact ? 48 : 58} />
             <View style={styles.titleCopy}>
               <Text style={[styles.title, { fontSize: compact ? 28 : 35 }]}>Wallets</Text>
               <Text style={[styles.subtitle, { fontSize: compact ? 12 : 15 }]}>Manage all your digital assets</Text>
@@ -263,20 +248,20 @@ export default function WalletsScreen() {
           </View>
           <View style={styles.headerButtons}>
             <Pressable accessibilityRole="button" accessibilityLabel="Search assets" onPress={() => setSearchOpen((value) => !value)} style={styles.circleButton}>
-              <IconImage uri={searchSvg} size={compact ? 24 : 28} />
+              <ActionGlyph kind="search" size={compact ? 24 : 28} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Open wallet filters" onPress={() => setFilterOpen((value) => !value)} style={[styles.circleButton, filterOpen && styles.circleButtonActive]}>
-              <IconImage uri={filterSvg} size={compact ? 23 : 27} />
+              <ActionGlyph kind="filter" size={compact ? 23 : 27} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={styles.circleButton}>
-              <IconImage uri={plusSvg} size={compact ? 25 : 30} />
+              <ActionGlyph kind="plus" size={compact ? 25 : 30} />
             </Pressable>
           </View>
         </View>
 
         {searchOpen ? (
           <View style={styles.searchBar}>
-            <IconImage uri={searchSvg} size={23} />
+            <ActionGlyph kind="search" size={23} />
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -319,7 +304,7 @@ export default function WalletsScreen() {
             </View>
             <Text style={[styles.change, { fontSize: compact ? 15 : 19 }]}>+1.82% (24h)</Text>
           </View>
-          <Image source={{ uri: walletSvg }} resizeMode="contain" style={[styles.walletArt, { width: compact ? 132 : 230, height: compact ? 96 : 150 }]} />
+          <WalletArtwork compact={compact} />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
@@ -395,7 +380,7 @@ export default function WalletsScreen() {
         ) : null}
 
         <Pressable accessibilityRole="button" accessibilityLabel="Add custom asset" onPress={openCustomAsset} style={styles.addAsset}>
-          <View style={styles.addIcon}><IconImage uri={plusSvg} size={29} /></View>
+          <View style={styles.addIcon}><ActionGlyph kind="plus" size={29} /></View>
           <View style={styles.addCopy}><Text style={styles.addTitle}>Add Custom Asset</Text><Text style={styles.addSub}>Add tokens or assets to your wallet</Text></View>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
@@ -414,31 +399,12 @@ export default function WalletsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.bottomNav}>
-          {([
-            ['⌂', 'Home', 'Portfolio'],
-            ['▣', 'Wallets', 'Wallets'],
-            ['✈', 'Travel', 'TravelMode'],
-            ['◇', 'Security', 'SecurityCenter'],
-            ['⚙', 'Settings', 'Settings'],
-          ] as const).map(([icon, label, route]) => {
-            const active = label === 'Wallets';
-            return (
-              <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={label} onPress={() => navigation.navigate(route)} style={[styles.navItem, active && styles.navItemActive]}>
-                <Text style={[styles.navIcon, active && styles.navActive]}>{icon}</Text>
-                <Text style={[styles.navLabel, active && styles.navActive]}>{label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-    </View>
+        <BottomNav active="Wallets" />
+    </NomadPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#020812' },
-  page: { width: '100%', alignSelf: 'center', paddingTop: 20, paddingBottom: 24 },
   header: { minHeight: 76, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 18 },
   titleGroup: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
   titleCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
@@ -468,7 +434,7 @@ const styles = StyleSheet.create({
   balance: { color: '#fff', fontWeight: '900', letterSpacing: -2, lineHeight: 66 },
   currency: { color: '#fff' },
   change: { color: GREEN, fontWeight: '800', marginTop: 4 },
-  walletArt: { marginLeft: 2 },
+  walletArt: { marginLeft: 2, flexShrink: 0 },
   filters: { paddingVertical: 20, paddingRight: 10 },
   filter: { minHeight: 49, minWidth: 112, marginRight: 11, borderWidth: 1, borderColor: '#1a2b40', borderRadius: 13, backgroundColor: 'rgba(8,14,24,.9)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   filterActive: { borderColor: BLUE, backgroundColor: 'rgba(22,132,255,.21)', ...Platform.select({ web: { boxShadow: '0 0 18px rgba(22,132,255,.25)' } as any, default: {} }) },
@@ -527,10 +493,4 @@ const styles = StyleSheet.create({
   feedbackSuccess: { color: GREEN },
   addCustomButton: { alignSelf: 'flex-start', minHeight: 45, marginTop: 15, borderRadius: 11, paddingHorizontal: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: BLUE },
   addCustomButtonText: { color: '#fff', fontWeight: '900' },
-  bottomNav: { minHeight: 84, marginTop: 20, borderWidth: 1, borderColor: '#0a3559', borderRadius: 18, backgroundColor: 'rgba(3,14,25,.98)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 7 },
-  navItem: { flex: 1, minHeight: 66, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },
-  navItemActive: { backgroundColor: 'rgba(0,78,170,.12)' },
-  navIcon: { color: '#aebacc', fontSize: 26 },
-  navLabel: { color: '#aebacc', fontSize: 10, marginTop: 5 },
-  navActive: { color: BLUE },
 });

@@ -78,7 +78,7 @@ export function NomadGlyph({ kind, color = C.blue, size = 24 }: { kind: GlyphKin
   return <Svg accessibilityLabel={`${kind} icon`} width={size} height={size} viewBox="0 0 48 48" fill="none">{artwork}</Svg>;
 }
 
-function NomadBrandMark({ size = 44 }: { size?: number }) {
+export function NomadBrandMark({ size = 44 }: { size?: number }) {
   return (
     <Svg accessibilityLabel="Nomad shield" width={size} height={size * 1.125} viewBox="0 0 64 72" fill="none">
       <Defs><LinearGradient id="nomadBrand" x1="8" y1="4" x2="56" y2="66"><Stop stopColor="#54c7ff" /><Stop offset="1" stopColor="#1668ff" /></LinearGradient></Defs>
