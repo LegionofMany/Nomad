@@ -276,7 +276,7 @@ function StatCard({ compact, icon, label, value, progress, note, last }: { compa
 
 function ActionCard({ compact, icon, title, subtitle, disabled, onPress }: { compact: boolean; icon: TravelArtworkKind; title: string; subtitle: string; disabled?: boolean; onPress(): void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.actionCard, compact && styles.actionCardCompact, disabled && styles.actionDisabled, pressed && !disabled && styles.pressed]}>
+    <Pressable testID={`travel-action-${icon}`} accessibilityRole="button" accessibilityLabel={title} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.actionCard, compact && styles.actionCardCompact, disabled && styles.actionDisabled, pressed && !disabled && styles.pressed]}>
       <TravelArtwork kind={icon} color={C.blue} size={compact ? 29 : 40} />
       <Text style={[styles.actionTitle, compact && styles.actionTitleCompact]}>{title}</Text>
       <Text style={[styles.actionSubtitle, compact && styles.actionSubtitleCompact]}>{subtitle}</Text>
