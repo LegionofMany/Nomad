@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { useNomadSecurity } from '../nomad';
 import type {
@@ -12,47 +13,89 @@ import type {
 import {
   BottomNav,
   C,
+  NomadBrandMark,
   NomadPage,
-  PageHeader,
   Panel,
-  ProgressBar,
   useNomadLayout,
 } from '../ui/NomadShell';
 
-const svgUri = (viewBox: string, body: string) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${body}</svg>`)}`;
+type SecurityArtworkKind =
+  | 'shield'
+  | 'storage'
+  | 'authority'
+  | 'device'
+  | 'recovery'
+  | 'network'
+  | 'key'
+  | 'multisig'
+  | 'cloud'
+  | 'scan'
+  | 'freeze';
 
-const securityShieldUri = svgUri(
-  '0 0 260 300',
-  `<defs>
-    <linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2cff88"/><stop offset=".55" stop-color="#0dc66b"/><stop offset="1" stop-color="#0872ac"/></linearGradient>
-    <radialGradient id="r"><stop stop-color="#20ef70" stop-opacity=".45"/><stop offset="1" stop-color="#20ef70" stop-opacity="0"/></radialGradient>
-    <filter id="g"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <circle cx="130" cy="142" r="118" fill="url(#r)"/>
-  <circle cx="130" cy="142" r="104" fill="none" stroke="#20ef70" stroke-opacity=".18" stroke-width="2"/>
-  <circle cx="130" cy="142" r="84" fill="none" stroke="#20ef70" stroke-opacity=".25" stroke-width="2"/>
-  <path d="M130 18 228 62v74c0 73-39 121-98 153-59-32-98-80-98-153V62Z" fill="#021a16" stroke="url(#s)" stroke-width="8" filter="url(#g)"/>
-  <path d="M130 48 198 79v56c0 53-27 89-68 116-41-27-68-63-68-116V79Z" fill="#03110f" stroke="#20ef70" stroke-opacity=".48" stroke-width="3"/>
-  <path d="m88 145 28 28 58-72" fill="none" stroke="#20ef70" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" filter="url(#g)"/>
-  <circle cx="130" cy="143" r="8" fill="#20ef70"/>
-  <path d="M30 247h200M47 266h166" stroke="#20ef70" stroke-opacity=".22" stroke-width="2"/>
-  <circle cx="48" cy="266" r="4" fill="#20ef70"/><circle cx="212" cy="266" r="4" fill="#20ef70"/>`,
-);
+const worldDots: Array<[number, number]> = [
+  [24, 58], [32, 49], [40, 43], [48, 47], [55, 56], [63, 63], [72, 59], [80, 49], [88, 43],
+  [99, 51], [106, 62], [112, 73], [120, 84], [131, 91], [139, 104], [147, 119], [154, 132],
+  [171, 58], [179, 50], [188, 47], [198, 51], [207, 62], [218, 68], [229, 63], [240, 56],
+  [250, 61], [260, 72], [270, 80], [281, 90], [292, 102], [304, 114], [314, 125], [325, 136],
+  [208, 91], [218, 103], [226, 116], [234, 129], [241, 143], [250, 151], [263, 147], [274, 139],
+  [289, 68], [300, 62], [311, 68], [321, 78], [329, 91], [338, 103], [347, 111], [355, 102],
+];
 
-const moduleIcons: Record<NomadSecurityModuleResult['id'], string> = {
-  secure_storage: '▣',
-  owner_authority: '♙',
-  device_integrity: '▤',
-  recovery_status: '⟳',
-  network_protection: '◇',
+const backupTitles: Record<NomadSecurityBackupResult['id'], { title: string; subtitle: string; kind: SecurityArtworkKind }> = {
+  recovery_sequence: { title: 'Recovery Phrase', subtitle: 'Owner recovery sequence', kind: 'key' },
+  multi_sig: { title: 'Multi-Sig Wallet', subtitle: 'Approval quorum', kind: 'multisig' },
+  encrypted_backup: { title: 'Cloud Backup', subtitle: 'Encrypted recovery', kind: 'cloud' },
 };
 
-const backupIcons: Record<NomadSecurityBackupResult['id'], string> = {
-  recovery_sequence: '⚿',
-  multi_sig: '⬡',
-  encrypted_backup: '☁',
+const moduleKinds: Record<NomadSecurityModuleResult['id'], SecurityArtworkKind> = {
+  secure_storage: 'storage',
+  owner_authority: 'authority',
+  device_integrity: 'device',
+  recovery_status: 'recovery',
+  network_protection: 'network',
 };
+
+function SecurityArtwork({ kind, color = C.green, size = 42 }: { kind: SecurityArtworkKind; color?: string; size?: number }) {
+  const stroke = { stroke: color, strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  let artwork: React.ReactNode;
+
+  switch (kind) {
+    case 'storage':
+      artwork = <><Rect x="7" y="12" width="34" height="27" rx="5" {...stroke} /><Path d="M12 18h24M18 26h12v9H18Z" {...stroke} /><Circle cx="24" cy="30" r="1.7" fill={color} /></>;
+      break;
+    case 'authority':
+      artwork = <><Circle cx="24" cy="15" r="7" {...stroke} /><Path d="M11 39c1-9 6-14 13-14s12 5 13 14M34 20l8 4-2 9-6 3" {...stroke} /></>;
+      break;
+    case 'device':
+      artwork = <><Rect x="12" y="5" width="24" height="38" rx="5" {...stroke} /><Path d="m17 25 5 5 10-12M20 38h8" {...stroke} /></>;
+      break;
+    case 'recovery':
+      artwork = <><Path d="M10 18a16 16 0 1 1-2 15M10 8v10H1" {...stroke} /><Path d="m17 25 5 5 10-11" {...stroke} /></>;
+      break;
+    case 'network':
+      artwork = <><Path d="M24 5 40 12v12c0 11-6 18-16 23C14 42 8 35 8 24V12Z" {...stroke} /><Circle cx="18" cy="24" r="2" fill={color} /><Circle cx="30" cy="18" r="2" fill={color} /><Circle cx="31" cy="31" r="2" fill={color} /><Path d="m20 23 8-4M20 26l9 4M30 20l1 9" {...stroke} /></>;
+      break;
+    case 'key':
+      artwork = <><Circle cx="31" cy="16" r="9" {...stroke} /><Path d="M25 22 7 40M13 34l5 5M18 29l5 5M31 12v8M27 16h8" {...stroke} /></>;
+      break;
+    case 'multisig':
+      artwork = <><Path d="M24 4 41 14v20L24 44 7 34V14Z" {...stroke} /><Circle cx="24" cy="18" r="5" {...stroke} /><Path d="M15 34c1-7 4-10 9-10s8 3 9 10" {...stroke} /></>;
+      break;
+    case 'cloud':
+      artwork = <><Path d="M12 36h25a8 8 0 0 0 1-16 14 14 0 0 0-27-2A9 9 0 0 0 12 36Z" {...stroke} /><Path d="M24 22v17m-6-6 6 6 6-6" {...stroke} /></>;
+      break;
+    case 'scan':
+      artwork = <><Path d="M16 7H7v9M32 7h9v9M16 41H7v-9M32 41h9v-9" {...stroke} /><Path d="M12 24h24" {...stroke} /><Circle cx="24" cy="24" r="7" {...stroke} /></>;
+      break;
+    case 'freeze':
+      artwork = <><Path d="M24 6v36M8 15l32 18M40 15 8 33M18 10l6 6 6-6M18 38l6-6 6 6M8 22l8 2-2-8M40 26l-8-2 2 8" {...stroke} /></>;
+      break;
+    default:
+      artwork = <><Path d="M24 4 41 12v13c0 11-6 18-17 23C13 43 7 36 7 25V12Z" {...stroke} /><Path d="m15 25 6 6 12-14" {...stroke} /></>;
+  }
+
+  return <Svg accessibilityLabel={`${kind} security icon`} width={size} height={size} viewBox="0 0 48 48" fill="none">{artwork}</Svg>;
+}
 
 function statusInfo(status: NomadSecurityModuleStatus) {
   switch (status) {
@@ -64,74 +107,158 @@ function statusInfo(status: NomadSecurityModuleStatus) {
   }
 }
 
-function ModuleRow({ item, last }: { item: NomadSecurityModuleResult; last?: boolean }) {
+function StatusMark({ color, symbol, size = 20 }: { color: string; symbol: string; size?: number }) {
+  return (
+    <View style={[styles.statusMark, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
+      <Text style={[styles.statusMarkText, { color, fontSize: size * .58 }]}>{symbol}</Text>
+    </View>
+  );
+}
+
+function SystemStatusPill({ compact, label, color }: { compact: boolean; label: string; color: string }) {
+  return (
+    <View accessibilityLabel={`All Systems ${label}`} style={[styles.systemPill, compact && styles.systemPillCompact, { borderColor: `${color}66` }]}>
+      <SecurityArtwork kind="shield" color={color} size={compact ? 29 : 36} />
+      <View>
+        <Text style={[styles.systemTop, compact && styles.systemTopCompact]}>All Systems</Text>
+        <Text style={[styles.systemBottom, compact && styles.systemBottomCompact, { color }]}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function SecurityHeader({ compact, label, color }: { compact: boolean; label: string; color: string }) {
+  const navigation = useNavigation<any>();
+  return (
+    <View style={[styles.header, compact && styles.headerCompact]}>
+      <View style={styles.headerBrand}>
+        <NomadBrandMark size={compact ? 43 : 54} />
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>Security Center</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerSubtitle, compact && styles.headerSubtitleCompact]}>Your assets. Your keys. Your sovereignty.</Text>
+        </View>
+      </View>
+      <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
+        <SystemStatusPill compact={compact} label={label} color={color} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Open Security Center help" onPress={() => navigation.navigate('Settings')} style={({ pressed }) => [styles.helpButton, compact && styles.helpButtonCompact, pressed && styles.pressed]}>
+          <Text style={[styles.helpText, compact && styles.helpTextCompact]}>?</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function SecurityHeroGraphic({ compact, color }: { compact: boolean; color: string }) {
+  return (
+    <View pointerEvents="none" style={[styles.heroGraphic, compact && styles.heroGraphicCompact]}>
+      <Svg width="100%" height="100%" viewBox="0 0 370 220" fill="none">
+        <Defs>
+          <RadialGradient id="securityGlow"><Stop stopColor={color} stopOpacity={0.34} /><Stop offset="1" stopColor={color} stopOpacity={0} /></RadialGradient>
+          <LinearGradient id="shieldFace" x1="155" y1="30" x2="255" y2="145"><Stop stopColor="#70ffc2" stopOpacity={0.92} /><Stop offset=".5" stopColor={color} stopOpacity={0.68} /><Stop offset="1" stopColor="#057e6d" stopOpacity={0.36} /></LinearGradient>
+        </Defs>
+        <Rect width="370" height="220" fill="url(#securityGlow)" />
+        <G fill={color} opacity={0.32}>{worldDots.map(([cx, cy], index) => <Circle key={`${cx}-${cy}-${index}`} cx={cx} cy={cy} r={index % 5 === 0 ? 2 : 1.25} />)}</G>
+        <G stroke={color} strokeOpacity={0.18} strokeWidth="1"><Path d="M18 76c68-52 132-40 182-4 45 32 93 29 153-10" /><Path d="M25 123c59-23 112-14 161 15 48 27 101 29 165 1" /></G>
+        <Ellipse cx="237" cy="177" rx="99" ry="29" fill="#031b19" stroke="#278cff" strokeOpacity={0.75} strokeWidth="3" />
+        <Ellipse cx="237" cy="168" rx="78" ry="27" fill="#05281e" stroke={color} strokeOpacity={0.72} strokeWidth="2" />
+        <Ellipse cx="237" cy="165" rx="48" ry="17" stroke={color} strokeOpacity={0.7} strokeWidth="2" />
+        <Path d="M237 30 289 50v43c0 37-20 62-52 79-32-17-52-42-52-79V50Z" fill="url(#shieldFace)" stroke="#8affca" strokeWidth="3" />
+        <Path d="M237 46 276 61v32c0 28-15 47-39 61-24-14-39-33-39-61V61Z" fill="#063d2d" fillOpacity={0.42} stroke={color} strokeOpacity={0.72} />
+        <Path d="m216 96 14 14 29-35" stroke="#b7ffdb" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+        <G stroke="#d1ffe8" strokeOpacity={0.28}><Path d="M204 63h20l7 7h18l7-7h18M202 125h18l7-7h20l8 7h18" /><Circle cx="224" cy="63" r="2" fill="#d1ffe8" /><Circle cx="255" cy="125" r="2" fill="#d1ffe8" /></G>
+      </Svg>
+    </View>
+  );
+}
+
+function ScoreRing({ value, color, compact }: { value: number; color: string; compact: boolean }) {
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.max(0, Math.min(100, value)) / 100);
+  return (
+    <View style={[styles.scoreMetric, compact && styles.scoreMetricCompact]}>
+      <Svg width={compact ? 38 : 47} height={compact ? 38 : 47} viewBox="0 0 40 40">
+        <Circle cx="20" cy="20" r={radius} stroke="rgba(255,255,255,.14)" strokeWidth="4" fill="none" />
+        <Circle cx="20" cy="20" r={radius} stroke={color} strokeWidth="4" fill="none" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={offset} transform="rotate(-90 20 20)" />
+      </Svg>
+      <View>
+        <Text style={[styles.metricLabel, compact && styles.metricLabelCompact]}>Security Score</Text>
+        <Text style={[styles.scoreValue, compact && styles.scoreValueCompact]}>{value}/100</Text>
+        <Text style={[styles.metricAccent, { color }]}>{value === 100 ? 'Excellent' : 'Evidence based'}</Text>
+      </View>
+    </View>
+  );
+}
+
+function ModuleRow({ item, last, compact }: { item: NomadSecurityModuleResult; last?: boolean; compact: boolean }) {
   const navigation = useNavigation<any>();
   const status = statusInfo(item.status);
   return (
     <Pressable
+      testID={`security-module-${item.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${item.title}. ${status.label}`}
       onPress={() => navigation.navigate(item.route)}
-      style={({ pressed }) => [styles.moduleRow, !last && styles.rowBorder, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.moduleRow, compact && styles.moduleRowCompact, !last && styles.rowBorder, pressed && styles.pressed]}
     >
-      <View style={[styles.squareIcon, { borderColor: status.color, backgroundColor: `${status.color}12` }]}>
-        <Text style={[styles.squareIconText, { color: status.color }]}>{moduleIcons[item.id]}</Text>
+      <View style={[styles.moduleIcon, compact && styles.moduleIconCompact, { borderColor: `${status.color}80`, backgroundColor: `${status.color}12` }]}>
+        <SecurityArtwork kind={moduleKinds[item.id]} color={status.color} size={compact ? 31 : 39} />
       </View>
       <View style={styles.rowCopy}>
-        <Text style={styles.rowTitle}>{item.title}</Text>
-        <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
-        <Text numberOfLines={2} style={styles.rowDetail}>{item.detail}</Text>
+        <Text style={[styles.rowTitle, compact && styles.rowTitleCompact]}>{item.title}</Text>
+        <Text numberOfLines={compact ? 2 : 1} style={[styles.rowDetail, compact && styles.rowDetailCompact]}>{item.detail}</Text>
       </View>
-      <View style={styles.rowRight}>
-        <Text style={[styles.statusText, { color: status.color }]}>{status.symbol} {status.label}</Text>
-        <Text style={styles.chevron}>›</Text>
+      <View style={styles.rowStatus}>
+        <StatusMark color={status.color} symbol={status.symbol} size={compact ? 17 : 20} />
+        <Text style={[styles.rowStatusText, compact && styles.rowStatusTextCompact, { color: status.color }]}>{status.label}</Text>
       </View>
+      <Text style={[styles.chevron, compact && styles.chevronCompact]}>›</Text>
     </Pressable>
   );
 }
 
-function BackupCard({ item }: { item: NomadSecurityBackupResult }) {
+function BackupCard({ item, compact }: { item: NomadSecurityBackupResult; compact: boolean }) {
   const navigation = useNavigation<any>();
   const status = statusInfo(item.status);
+  const display = backupTitles[item.id];
   return (
     <Pressable
+      testID={`security-backup-${item.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${display.title}. ${status.label}`}
       onPress={() => navigation.navigate(item.route)}
-      style={({ pressed }) => [styles.backupCard, { borderColor: `${status.color}70` }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.backupCard, compact && styles.backupCardCompact, pressed && styles.pressed]}
     >
-      <View style={[styles.backupIcon, { borderColor: status.color, backgroundColor: `${status.color}12` }]}>
-        <Text style={[styles.backupIconText, { color: status.color }]}>{backupIcons[item.id]}</Text>
+      <View style={[styles.backupIcon, compact && styles.backupIconCompact, { borderColor: `${status.color}70`, backgroundColor: `${status.color}0e` }]}>
+        <SecurityArtwork kind={display.kind} color={C.blue} size={compact ? 38 : 48} />
       </View>
-      <Text style={styles.backupTitle}>{item.title}</Text>
-      <Text style={styles.backupSubtitle}>{item.subtitle}</Text>
-      <Text style={[styles.backupStatus, { color: status.color }]}>● {status.label}</Text>
-      <Text numberOfLines={3} style={styles.backupDetail}>{item.detail}</Text>
+      <Text numberOfLines={2} style={[styles.backupTitle, compact && styles.backupTitleCompact]}>{display.title}</Text>
+      <Text numberOfLines={1} style={[styles.backupSubtitle, compact && styles.backupSubtitleCompact]}>{display.subtitle}</Text>
+      <View style={styles.backupStatusRow}><StatusMark color={status.color} symbol={status.symbol} size={compact ? 14 : 17} /><Text style={[styles.backupStatus, compact && styles.backupStatusCompact, { color: status.color }]}>{status.label}</Text></View>
+      <Text numberOfLines={2} style={[styles.backupDetail, compact && styles.backupDetailCompact]}>{item.detail}</Text>
     </Pressable>
   );
 }
 
 function formatTime(value: string) {
   const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return 'Unknown time';
-  return new Date(parsed).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (!Number.isFinite(parsed)) return 'Unknown';
+  const elapsedMinutes = Math.max(0, Math.round((Date.now() - parsed) / 60_000));
+  if (elapsedMinutes < 60) return elapsedMinutes <= 1 ? 'Now' : `${elapsedMinutes} min ago`;
+  return new Date(parsed).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function EventRow({ item, last }: { item: NomadSecurityEvent; last?: boolean }) {
+function EventRow({ item, last, compact }: { item: NomadSecurityEvent; last?: boolean; compact: boolean }) {
   const color = item.severity === 'critical' ? C.red : item.severity === 'warning' ? C.yellow : C.green;
-  const icon = item.type === 'freeze' ? '❄' : item.type === 'authority' ? '♙' : item.type === 'recovery' ? '⟳' : '◇';
+  const kind: SecurityArtworkKind = item.type === 'freeze' ? 'freeze' : item.type === 'recovery' ? 'recovery' : item.type === 'wallet' ? 'device' : item.type === 'scan' ? 'scan' : 'authority';
   return (
-    <View style={[styles.eventRow, !last && styles.rowBorder]}>
-      <View style={[styles.eventIcon, { borderColor: color, backgroundColor: `${color}12` }]}>
-        <Text style={[styles.eventIconText, { color }]}>{icon}</Text>
-      </View>
+    <View style={[styles.eventRow, compact && styles.eventRowCompact, !last && styles.rowBorder]}>
+      <View style={[styles.eventIcon, compact && styles.eventIconCompact, { borderColor: `${color}70`, backgroundColor: `${color}12` }]}><SecurityArtwork kind={kind} color={color} size={compact ? 27 : 34} /></View>
       <View style={styles.eventCopy}>
-        <Text style={styles.eventTitle}>{item.title}</Text>
-        <Text style={styles.eventDetail}>{item.detail}</Text>
-        <Text style={styles.eventSource}>{item.source.replace(/_/g, ' ')}</Text>
+        <Text numberOfLines={1} style={[styles.eventTitle, compact && styles.eventTitleCompact]}>{item.title}</Text>
+        <Text numberOfLines={2} style={[styles.eventDetail, compact && styles.eventDetailCompact]}>{item.detail}</Text>
       </View>
-      <Text style={styles.eventTime}>{formatTime(item.timestamp)}</Text>
+      <View style={styles.eventRight}><Text style={[styles.eventTime, compact && styles.eventTimeCompact]}>{formatTime(item.timestamp)}</Text><View style={[styles.eventDot, { backgroundColor: color }]} /></View>
     </View>
   );
 }
@@ -141,144 +268,109 @@ export default function SecurityCenterScreen() {
   const { compact } = useNomadLayout();
   const { security, loading, error, refresh, runScan } = useNomadSecurity();
   const [scanFeedback, setScanFeedback] = useState('');
-  const [evidenceId, setEvidenceId] = useState<string | null>(null);
 
   const frozen = security.status === 'frozen';
   const warning = security.status === 'warning';
   const statusColor = frozen ? C.red : warning ? C.yellow : C.green;
   const statusLabel = frozen ? 'FROZEN' : warning ? 'REVIEW' : 'SECURE';
-  const summary = useMemo(() => {
-    const secure = security.modules.filter((item) => item.status === 'secure').length;
-    return { secure, attention: security.modules.length - secure };
-  }, [security.modules]);
+  const statusSymbol = frozen ? '×' : warning ? '!' : '✓';
+  const secureModules = security.modules.filter((item) => item.status === 'secure').length;
+  const modulesNeedingAttention = security.modules.length - secureModules;
 
   const handleScan = async () => {
     try {
-      setScanFeedback('Running independent wallet, authority, device, recovery and network checks…');
+      setScanFeedback('Running independent security checks…');
       const next = await runScan();
-      setScanFeedback(`Scan complete: ${next.score}/100${next.latestScanId ? ` • ${next.latestScanId}` : ''}`);
+      setScanFeedback(`Scan complete • ${next.score}/100`);
     } catch (nextError) {
       setScanFeedback(nextError instanceof Error ? nextError.message : 'Unable to complete the security scan.');
     }
   };
 
   return (
-    <NomadPage maxWidth={940}>
-      <PageHeader
-        title="Security Center"
-        subtitle="Your assets. Your keys. Your sovereignty."
-        icon="◇"
-        color={statusColor}
-        help
-      />
+    <NomadPage maxWidth={960}>
+      <SecurityHeader compact={compact} label={statusLabel} color={statusColor} />
 
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry Security Center" onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
         </View>
       ) : null}
 
       <Panel tone={frozen ? 'red' : warning ? 'yellow' : 'green'} style={styles.hero}>
-        <View style={[styles.heroLayout, compact && styles.heroLayoutCompact]}>
+        <View style={[styles.heroTop, compact && styles.heroTopCompact]}>
           <View style={styles.heroCopy}>
-            <Text style={[styles.eyebrow, { color: statusColor }]}>SECURITY STATUS</Text>
-            <View style={styles.statusRow}>
-              <Text adjustsFontSizeToFit numberOfLines={1} style={[styles.statusWord, { color: statusColor }]}>{statusLabel}</Text>
-              <Text style={[styles.scorePill, { color: statusColor, borderColor: statusColor }]}>{security.score}/100</Text>
+            <Text style={[styles.eyebrow, compact && styles.eyebrowCompact, { color: statusColor }]}>SECURITY STATUS</Text>
+            <View style={styles.heroStatusRow}>
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.heroStatus, compact && styles.heroStatusCompact, { color: statusColor }]}>{statusLabel}</Text>
+              <StatusMark color={statusColor} symbol={statusSymbol} size={compact ? 29 : 38} />
             </View>
-            <Text style={styles.heroDescription}>
+            <Text numberOfLines={2} style={[styles.heroDescription, compact && styles.heroDescriptionCompact]}>
               {frozen
-                ? 'Emergency protection is active. Restricted actions must remain blocked.'
+                ? 'Emergency protection is active. Restricted actions remain blocked.'
                 : warning
-                  ? `${summary.attention} security module${summary.attention === 1 ? '' : 's'} require review.`
+                  ? `${modulesNeedingAttention} of ${security.modules.length} protection layers need review.`
                   : 'All connected security modules passed their latest checks.'}
             </Text>
-            <View style={styles.metricGrid}>
-              <View style={styles.metricCard}><Text style={styles.metricLabel}>PROTECTED SINCE</Text><Text style={styles.metricValue}>{security.protectedSince}</Text><Text style={styles.metricNote}>{security.protectedDays}</Text></View>
-              <View style={styles.metricCard}><Text style={styles.metricLabel}>LAST SCAN</Text><Text style={styles.metricValue}>{security.lastScanLabel}</Text><Text style={styles.metricNote}>{security.lastScanDetail}</Text></View>
-              <View style={styles.metricCard}><Text style={styles.metricLabel}>MODULES</Text><Text style={styles.metricValue}>{summary.secure}/{security.modules.length} secure</Text><Text style={styles.metricNote}>{security.scanProvider.replace(/_/g, ' ')}</Text></View>
-            </View>
           </View>
-          <View style={styles.heroArtWrap}>
-            <Image source={{ uri: securityShieldUri }} style={styles.heroArt} />
-            <ProgressBar value={security.score} color={statusColor} height={8} />
-            <Text style={styles.adapterLabel}>LOCAL SECURITY ADAPTER</Text>
-          </View>
+          <SecurityHeroGraphic compact={compact} color={statusColor} />
         </View>
-      </Panel>
 
-      <Panel style={styles.sectionPanel}>
-        <View style={[styles.sectionHeader, compact && styles.sectionHeaderCompact]}>
-          <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>SECURITY MODULES</Text>
-            <Text style={styles.sectionSubtitle}>Each protection layer is checked independently</Text>
+        <View style={[styles.metricGrid, compact && styles.metricGridCompact]}>
+          <View style={[styles.metric, compact && styles.metricCompact]}>
+            <SecurityArtwork kind="shield" color={statusColor} size={compact ? 23 : 29} />
+            <View><Text style={[styles.metricLabel, compact && styles.metricLabelCompact]}>Protected Since</Text><Text numberOfLines={1} style={[styles.metricValue, compact && styles.metricValueCompact]}>{security.protectedSince}</Text><Text style={[styles.metricAccent, { color: statusColor }]}>{security.protectedDays}</Text></View>
           </View>
-          <Pressable disabled={loading} onPress={() => void handleScan()} style={({ pressed }) => [styles.scanButton, loading && styles.disabled, pressed && styles.pressed]}>
-            <Text style={styles.scanButtonText}>{loading ? 'Checking…' : '◇  Run Security Scan'}</Text>
+          <Pressable testID="security-run-scan" accessibilityRole="button" accessibilityLabel="Run Security Scan" disabled={loading} onPress={() => void handleScan()} style={({ pressed }) => [styles.metric, compact && styles.metricCompact, loading && styles.disabled, pressed && styles.pressed]}>
+            <SecurityArtwork kind="scan" color={C.blue} size={compact ? 23 : 29} />
+            <View style={styles.metricText}><Text style={[styles.metricLabel, compact && styles.metricLabelCompact]}>Last Scan</Text><Text numberOfLines={1} style={[styles.metricValue, compact && styles.metricValueCompact]}>{loading ? 'Checking…' : security.lastScanLabel}</Text><Text numberOfLines={1} style={styles.metricNote}>{loading ? 'Independent local evidence' : security.lastScanDetail}</Text></View>
           </Pressable>
+          <ScoreRing value={security.score} color={statusColor} compact={compact} />
         </View>
-        {scanFeedback ? <Text style={styles.scanFeedback}>{scanFeedback}</Text> : null}
+        {scanFeedback ? <Text accessibilityLiveRegion="polite" style={[styles.scanFeedback, { color: statusColor }]}>{scanFeedback}</Text> : null}
+      </Panel>
+
+      <Panel style={[styles.sectionPanel, compact && styles.sectionPanelCompact]}>
+        <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>SECURITY MODULES</Text><Text style={styles.sectionMeta}>ARKRILIUM SECURITY LAYER</Text></View>
         <View style={styles.moduleList}>
-          {security.modules.map((item, index) => (
-            <View key={item.id}>
-              <ModuleRow item={item} last={index === security.modules.length - 1 && evidenceId !== item.id} />
-              <Pressable onPress={() => setEvidenceId((current) => current === item.id ? null : item.id)} style={styles.evidenceToggle}>
-                <Text style={styles.evidenceToggleText}>{evidenceId === item.id ? 'Hide evidence' : 'View evidence'}  ›</Text>
-              </Pressable>
-              {evidenceId === item.id ? (
-                <View style={styles.evidenceBox}>
-                  <Text style={styles.evidenceLabel}>LATEST CHECK</Text>
-                  <Text style={styles.evidenceText}>{item.detail}</Text>
-                  <Text style={styles.evidenceTime}>{formatTime(item.checkedAt)}</Text>
-                </View>
-              ) : null}
-            </View>
-          ))}
+          {security.modules.map((item, index) => <ModuleRow key={item.id} item={item} compact={compact} last={index === security.modules.length - 1} />)}
         </View>
       </Panel>
 
-      <Panel style={styles.sectionPanel}>
+      <Panel style={[styles.sectionPanel, compact && styles.sectionPanelCompact]}>
         <View style={styles.sectionHeader}>
-          <View><Text style={styles.sectionTitle}>RECOVERY & BACKUP</Text><Text style={styles.sectionSubtitle}>Owner-controlled recovery readiness</Text></View>
-          <Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.link}>Manage  ›</Text></Pressable>
+          <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>RECOVERY & BACKUP</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Manage recovery and backup" onPress={() => navigation.navigate('RecoveryCenter')} style={({ pressed }) => pressed && styles.pressed}><Text style={[styles.link, compact && styles.linkCompact]}>Manage  ›</Text></Pressable>
         </View>
         {security.backupMethods.length ? (
-          <View style={styles.backupGrid}>{security.backupMethods.map((item) => <BackupCard key={item.id} item={item} />)}</View>
-        ) : <Text style={styles.emptyText}>Recovery information is unavailable until the adapter completes its first check.</Text>}
+          <View style={[styles.backupGrid, compact && styles.backupGridCompact]}>{security.backupMethods.map((item) => <BackupCard key={item.id} item={item} compact={compact} />)}</View>
+        ) : <Text style={styles.emptyText}>Recovery evidence is unavailable until the security adapter completes its first check.</Text>}
       </Panel>
 
-      <Panel style={styles.sectionPanel}>
+      <Panel style={[styles.sectionPanel, compact && styles.sectionPanelCompact]}>
         <View style={styles.sectionHeader}>
-          <View><Text style={styles.sectionTitle}>SECURITY ACTIVITY</Text><Text style={styles.sectionSubtitle}>Recorded scans, freezes and authority events</Text></View>
-          <Text style={styles.eventCount}>{security.activity.length} events</Text>
+          <Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>SECURITY ACTIVITY</Text>
+          <Pressable testID="security-activity-view-all" accessibilityRole="button" accessibilityLabel="View all Security Activity" onPress={() => navigation.navigate('NomadInsights')} style={({ pressed }) => pressed && styles.pressed}><Text style={[styles.link, compact && styles.linkCompact]}>View All  ›</Text></Pressable>
         </View>
         {security.activity.length ? (
-          <View style={styles.eventList}>
-            {security.activity.slice(0, 8).map((item, index) => <EventRow key={item.id} item={item} last={index === Math.min(8, security.activity.length) - 1} />)}
-          </View>
+          <View style={styles.eventList}>{security.activity.slice(0, 3).map((item, index) => <EventRow key={item.id} item={item} compact={compact} last={index === Math.min(3, security.activity.length) - 1} />)}</View>
         ) : (
-          <View style={styles.emptyActivity}>
-            <Text style={styles.emptyActivityIcon}>◇</Text>
-            <View style={styles.emptyActivityCopy}><Text style={styles.emptyActivityTitle}>No recorded security events</Text><Text style={styles.emptyText}>Run Security Scan to create the first timestamped audit record.</Text></View>
+          <View style={[styles.emptyActivity, compact && styles.emptyActivityCompact]}>
+            <View style={styles.emptyActivityIcon}><SecurityArtwork kind="scan" color={C.blue} size={compact ? 29 : 36} /></View>
+            <View style={styles.emptyActivityCopy}><Text style={styles.emptyActivityTitle}>No recorded security events</Text><Text style={styles.emptyText}>Run Security Scan to create the first timestamped local audit record.</Text></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Run Security Scan" disabled={loading} onPress={() => void handleScan()} style={({ pressed }) => [styles.emptyScanButton, loading && styles.disabled, pressed && styles.pressed]}><Text style={styles.emptyScanText}>Run Scan</Text></Pressable>
           </View>
         )}
       </Panel>
 
-      <Pressable onPress={() => navigation.navigate('EmergencyFreeze')} style={({ pressed }) => [styles.freezeCard, frozen && styles.freezeActive, pressed && styles.pressed]}>
-        <View style={[styles.freezeIcon, frozen && { borderColor: C.red }]}><Text style={[styles.freezeIconText, frozen && { color: C.red }]}>▣</Text></View>
-        <View style={styles.freezeCopy}><Text style={styles.freezeTitle}>{frozen ? 'Emergency Freeze Active' : 'Emergency Freeze'}</Text><Text style={styles.freezeSubtitle}>{frozen ? 'Review active scope and recovery requirements' : 'Restrict wallet or Travel Pocket actions immediately'}</Text></View>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
-
-      <Panel style={styles.arkriliumPanel}>
-        <View style={styles.arkriliumBadge}><Text style={styles.arkriliumBadgeText}>A</Text></View>
-        <View style={styles.arkriliumCopy}>
-          <Text style={styles.arkriliumTitle}>Arkrilium Security Layer</Text>
-          <Text style={styles.arkriliumSubtitle}>Owner Authority, recovery policy, Reqrium safety and transaction controls remain non-custodial.</Text>
-          <Text style={styles.arkriliumBoundary}>Remote telemetry and hardware attestation are not yet connected.</Text>
+      <Panel style={[styles.controlPanel, compact && styles.controlPanelCompact]}>
+        <NomadBrandMark size={compact ? 42 : 54} />
+        <View style={styles.controlCopy}>
+          <Text style={[styles.controlTitle, compact && styles.controlTitleCompact]}>You are in full control.</Text>
+          <Text numberOfLines={2} style={[styles.controlSubtitle, compact && styles.controlSubtitleCompact]}>Nomad is non-custodial. Protected by Arkrilium Security Layer.</Text>
         </View>
-        <Pressable onPress={() => navigation.navigate('VoltaireProtocols')}><Text style={styles.chevron}>›</Text></Pressable>
+        <Pressable testID="security-learn-more" accessibilityRole="button" accessibilityLabel="Learn more about Arkrilium Security Layer" onPress={() => navigation.navigate('VoltaireProtocols')} style={({ pressed }) => [styles.learnButton, compact && styles.learnButtonCompact, pressed && styles.pressed]}><Text style={[styles.learnText, compact && styles.learnTextCompact]}>Learn More</Text></Pressable>
       </Panel>
 
       <BottomNav
@@ -288,7 +380,7 @@ export default function SecurityCenterScreen() {
           ['▣', 'Wallets', 'Wallets'],
           ['✈', 'Travel', 'TravelMode'],
           ['◇', 'Security', 'SecurityCenter'],
-          ['•••', 'More', 'Settings'],
+          ['⚙', 'Settings', 'Settings'],
         ]}
       />
     </NomadPage>
@@ -296,92 +388,133 @@ export default function SecurityCenterScreen() {
 }
 
 const styles = StyleSheet.create({
-  pressed: { opacity: .72 },
-  disabled: { opacity: .55 },
-  errorBanner: { minHeight: 48, marginBottom: 12, borderWidth: 1, borderColor: C.red, borderRadius: 11, backgroundColor: 'rgba(255,70,70,.08)', paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  errorText: { flex: 1, color: C.red, fontSize: 11 },
+  pressed: { opacity: .7 },
+  disabled: { opacity: .5 },
+  header: { minHeight: 82, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  headerCompact: { minHeight: 58, marginBottom: 10, gap: 7 },
+  headerBrand: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerTitle: { color: C.text, fontSize: 32, fontWeight: '900', letterSpacing: -.7 },
+  headerTitleCompact: { fontSize: 20 },
+  headerSubtitle: { color: '#c8d2df', fontSize: 13, marginTop: 3 },
+  headerSubtitleCompact: { fontSize: 8.5, marginTop: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  headerActionsCompact: { gap: 5 },
+  systemPill: { minHeight: 54, borderWidth: 1, borderRadius: 999, backgroundColor: 'rgba(2,15,27,.94)', paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  systemPillCompact: { minHeight: 39, paddingHorizontal: 8, gap: 4 },
+  systemTop: { color: '#d8e3ef', fontSize: 11 },
+  systemTopCompact: { fontSize: 7.5 },
+  systemBottom: { fontSize: 13, fontWeight: '900', marginTop: 1 },
+  systemBottomCompact: { fontSize: 8.5 },
+  helpButton: { width: 45, height: 45, borderRadius: 23, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  helpButtonCompact: { width: 36, height: 36, borderRadius: 18 },
+  helpText: { color: '#cbd7e6', fontSize: 23, fontWeight: '800' },
+  helpTextCompact: { fontSize: 18 },
+  statusMark: { borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  statusMarkText: { fontWeight: '900', lineHeight: 18 },
+  errorBanner: { minHeight: 46, marginBottom: 11, borderWidth: 1, borderColor: C.red, borderRadius: 11, backgroundColor: 'rgba(255,70,70,.08)', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  errorText: { flex: 1, color: C.red, fontSize: 10 },
   retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
   retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  hero: { padding: 20, overflow: 'hidden' },
-  heroLayout: { minHeight: 300, flexDirection: 'row', alignItems: 'center', gap: 20 },
-  heroLayoutCompact: { flexDirection: 'column', alignItems: 'stretch' },
-  heroCopy: { flex: 1, minWidth: 0 },
-  eyebrow: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 5 },
-  statusWord: { fontSize: 52, fontWeight: '900', letterSpacing: -2, maxWidth: '74%' },
-  scorePill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, fontSize: 12, fontWeight: '900' },
-  heroDescription: { color: '#edf5ff', fontSize: 13, lineHeight: 20, marginTop: 5 },
-  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 23 },
-  metricCard: { flexGrow: 1, flexBasis: 130, minHeight: 86, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, backgroundColor: 'rgba(2,13,22,.62)', padding: 11 },
-  metricLabel: { color: C.muted, fontSize: 8, fontWeight: '900', letterSpacing: .6 },
-  metricValue: { color: '#fff', fontSize: 13, fontWeight: '900', marginTop: 8 },
-  metricNote: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 5 },
-  heroArtWrap: { width: 250, alignItems: 'center' },
-  heroArt: { width: 228, height: 263 },
-  adapterLabel: { color: C.muted, fontSize: 8, fontWeight: '900', letterSpacing: .8, marginTop: 9 },
-  sectionPanel: { marginTop: 17, padding: 15 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionHeaderCompact: { alignItems: 'flex-start', flexWrap: 'wrap' },
-  sectionHeaderCopy: { flex: 1, minWidth: 180 },
-  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: .4 },
-  sectionSubtitle: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 4 },
-  link: { color: C.blue, fontSize: 11, fontWeight: '900' },
-  scanButton: { minHeight: 43, borderWidth: 1, borderColor: C.blue, borderRadius: 10, backgroundColor: 'rgba(22,140,255,.08)', paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center' },
-  scanButtonText: { color: C.blue, fontSize: 10, fontWeight: '900' },
-  scanFeedback: { color: C.green, fontSize: 10, lineHeight: 15, marginTop: 10 },
-  moduleList: { marginTop: 13, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, overflow: 'hidden' },
-  moduleRow: { minHeight: 88, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11 },
+  hero: { overflow: 'hidden' },
+  heroTop: { minHeight: 238, paddingHorizontal: 26, paddingTop: 25, flexDirection: 'row', alignItems: 'center' },
+  heroTopCompact: { minHeight: 151, paddingHorizontal: 13, paddingTop: 12 },
+  heroCopy: { flex: 1, minWidth: 0, zIndex: 2 },
+  eyebrow: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  eyebrowCompact: { fontSize: 8.5 },
+  heroStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 8 },
+  heroStatus: { maxWidth: '72%', fontSize: 53, fontWeight: '900', letterSpacing: -2 },
+  heroStatusCompact: { fontSize: 30, letterSpacing: -1 },
+  heroDescription: { maxWidth: 390, color: '#eef5fb', fontSize: 14, lineHeight: 20, marginTop: 8 },
+  heroDescriptionCompact: { maxWidth: 205, fontSize: 9, lineHeight: 13, marginTop: 5 },
+  heroGraphic: { width: 390, height: 230, marginRight: -22 },
+  heroGraphicCompact: { width: 183, height: 135, marginRight: -22, marginLeft: -20 },
+  metricGrid: { minHeight: 105, borderTopWidth: 1, borderTopColor: 'rgba(40,233,120,.25)', backgroundColor: 'rgba(2,18,21,.52)', paddingHorizontal: 20, paddingVertical: 13, flexDirection: 'row', alignItems: 'stretch' },
+  metricGridCompact: { minHeight: 72, paddingHorizontal: 8, paddingVertical: 8 },
+  metric: { flex: 1, minWidth: 0, borderRightWidth: 1, borderRightColor: C.borderSoft, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  metricCompact: { paddingHorizontal: 5, gap: 5 },
+  metricText: { flex: 1, minWidth: 0 },
+  metricLabel: { color: '#aebaca', fontSize: 10 },
+  metricLabelCompact: { fontSize: 6.5 },
+  metricValue: { color: C.text, fontSize: 15, fontWeight: '900', marginTop: 5 },
+  metricValueCompact: { fontSize: 9, marginTop: 3 },
+  metricAccent: { fontSize: 8, fontWeight: '800', marginTop: 5 },
+  metricNote: { color: C.muted, fontSize: 7, marginTop: 4 },
+  scoreMetric: { flex: 1, minWidth: 0, paddingLeft: 18, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  scoreMetricCompact: { paddingLeft: 6, gap: 4 },
+  scoreValue: { color: C.text, fontSize: 17, fontWeight: '900', marginTop: 3 },
+  scoreValueCompact: { fontSize: 10 },
+  scanFeedback: { paddingHorizontal: 20, paddingVertical: 7, fontSize: 9, fontWeight: '800', backgroundColor: 'rgba(0,0,0,.14)' },
+  sectionPanel: { marginTop: 15, padding: 14 },
+  sectionPanelCompact: { marginTop: 10, padding: 9, borderRadius: 13 },
+  sectionHeader: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  sectionTitle: { color: C.text, fontSize: 15, fontWeight: '900', letterSpacing: .3 },
+  sectionTitleCompact: { fontSize: 10.5 },
+  sectionMeta: { color: C.yellow, fontSize: 7, fontWeight: '900', letterSpacing: .7 },
+  link: { color: C.blue, fontSize: 12, fontWeight: '900' },
+  linkCompact: { fontSize: 9 },
+  moduleList: { marginTop: 10, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, overflow: 'hidden' },
+  moduleRow: { minHeight: 83, paddingHorizontal: 13, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
+  moduleRowCompact: { minHeight: 61, paddingHorizontal: 8, paddingVertical: 7 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
-  squareIcon: { width: 48, height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  squareIconText: { fontSize: 24, fontWeight: '900' },
+  moduleIcon: { width: 52, height: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  moduleIconCompact: { width: 39, height: 39, borderRadius: 12 },
   rowCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  rowTitle: { color: '#fff', fontSize: 13, fontWeight: '900' },
-  rowSubtitle: { color: '#c8d3e2', fontSize: 10, marginTop: 3 },
-  rowDetail: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 5 },
-  rowRight: { alignItems: 'flex-end', marginLeft: 8 },
-  statusText: { fontSize: 8, fontWeight: '900' },
-  chevron: { color: '#b7c4d6', fontSize: 28, marginLeft: 6 },
-  evidenceToggle: { minHeight: 30, borderTopWidth: 1, borderTopColor: C.borderSoft, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 12 },
-  evidenceToggleText: { color: C.blue, fontSize: 9, fontWeight: '800' },
-  evidenceBox: { borderTopWidth: 1, borderTopColor: C.borderSoft, backgroundColor: 'rgba(2,15,26,.72)', padding: 12 },
-  evidenceLabel: { color: C.blue, fontSize: 8, fontWeight: '900', letterSpacing: .6 },
-  evidenceText: { color: '#d7e1ed', fontSize: 10, lineHeight: 16, marginTop: 6 },
-  evidenceTime: { color: C.muted, fontSize: 8, marginTop: 7 },
-  backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  backupCard: { flexGrow: 1, flexBasis: 180, minHeight: 174, borderWidth: 1, borderRadius: 12, alignItems: 'center', padding: 14 },
-  backupIcon: { width: 50, height: 50, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backupIconText: { fontSize: 25 },
-  backupTitle: { color: '#fff', fontSize: 12, fontWeight: '900', textAlign: 'center', marginTop: 10 },
-  backupSubtitle: { color: C.muted, fontSize: 9, textAlign: 'center', marginTop: 4 },
-  backupStatus: { fontSize: 9, fontWeight: '900', marginTop: 10 },
-  backupDetail: { color: '#c8d3df', fontSize: 9, lineHeight: 14, textAlign: 'center', marginTop: 7 },
-  eventCount: { color: C.muted, fontSize: 9 },
-  eventList: { marginTop: 13, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, overflow: 'hidden' },
-  eventRow: { minHeight: 84, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11 },
-  eventIcon: { width: 43, height: 43, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  eventIconText: { fontSize: 20, fontWeight: '900' },
-  eventCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  eventTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  eventDetail: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
-  eventSource: { color: C.blue, fontSize: 8, marginTop: 5, textTransform: 'uppercase' },
-  eventTime: { color: C.muted, fontSize: 8, lineHeight: 12, maxWidth: 82, textAlign: 'right', marginLeft: 8 },
-  emptyText: { color: C.muted, fontSize: 10, lineHeight: 16, marginTop: 7 },
-  emptyActivity: { minHeight: 82, marginTop: 13, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, padding: 13, flexDirection: 'row', alignItems: 'center' },
-  emptyActivityIcon: { color: C.blue, fontSize: 30 },
-  emptyActivityCopy: { flex: 1, marginLeft: 12 },
-  emptyActivityTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  freezeCard: { minHeight: 82, marginTop: 17, borderWidth: 1, borderColor: C.border, borderRadius: 14, backgroundColor: C.panel, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  freezeActive: { borderColor: C.red, backgroundColor: 'rgba(255,70,70,.07)' },
-  freezeIcon: { width: 50, height: 50, borderRadius: 14, borderWidth: 1, borderColor: C.blue, backgroundColor: 'rgba(22,140,255,.08)', alignItems: 'center', justifyContent: 'center' },
-  freezeIconText: { color: C.blue, fontSize: 25 },
-  freezeCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  freezeTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  freezeSubtitle: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 5 },
-  arkriliumPanel: { marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
-  arkriliumBadge: { width: 52, height: 52, borderRadius: 16, borderWidth: 1, borderColor: C.blue, backgroundColor: 'rgba(22,140,255,.1)', alignItems: 'center', justifyContent: 'center' },
-  arkriliumBadgeText: { color: C.blue, fontSize: 25, fontWeight: '900' },
-  arkriliumCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  arkriliumTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  arkriliumSubtitle: { color: '#c7d2df', fontSize: 10, lineHeight: 15, marginTop: 4 },
-  arkriliumBoundary: { color: C.yellow, fontSize: 8, lineHeight: 12, marginTop: 6 },
+  rowTitle: { color: C.text, fontSize: 14, fontWeight: '900' },
+  rowTitleCompact: { fontSize: 10 },
+  rowDetail: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  rowDetailCompact: { fontSize: 7, lineHeight: 9.5, marginTop: 2 },
+  rowStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 7 },
+  rowStatusText: { fontSize: 9, fontWeight: '900' },
+  rowStatusTextCompact: { fontSize: 6.8 },
+  chevron: { color: '#b8c4d5', fontSize: 28, marginLeft: 8 },
+  chevronCompact: { fontSize: 20, marginLeft: 4 },
+  backupGrid: { marginTop: 12, flexDirection: 'row', gap: 10 },
+  backupGridCompact: { marginTop: 8, gap: 6 },
+  backupCard: { flex: 1, minWidth: 0, minHeight: 178, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, alignItems: 'center', padding: 13 },
+  backupCardCompact: { minHeight: 121, borderRadius: 9, paddingHorizontal: 4, paddingVertical: 7 },
+  backupIcon: { width: 59, height: 59, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  backupIconCompact: { width: 44, height: 44, borderRadius: 13 },
+  backupTitle: { color: C.text, fontSize: 13, fontWeight: '900', textAlign: 'center', marginTop: 9 },
+  backupTitleCompact: { fontSize: 8.5, marginTop: 5 },
+  backupSubtitle: { color: '#c7d1df', fontSize: 9, textAlign: 'center', marginTop: 3 },
+  backupSubtitleCompact: { fontSize: 6.3, marginTop: 2 },
+  backupStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  backupStatus: { fontSize: 9, fontWeight: '900' },
+  backupStatusCompact: { fontSize: 6.5 },
+  backupDetail: { color: C.muted, fontSize: 8, lineHeight: 12, textAlign: 'center', marginTop: 6 },
+  backupDetailCompact: { fontSize: 6.1, lineHeight: 8, marginTop: 4 },
+  eventList: { marginTop: 9, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, overflow: 'hidden' },
+  eventRow: { minHeight: 70, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center' },
+  eventRowCompact: { minHeight: 51, paddingHorizontal: 7, paddingVertical: 6 },
+  eventIcon: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  eventIconCompact: { width: 34, height: 34, borderRadius: 11 },
+  eventCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  eventTitle: { color: C.text, fontSize: 12, fontWeight: '900' },
+  eventTitleCompact: { fontSize: 8.5 },
+  eventDetail: { color: C.muted, fontSize: 8.5, lineHeight: 12, marginTop: 3 },
+  eventDetailCompact: { fontSize: 6.3, lineHeight: 8.5, marginTop: 2 },
+  eventRight: { flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 7 },
+  eventTime: { color: C.muted, fontSize: 8 },
+  eventTimeCompact: { fontSize: 6.2 },
+  eventDot: { width: 6, height: 6, borderRadius: 3 },
+  emptyActivity: { minHeight: 82, marginTop: 9, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, padding: 11, flexDirection: 'row', alignItems: 'center' },
+  emptyActivityCompact: { minHeight: 59, padding: 7 },
+  emptyActivityIcon: { width: 44, alignItems: 'center' },
+  emptyActivityCopy: { flex: 1, minWidth: 0, marginLeft: 7 },
+  emptyActivityTitle: { color: C.text, fontSize: 10, fontWeight: '900' },
+  emptyText: { color: C.muted, fontSize: 8, lineHeight: 12, marginTop: 3 },
+  emptyScanButton: { minHeight: 31, borderWidth: 1, borderColor: C.blue, borderRadius: 8, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center' },
+  emptyScanText: { color: C.blue, fontSize: 8, fontWeight: '900' },
+  controlPanel: { marginTop: 15, minHeight: 90, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' },
+  controlPanelCompact: { marginTop: 10, minHeight: 65, paddingHorizontal: 9, borderRadius: 13 },
+  controlCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  controlTitle: { color: C.text, fontSize: 16, fontWeight: '900' },
+  controlTitleCompact: { fontSize: 10.5 },
+  controlSubtitle: { color: '#cbd5e1', fontSize: 10, lineHeight: 15, marginTop: 4 },
+  controlSubtitleCompact: { fontSize: 6.7, lineHeight: 9.5, marginTop: 2 },
+  learnButton: { minHeight: 43, borderWidth: 1, borderColor: C.blue, borderRadius: 10, paddingHorizontal: 17, alignItems: 'center', justifyContent: 'center' },
+  learnButtonCompact: { minHeight: 31, borderRadius: 8, paddingHorizontal: 10 },
+  learnText: { color: C.blue, fontSize: 10, fontWeight: '900' },
+  learnTextCompact: { fontSize: 7.5 },
 });
