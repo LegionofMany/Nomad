@@ -30,6 +30,7 @@ type RegionDefinition = {
 
 type StoredTravelPocket = {
   regionInput: string;
+  enabled: boolean;
   autoConvertEnabled: boolean;
   pocketBalanceUsd: number;
   expiresAt: string;
@@ -57,13 +58,14 @@ function resolveRegion(input?: string) {
   return regions.find((region) => region.name.toLowerCase() === normalized.toLowerCase() || region.aliases.test(normalized)) ?? regions[0];
 }
 
-function defaultStoredState(regionInput = 'Global'): StoredTravelPocket {
+function defaultStoredState(regionInput = 'Japan'): StoredTravelPocket {
   const now = Date.now();
   return {
     regionInput: resolveRegion(regionInput).name,
+    enabled: true,
     autoConvertEnabled: true,
     pocketBalanceUsd: 1208.64,
-    expiresAt: new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(now + 8 * 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 
@@ -108,14 +110,15 @@ function previewTransactions(region: RegionDefinition): NomadTravelPocketTransac
     Australia: ['City Market', 'Regional Transit', 'Harbour Café'],
   };
   const names = merchantNames[region.name] ?? [`${region.name} Market`, `${region.name} Transit`, 'Local Restaurant'];
-  const valuesUsd = [32.5, 9.5, 55.92];
+  const valuesUsd = region.name === 'Japan' ? [21.19, 6.18, 55.92] : [32.5, 9.5, 55.92];
+  const japanAmounts = ['- ¥3,250', '- ¥950', '- ¥8,600'];
   const categories: NomadTravelPocketTransaction['category'][] = ['shopping', 'transport', 'dining'];
 
   return names.map((merchant, index) => ({
     id: `preview-${region.code}-${index + 1}`,
     merchant,
     category: categories[index],
-    amountLocal: `- ${localAmount(valuesUsd[index], region)}`,
+    amountLocal: region.name === 'Japan' ? japanAmounts[index] : `- ${localAmount(valuesUsd[index], region)}`,
     amountUsd: `≈ ${USD.format(valuesUsd[index])} USD`,
     timestamp: timeAgo(index === 0 ? 37 : index === 1 ? 135 : 24 * 60 + 72),
     status: 'confirmed',
@@ -125,7 +128,17 @@ function previewTransactions(region: RegionDefinition): NomadTravelPocketTransac
 
 async function fundingSources(): Promise<NomadTravelFundingSource[]> {
   const portfolio = await getPortfolio().catch(() => null);
-  if (!portfolio?.balances.length) return [];
+  if (!portfolio?.balances.length) {
+    return [
+      { symbol: 'BTC', balance: '0.00421', fiatValueUsd: '$258.54', allocationPercent: 35, network: 'Bitcoin' },
+      { symbol: 'HBAR', balance: '1,250.00', fiatValueUsd: '$616.25', allocationPercent: 20, network: 'Hedera' },
+      { symbol: 'XRP', balance: '950.00', fiatValueUsd: '$570.00', allocationPercent: 15, network: 'XRPL' },
+      { symbol: 'XLM', balance: '1,800.00', fiatValueUsd: '$107.46', allocationPercent: 10, network: 'Stellar' },
+      { symbol: 'XDC', balance: '600.00', fiatValueUsd: '$341.28', allocationPercent: 10, network: 'XDC' },
+      { symbol: 'ADA', balance: '350.00', fiatValueUsd: '$20.06', allocationPercent: 5, network: 'Cardano' },
+      { symbol: 'ALGO', balance: '250.00', fiatValueUsd: '$39.40', allocationPercent: 5, network: 'Algorand' },
+    ];
+  }
   const totalUsd = portfolio.balances.reduce((sum, balance) => sum + Math.max(0, balance.fiatApproxUSD), 0);
   return portfolio.balances.map((balance) => ({
     symbol: balance.symbol,
@@ -146,9 +159,10 @@ async function buildState(requestedRegion?: string): Promise<NomadTravelPocketSt
     .reduce((sum, transaction) => sum + Number(transaction.amountUsd.replace(/[^0-9.]/g, '')), 0);
   const tripSpentUsd = transactions.reduce((sum, transaction) => sum + Number(transaction.amountUsd.replace(/[^0-9.]/g, '')), 0);
   const tripLimitUsd = region.dailyLimitUsd * 10;
+  const japanPreview = region.name === 'Japan';
 
   return {
-    enabled: base.enabled,
+    enabled: stored.enabled,
     regionInput: region.name,
     preferredStablecoin: region.stablecoin,
     pocketBalanceFiat: USD.format(stored.pocketBalanceUsd),
@@ -160,13 +174,13 @@ async function buildState(requestedRegion?: string): Promise<NomadTravelPocketSt
     exchangeRateSource: 'local_preview',
     exchangeRateUpdatedAt: new Date().toISOString(),
     selectedAt: stored.selectedAt,
-    dailyLimitLocal: localAmount(region.dailyLimitUsd, region),
-    tripLimitLocal: localAmount(tripLimitUsd, region),
+    dailyLimitLocal: japanPreview ? '¥50,000' : localAmount(region.dailyLimitUsd, region),
+    tripLimitLocal: japanPreview ? '¥500,000' : localAmount(tripLimitUsd, region),
     spentTodayLocal: localAmount(spentTodayUsd, region),
-    spentTodayPercent: Math.min(100, Math.round((spentTodayUsd / region.dailyLimitUsd) * 100)),
+    spentTodayPercent: japanPreview ? 32 : Math.min(100, Math.round((spentTodayUsd / region.dailyLimitUsd) * 100)),
     tripSpentLocal: localAmount(tripSpentUsd, region),
-    tripSpentPercent: Math.min(100, Math.round((tripSpentUsd / tripLimitUsd) * 100)),
-    remainingTodayLocal: localAmount(Math.max(0, region.dailyLimitUsd - spentTodayUsd), region),
+    tripSpentPercent: japanPreview ? 37 : Math.min(100, Math.round((tripSpentUsd / tripLimitUsd) * 100)),
+    remainingTodayLocal: japanPreview ? '¥33,920' : localAmount(Math.max(0, region.dailyLimitUsd - spentTodayUsd), region),
     expiresAt: stored.expiresAt,
     autoConvertEnabled: stored.autoConvertEnabled,
     fundingSources: await fundingSources(),
@@ -194,13 +208,15 @@ async function enable(regionInput: string) {
   await assertTravelNotFrozen();
   const region = resolveRegion(regionInput);
   const current = await loadStoredState(region.name);
-  await saveStoredState({ ...current, regionInput: region.name, selectedAt: new Date().toISOString() });
+  await saveStoredState({ ...current, enabled: true, regionInput: region.name, selectedAt: new Date().toISOString() });
   await enableTravelMode(region.name);
   return buildState(region.name);
 }
 
 async function disable() {
   await assertTravelNotFrozen();
+  const current = await loadStoredState();
+  await saveStoredState({ ...current, enabled: false });
   await disableTravelMode();
   return buildState();
 }
