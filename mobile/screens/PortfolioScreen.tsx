@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { useNomadRecovery, useNomadSecurity, useNomadTravel, useNomadWallet } from '../nomad';
 import { useAppState } from '../state/appState';
-import { BottomNav, C, NomadPage, Panel, ProgressBar, useNomadLayout } from '../ui/NomadShell';
+import { BottomNav, C, NomadBrandMark, NomadPage, Panel, ProgressBar, useNomadLayout } from '../ui/NomadShell';
 
 type RouteName =
   | 'Portfolio'
@@ -37,58 +38,47 @@ type EcosystemItem = {
   route: RouteName;
 };
 
-const svgUri = (viewBox: string, body: string) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${body}</svg>`)}`;
+function SecureShield({ size = 30 }: { size?: number }) {
+  return (
+    <Svg accessibilityLabel="Secure shield" width={size} height={size * 1.15} viewBox="0 0 54 62" fill="none">
+      <Path d="M27 3 49 13v17c0 16-9 27-22 34C14 57 5 46 5 30V13Z" fill="#021c18" stroke={C.green} strokeWidth="3" />
+      <Path d="m17 31 7 7 14-16" stroke={C.green} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
-const shieldUri = svgUri(
-  '0 0 96 108',
-  `<defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#25c2ff"/><stop offset="1" stop-color="#0867ff"/></linearGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <path d="M48 4 84 20v29c0 26-15 44-36 56C27 93 12 75 12 49V20Z" fill="#03111f" stroke="url(#g)" stroke-width="6" filter="url(#glow)"/>
-  <path d="M24 55h12l6-10 8 18 7-13h15" fill="none" stroke="#1d95ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="48" cy="54" r="4" fill="#1d95ff"/>`,
-);
+function PortfolioChart({ style }: { style?: any }) {
+  return (
+    <Svg accessibilityLabel="Portfolio value trend" width="100%" height="100%" viewBox="0 0 520 190" fill="none" style={style}>
+      <Defs><LinearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="190"><Stop stopColor={C.blue} stopOpacity={0.4} /><Stop offset="1" stopColor={C.blue} stopOpacity={0} /></LinearGradient></Defs>
+      <G opacity={0.16} stroke={C.blue}><Path d="M0 42h520M0 84h520M0 126h520M0 168h520" /><Path d="M80 0v190M170 0v190M260 0v190M350 0v190M440 0v190" /></G>
+      <Path d="M8 165 C42 160 53 154 78 145 S116 148 145 131 S177 116 208 121 S243 98 273 89 S311 99 335 79 S370 62 396 70 S430 50 454 31 S488 45 512 11 L512 190 L8 190Z" fill="url(#portfolioFill)" />
+      <Path d="M8 165 C42 160 53 154 78 145 S116 148 145 131 S177 116 208 121 S243 98 273 89 S311 99 335 79 S370 62 396 70 S430 50 454 31 S488 45 512 11" stroke={C.blue} strokeWidth="5" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
-const secureShieldUri = svgUri(
-  '0 0 54 62',
-  `<path d="M27 3 49 13v17c0 16-9 27-22 34C14 57 5 46 5 30V13Z" fill="#021c18" stroke="#20ef70" stroke-width="3"/><path d="m17 31 7 7 14-16" fill="none" stroke="#20ef70" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`,
-);
+function WorldBackdrop({ style }: { style?: any }) {
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 640 240" fill="none" style={style}>
+      <Defs><LinearGradient id="worldGlow" x1="0" y1="0" x2="640" y2="240"><Stop stopColor={C.green} stopOpacity={0.12} /><Stop offset="1" stopColor={C.green} stopOpacity={0} /></LinearGradient></Defs>
+      <Rect width="640" height="240" fill="url(#worldGlow)" />
+      <G stroke={C.green} strokeOpacity={0.23} strokeWidth="1.4"><Path d="M86 92c54-36 128-52 196-42 74 11 121 55 190 57 54 2 88-20 122-37" /><Path d="M74 136c76-27 139-19 198 10 63 31 130 35 210 5 46-17 79-34 116-27" /><Ellipse cx="457" cy="130" rx="142" ry="81" /><Ellipse cx="457" cy="130" rx="92" ry="81" /><Ellipse cx="457" cy="130" rx="42" ry="81" /><Path d="M315 130h284M335 92h244M335 169h244" /></G>
+      <G fill={C.green} opacity={0.3}><Circle cx="408" cy="103" r="3" /><Circle cx="438" cy="83" r="2" /><Circle cx="492" cy="104" r="2" /><Circle cx="535" cy="145" r="3" /><Circle cx="462" cy="166" r="2" /></G>
+    </Svg>
+  );
+}
 
-const chartUri = svgUri(
-  '0 0 520 190',
-  `<defs>
-    <linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#168cff" stop-opacity=".40"/><stop offset="1" stop-color="#168cff" stop-opacity="0"/></linearGradient>
-    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <g opacity=".16" stroke="#168cff"><path d="M0 42h520M0 84h520M0 126h520M0 168h520"/><path d="M80 0v190M170 0v190M260 0v190M350 0v190M440 0v190"/></g>
-  <path d="M8 165 C42 160 53 154 78 145 S116 148 145 131 S177 116 208 121 S243 98 273 89 S311 99 335 79 S370 62 396 70 S430 50 454 31 S488 45 512 11 L512 190 L8 190Z" fill="url(#f)"/>
-  <path d="M8 165 C42 160 53 154 78 145 S116 148 145 131 S177 116 208 121 S243 98 273 89 S311 99 335 79 S370 62 396 70 S430 50 454 31 S488 45 512 11" fill="none" stroke="#168cff" stroke-width="5" stroke-linecap="round" filter="url(#glow)"/>`,
-);
-
-const worldUri = svgUri(
-  '0 0 640 240',
-  `<defs><radialGradient id="r"><stop stop-color="#20ef70" stop-opacity=".14"/><stop offset="1" stop-color="#20ef70" stop-opacity="0"/></radialGradient></defs>
-   <rect width="640" height="240" fill="url(#r)"/>
-   <g fill="none" stroke="#20ef70" stroke-opacity=".23" stroke-width="1.4">
-    <path d="M86 92c54-36 128-52 196-42 74 11 121 55 190 57 54 2 88-20 122-37"/>
-    <path d="M74 136c76-27 139-19 198 10 63 31 130 35 210 5 46-17 79-34 116-27"/>
-    <ellipse cx="457" cy="130" rx="142" ry="81"/><ellipse cx="457" cy="130" rx="92" ry="81"/><ellipse cx="457" cy="130" rx="42" ry="81"/>
-    <path d="M315 130h284M335 92h244M335 169h244"/>
-   </g>
-   <g fill="#20ef70" fill-opacity=".30"><circle cx="408" cy="103" r="3"/><circle cx="438" cy="83" r="2"/><circle cx="492" cy="104" r="2"/><circle cx="535" cy="145" r="3"/><circle cx="462" cy="166" r="2"/></g>`,
-);
-
-const iconUri = (kind: 'send' | 'receive' | 'swap' | 'travel', color = '#168cff') => {
-  const body = {
-    send: `<circle cx="32" cy="32" r="26" fill="#06244a" stroke="${color}" stroke-width="3"/><path d="M32 47V18m0 0L21 29m11-11 11 11" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`,
-    receive: `<path d="M32 9v36m0 0L19 32m13 13 13-13M15 54h34" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`,
-    swap: `<path d="M13 22h36m0 0-9-9m9 9-9 9M51 43H15m0 0 9-9m-9 9 9 9" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`,
-    travel: `<path d="M10 39h44M15 26h34l-6-10H24l-5 10m-1 13-3 14h10l3-14m18 0 3 14h-10l-3-14" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 15V7" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`,
-  }[kind];
-  return svgUri('0 0 64 64', body);
-};
+function ActionArtwork({ kind, size }: { kind: 'send' | 'receive' | 'swap' | 'travel'; size: number }) {
+  return (
+    <Svg accessibilityLabel={`${kind} action`} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      {kind === 'send' ? <><Circle cx="32" cy="32" r="26" fill="#06244a" stroke={C.blue} strokeWidth="3" /><Path d="M32 47V18m0 0L21 29m11-11 11 11" stroke={C.blue} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></> : null}
+      {kind === 'receive' ? <Path d="M32 9v36m0 0L19 32m13 13 13-13M15 54h34" stroke={C.blue} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      {kind === 'swap' ? <Path d="M13 22h36m0 0-9-9m9 9-9 9M51 43H15m0 0 9-9m-9 9 9 9" stroke={C.blue} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      {kind === 'travel' ? <><Path d="M10 39h44M15 26h34l-6-10H24l-5 10m-1 13-3 14h10l3-14m18 0 3 14h-10l-3-14" stroke={C.blue} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><Path d="M32 15V7" stroke={C.blue} strokeWidth="4" strokeLinecap="round" /></> : null}
+    </Svg>
+  );
+}
 
 const previewAssets: Asset[] = [
   { symbol: 'BTC', amount: '0.3567', value: '$22,123.10', mark: '₿', tint: '#ff9814' },
@@ -118,10 +108,6 @@ const ecosystem: EcosystemItem[] = [
   { label: 'Decentralized\nRetirement', mark: 'D', color: C.orange, route: 'VoltaireProtocols' },
 ];
 
-function ShieldLogo({ size }: { size: number }) {
-  return <Image source={{ uri: shieldUri }} resizeMode="contain" style={{ width: size, height: size * 1.13 }} />;
-}
-
 function Token({ asset, size }: { asset: Asset; size: number }) {
   return (
     <View style={[styles.token, { width: size, height: size, borderRadius: size / 2, backgroundColor: asset.tint }]}>
@@ -140,7 +126,7 @@ function ActionCard({ kind, label, route }: { kind: 'send' | 'receive' | 'swap' 
       onPress={() => navigation.navigate(route)}
       style={({ pressed }) => [styles.actionCard, compact && styles.actionCardCompact, pressed && styles.pressed]}
     >
-      <Image source={{ uri: iconUri(kind) }} style={[styles.actionImage, compact && styles.actionImageCompact]} />
+      <ActionArtwork kind={kind} size={compact ? 47 : 58} />
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
@@ -198,7 +184,7 @@ export default function PortfolioScreen() {
     <NomadPage maxWidth={1040}>
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          <ShieldLogo size={compact ? 54 : 68} />
+          <NomadBrandMark size={compact ? 54 : 68} />
           <View style={styles.brandCopy}>
             <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]}>NOMAD</Text>
             <Text style={styles.brandSub}>Built on <Text style={styles.blue}>Voltaire Protocols</Text></Text>
@@ -212,7 +198,7 @@ export default function PortfolioScreen() {
             onPress={() => navigation.navigate('SecurityCenter')}
             style={[styles.statusPill, compact && styles.statusCompact]}
           >
-            <Image source={{ uri: secureShieldUri }} style={styles.statusShieldImage} />
+            <SecureShield size={29} />
             <View>
               <Text style={styles.statusTop}>All Systems</Text>
               <Text style={[styles.statusBottom, { color: systemColor }]}>{systemLabel}</Text>
@@ -226,7 +212,7 @@ export default function PortfolioScreen() {
       </View>
 
       <Panel style={[styles.heroCard, compact && styles.heroCardCompact]}>
-        <Image source={{ uri: worldUri }} style={styles.heroBackdrop} resizeMode="stretch" />
+        <WorldBackdrop style={styles.heroBackdrop} />
         <View style={[styles.heroTop, compact && styles.heroTopCompact]}>
           <View style={styles.balanceArea}>
             <Pressable accessibilityRole="button" accessibilityLabel={hideBalance ? 'Show portfolio balance' : 'Hide portfolio balance'} onPress={() => setHideBalance((value) => !value)} style={styles.eyebrowRow}>
@@ -239,7 +225,7 @@ export default function PortfolioScreen() {
             </View>
             <Text style={styles.change}>{loading ? 'Syncing wallet data…' : '▲ 1.82% (24h)'}</Text>
           </View>
-          <Image source={{ uri: chartUri }} resizeMode="stretch" style={[styles.chart, compact && styles.chartCompact]} />
+          <PortfolioChart style={[styles.chart, compact && styles.chartCompact]} />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.assetRow}>
@@ -269,7 +255,7 @@ export default function PortfolioScreen() {
       </View>
 
       <Panel tone="green" style={styles.travelCard}>
-        <Image source={{ uri: worldUri }} resizeMode="stretch" style={styles.travelBackdrop} />
+        <WorldBackdrop style={styles.travelBackdrop} />
         <Pressable accessibilityRole="button" accessibilityLabel="Open Travel Pocket" onPress={() => navigation.navigate('TravelMode')} style={styles.cardHeader}>
           <View style={styles.titleRow}>
             <Text style={styles.travelPlane}>✈</Text>
@@ -316,7 +302,7 @@ export default function PortfolioScreen() {
       <Panel style={styles.securityCard}>
         <Pressable accessibilityRole="button" accessibilityLabel="Open Security Center" onPress={() => navigation.navigate('SecurityCenter')} style={styles.cardHeader}>
           <View style={styles.titleRow}>
-            <Image source={{ uri: secureShieldUri }} style={styles.sectionShield} />
+            <SecureShield size={27} />
             <Text style={styles.securityTitle}>Security Center</Text>
           </View>
           <View style={styles.headerRight}>
@@ -368,7 +354,6 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#0b3f68', borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12, backgroundColor: 'rgba(3,16,30,.96)' },
   statusCompact: { paddingHorizontal: 8, gap: 5 },
-  statusShieldImage: { width: 29, height: 34 },
   statusTop: { color: '#dbe5f2', fontSize: 11 },
   statusBottom: { fontSize: 12, fontWeight: '900' },
   alertButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#0b3f68', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(3,16,30,.96)' },
@@ -402,8 +387,6 @@ const styles = StyleSheet.create({
   actionGrid: { flexDirection: 'row', gap: 10 },
   actionCard: { flex: 1, minWidth: 0, minHeight: 124, borderWidth: 1, borderColor: C.border, borderRadius: 15, backgroundColor: C.panel, alignItems: 'center', justifyContent: 'center' },
   actionCardCompact: { minHeight: 101 },
-  actionImage: { width: 58, height: 58 },
-  actionImageCompact: { width: 47, height: 47 },
   actionLabel: { color: '#fff', fontSize: 14, fontWeight: '800', marginTop: 4 },
   travelCard: { marginTop: 18, position: 'relative' },
   securityCard: { marginTop: 18 },
@@ -429,7 +412,6 @@ const styles = StyleSheet.create({
   manageTravel: { minHeight: 57, paddingHorizontal: 18, borderTopWidth: 1, borderTopColor: 'rgba(32,239,112,.16)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 },
   manageTravelText: { color: C.green, fontSize: 13, fontWeight: '800' },
   greenArrow: { color: C.green, fontSize: 28 },
-  sectionShield: { width: 31, height: 36 },
   securityTitle: { color: '#fff', fontSize: 17, fontWeight: '900' },
   securePill: { color: C.blue, borderWidth: 1, borderColor: C.blue, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: '900' },
   blueArrow: { color: C.blue, fontSize: 28 },
