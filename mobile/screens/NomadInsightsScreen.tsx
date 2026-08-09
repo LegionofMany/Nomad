@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   statNoteCompact: { fontSize: 7, marginTop: 4 },
   sectionPanel: { marginTop: 17, padding: 20 },
   sectionPanelCompact: { marginTop: 10, padding: 11 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  sectionHeading: { position: 'relative', zIndex: 20, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
   sectionTitleCompact: { fontSize: 10 },
   sectionSub: { color: C.muted, fontSize: 8, marginTop: 4 },
