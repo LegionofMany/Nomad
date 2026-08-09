@@ -97,6 +97,7 @@ function SegmentTabs({ active, compact, onChange }: { active: TabName; compact: 
             accessibilityLabel={`Show ${tab}`}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
+            aria-selected={selected}
             key={tab}
             onPress={() => onChange(tab)}
             style={({ pressed }) => [styles.tab, selected && styles.tabActive, pressed && styles.pressed]}
