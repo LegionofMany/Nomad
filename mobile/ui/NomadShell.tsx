@@ -28,11 +28,12 @@ export const C = {
   muted2: '#7f91a8',
 };
 
-type GlyphKind = 'home' | 'wallet' | 'send' | 'travel' | 'security' | 'recovery' | 'insights' | 'scan' | 'watch' | 'settings';
+type GlyphKind = 'home' | 'wallet' | 'send' | 'receive' | 'travel' | 'security' | 'recovery' | 'insights' | 'scan' | 'watch' | 'settings';
 
 function glyphForRoute(route: string): GlyphKind {
   if (/SendBitcoin/.test(route)) return 'send';
-  if (/Wallet|Receive|Swap/.test(route)) return 'wallet';
+  if (/ReceiveBitcoin/.test(route)) return 'receive';
+  if (/Wallet|Swap/.test(route)) return 'wallet';
   if (/Travel|POS|TopUp/.test(route)) return 'travel';
   if (/Recovery|Unlock|Clock|Authority|Recovered/.test(route)) return 'recovery';
   if (/Security|Emergency/.test(route)) return 'security';
@@ -53,6 +54,9 @@ export function NomadGlyph({ kind, color = C.blue, size = 24 }: { kind: GlyphKin
       break;
     case 'send':
       artwork = <><Path d="m6 21 36-14-13 37-8-15-15-8Z" {...stroke} /><Path d="m21 29 10-12" {...stroke} /></>;
+      break;
+    case 'receive':
+      artwork = <><Path d="M7 17V7h10M31 7h10v10M7 31v10h10M41 31v10H31" {...stroke} /><Rect x="13" y="13" width="9" height="9" {...stroke} /><Rect x="27" y="13" width="8" height="8" {...stroke} /><Rect x="13" y="27" width="8" height="8" {...stroke} /><Path d="M28 27h4v4h4v5h-9v-4" {...stroke} /></>;
       break;
     case 'travel':
       artwork = <><Path d="m7 27 34-16-10 29-7-11-17-2Z" {...stroke} /><Path d="m24 29 7-7" {...stroke} /></>;

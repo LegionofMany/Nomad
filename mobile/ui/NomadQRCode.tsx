@@ -3,10 +3,14 @@ import { StyleSheet, View } from 'react-native';
 
 type Cell = boolean | null;
 
-const VERSION = 4;
+// Version 6-H fits a Bitcoin payment URI while preserving enough recovery
+// capacity for the separate Nomad mark that is overlaid by the receive screen.
+const VERSION = 6;
 const MODULE_COUNT = 17 + VERSION * 4;
-const DATA_CODEWORDS = 80;
-const ERROR_CODEWORDS = 20;
+const DATA_CODEWORDS = 60;
+const DATA_CODEWORDS_PER_BLOCK = 15;
+const ERROR_CODEWORDS_PER_BLOCK = 28;
+const BLOCK_COUNT = 4;
 const QUIET_ZONE = 4;
 
 function multiplyGF(a: number, b: number) {
@@ -65,7 +69,7 @@ function payloadBytes(payload: string) {
 
 function createCodewords(payload: string) {
   const bytes = payloadBytes(payload);
-  if (bytes.length > 78) throw new Error('Nomad QR payload is too long for the receive-code format.');
+  if (bytes.length > 58) throw new Error('Nomad QR payload is too long for the high-recovery receive-code format.');
 
   const bits: number[] = [];
   appendBits(bits, 0b0100, 4);
@@ -89,7 +93,20 @@ function createCodewords(payload: string) {
     pad = !pad;
   }
 
-  return [...data, ...reedSolomon(data, ERROR_CODEWORDS)];
+  const blocks = Array.from({ length: BLOCK_COUNT }, (_, index) =>
+    data.slice(index * DATA_CODEWORDS_PER_BLOCK, (index + 1) * DATA_CODEWORDS_PER_BLOCK),
+  );
+  const errorBlocks = blocks.map((block) => reedSolomon(block, ERROR_CODEWORDS_PER_BLOCK));
+  const interleaved: number[] = [];
+
+  for (let index = 0; index < DATA_CODEWORDS_PER_BLOCK; index += 1) {
+    blocks.forEach((block) => interleaved.push(block[index]));
+  }
+  for (let index = 0; index < ERROR_CODEWORDS_PER_BLOCK; index += 1) {
+    errorBlocks.forEach((block) => interleaved.push(block[index]));
+  }
+
+  return interleaved;
 }
 
 function createMatrix() {
@@ -130,7 +147,8 @@ function reserveFormat(matrix: Cell[][]) {
 }
 
 function formatBits(maskPattern: number) {
-  const formatData = (0b01 << 3) | maskPattern;
+  // QR format-level bits: H = 10.
+  const formatData = (0b10 << 3) | maskPattern;
   let value = formatData << 10;
   const generator = 0x537;
   const bitLength = (input: number) => {
@@ -199,7 +217,7 @@ function encode(payload: string) {
     if (matrix[index][6] === null) matrix[index][6] = index % 2 === 0;
   }
 
-  [6, 26].forEach((row) => [6, 26].forEach((column) => setAlignment(matrix, row, column)));
+  [6, 34].forEach((row) => [6, 34].forEach((column) => setAlignment(matrix, row, column)));
   reserveFormat(matrix);
   mapData(matrix, createCodewords(payload));
   writeFormat(matrix, 0);
