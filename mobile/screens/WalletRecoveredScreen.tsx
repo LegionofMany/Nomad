@@ -1,22 +1,17 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { useNomadWalletRestoration } from '../nomad';
-import type {
-  NomadWalletRestorationCheck,
-  NomadWalletRestorationStatus,
-} from '../nomad';
+import type { NomadWalletRestorationStatus } from '../nomad';
 import {
   BottomNav,
   C,
+  NomadGlyph,
   NomadPage,
   PageHeader,
   Panel,
-  PrimaryButton,
-  ProgressBar,
-  RoundIcon,
-  useNomadLayout,
 } from '../ui/NomadShell';
 
 function statusInfo(status: NomadWalletRestorationStatus) {
@@ -25,34 +20,38 @@ function statusInfo(status: NomadWalletRestorationStatus) {
       return {
         color: C.green,
         tone: 'green' as const,
-        title: 'WALLET RESTORED',
-        headline: 'Recovery Successful',
-        detail: 'A connected provider supplied a verified restoration receipt and confirmed that wallet key material was restored.',
+        title: 'Wallet Recovered',
+        subtitle: 'Step 4 of 4',
+        headline: 'Recovery Successful!',
+        detail: 'Your wallet has been successfully recovered and is now secure.',
       };
     case 'verified_waiting_provider':
       return {
         color: C.yellow,
         tone: 'yellow' as const,
-        title: 'RESTORATION PENDING',
+        title: 'Wallet Recovery Status',
+        subtitle: 'Step 3 of 4',
         headline: 'Sequence Verified—Wallet Not Restored',
-        detail: 'All enrolled Time Set digests matched, but no production provider or signed receipt confirms that private keys were restored.',
+        detail: 'All 24 Time Sets matched, but no connected provider or verified receipt confirms restoration.',
       };
     case 'verification_in_progress':
       return {
         color: C.blue,
         tone: 'blue' as const,
-        title: 'VERIFICATION IN PROGRESS',
+        title: 'Wallet Recovery Status',
+        subtitle: 'Step 2 of 4',
         headline: 'Recovery Is Not Complete',
-        detail: 'The protected Time Set sequence is still being verified. Wallet restoration cannot begin until all 24 entries match.',
+        detail: 'Finish verifying all 24 Time Sets before wallet restoration can be evaluated.',
       };
     case 'setup_required':
     default:
       return {
         color: C.purple,
-        tone: 'yellow' as const,
-        title: 'RECOVERY SETUP REQUIRED',
+        tone: 'purple' as const,
+        title: 'Wallet Recovery Status',
+        subtitle: 'Step 1 of 4',
         headline: 'No Completed Recovery Evidence',
-        detail: 'Start or resume the protected lost-wallet recovery flow before this page can evaluate restoration evidence.',
+        detail: 'Start the protected lost-wallet recovery flow before restoration can be evaluated.',
       };
   }
 }
@@ -68,31 +67,23 @@ function CompletionSteps({
 }) {
   const restored = status === 'restored';
   const steps = [
-    { number: 1, label: 'Prepare Recovery', done: hasSession, active: !hasSession },
-    { number: 2, label: 'Verify Sequence', done: sequenceVerified, active: hasSession && !sequenceVerified },
-    { number: 3, label: 'Restore Wallet', done: restored, active: sequenceVerified && !restored },
-    { number: 4, label: 'Complete', done: restored, active: false },
+    { number: 1, label: 'Enter 24\nTime Sets', done: hasSession, active: !hasSession },
+    { number: 2, label: 'Verify\nSequence', done: sequenceVerified, active: hasSession && !sequenceVerified },
+    { number: 3, label: 'Recover\nWallet', done: restored, active: sequenceVerified && !restored },
+    { number: 4, label: 'Complete', done: false, active: restored },
   ];
 
   return (
     <Panel style={styles.stepper}>
       {steps.map((step, index) => {
-        const color = step.done ? C.green : step.active ? C.yellow : C.muted;
+        const highlighted = step.done || step.active;
         return (
-          <React.Fragment key={step.label}>
+          <React.Fragment key={step.number}>
             <View style={styles.step}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  { borderColor: color },
-                  step.done && styles.stepDone,
-                  step.active && styles.stepActive,
-                ]}
-              >
-                <Text style={[styles.stepMark, { color: step.done ? C.bg : color }]}>{step.done ? '✓' : step.number}</Text>
+              <View style={[styles.stepCircle, highlighted && styles.stepCircleActive]}>
+                <Text style={[styles.stepMark, highlighted && styles.stepMarkActive]}>{step.done ? '✓' : step.number}</Text>
               </View>
-              <Text style={[styles.stepText, { color }]}>{step.label}</Text>
-              <Text style={styles.stepSub}>{step.done ? 'Complete' : step.active ? 'Current' : 'Pending'}</Text>
+              <Text style={[styles.stepLabel, highlighted && { color: C.green }]}>{step.label}</Text>
             </View>
             {index < steps.length - 1 ? <Text style={styles.stepArrow}>→</Text> : null}
           </React.Fragment>
@@ -102,272 +93,151 @@ function CompletionSteps({
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-  color = '#eef3f7',
-  last,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-  last?: boolean;
-}) {
+function RecoveryCompletionGraphic({ color, restored }: { color: string; restored: boolean }) {
+  const rings = [112, 92, 72];
+  const spokes = Array.from({ length: 12 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 12;
+    return {
+      x1: 140 + Math.cos(angle) * 76,
+      y1: 128 + Math.sin(angle) * 76,
+      x2: 140 + Math.cos(angle) * 116,
+      y2: 128 + Math.sin(angle) * 116,
+    };
+  });
+
   return (
-    <View style={[styles.summaryRow, !last && styles.rowBorder]}>
+    <View accessibilityLabel={restored ? 'Recovered wallet shield' : 'Wallet restoration pending shield'} style={[styles.graphic, { shadowColor: color }]}>
+      <Svg width={280} height={260} viewBox="0 0 280 260" fill="none">
+        {spokes.map((spoke, index) => <Line key={index} {...spoke} stroke={color} strokeOpacity={0.21} strokeWidth="1" />)}
+        {rings.map((radius) => <Circle key={radius} cx="140" cy="128" r={radius} stroke={color} strokeOpacity={0.3} strokeWidth="1" />)}
+        <Circle cx="140" cy="128" r="104" stroke={color} strokeOpacity={0.22} strokeWidth="1" strokeDasharray="3 8" />
+        <Path d="M140 39c-28 21-52 28-73 33v51c0 45 27 77 73 99 46-22 73-54 73-99V72c-21-5-45-12-73-33Z" fill="#03150f" stroke={color} strokeWidth="9" strokeLinejoin="round" />
+        <Path d={restored ? 'm104 128 24 25 49-55' : 'M140 91v55M140 176v2'} stroke={color} strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </View>
+  );
+}
+
+function SummaryRow({ label, value, color, last }: { label: string; value: string; color?: string; last?: boolean }) {
+  return (
+    <View style={[styles.summaryRow, !last && styles.summaryBorder]}>
       <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={[styles.summaryValue, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
-function CheckRow({ item, last }: { item: NomadWalletRestorationCheck; last?: boolean }) {
-  const color = item.status === 'pass' ? C.green : item.status === 'warning' ? C.yellow : C.red;
-  const mark = item.status === 'pass' ? '✓' : item.status === 'warning' ? '!' : '×';
-
-  return (
-    <View style={[styles.checkRow, !last && styles.rowBorder]}>
-      <View style={[styles.checkMark, { borderColor: color, backgroundColor: `${color}12` }]}>
-        <Text style={[styles.checkMarkText, { color }]}>{mark}</Text>
-      </View>
-      <View style={styles.checkCopy}>
-        <Text style={styles.checkTitle}>{item.label}</Text>
-        <Text style={styles.checkDetail}>{item.detail}</Text>
-      </View>
-      <Text style={[styles.checkStatus, { color }]}>{item.status.replace('_', ' ').toUpperCase()}</Text>
-    </View>
-  );
-}
-
-function ActivityRow({
-  title,
-  detail,
-  timestamp,
-  severity,
-  last,
-}: {
-  title: string;
-  detail: string;
-  timestamp: string;
-  severity: 'info' | 'warning' | 'critical';
-  last?: boolean;
-}) {
-  const color = severity === 'critical' ? C.red : severity === 'warning' ? C.yellow : C.green;
-  return (
-    <View style={[styles.activityRow, !last && styles.rowBorder]}>
-      <View style={[styles.activityMark, { borderColor: color, backgroundColor: `${color}12` }]}>
-        <Text style={[styles.activityMarkText, { color }]}>{severity === 'info' ? '✓' : '!'}</Text>
-      </View>
-      <View style={styles.activityCopy}>
-        <Text style={styles.activityTitle}>{title}</Text>
-        <Text style={styles.activityDetail}>{detail}</Text>
-        <Text style={styles.activityTime}>{new Date(timestamp).toLocaleString()}</Text>
-      </View>
+      <Text style={[styles.summaryValue, color ? { color } : null]}>{value}</Text>
     </View>
   );
 }
 
 export default function WalletRecoveredScreen() {
   const navigation = useNavigation<any>();
-  const { compact } = useNomadLayout();
   const { restoration, loading, error, refresh } = useNomadWalletRestoration();
   const status = statusInfo(restoration.status);
-  const lostWallet = restoration.lostWallet;
-  const sequence = lostWallet.sequence;
-  const verifiedSets = Math.min(sequence.verifiedSets, Math.max(1, sequence.totalSets));
-  const sequencePercent = Math.round((verifiedSets / Math.max(1, sequence.totalSets)) * 100);
-  const recentActivity = lostWallet.activity.slice(0, 4);
-  const session = lostWallet.activeSession;
+  const sequence = restoration.lostWallet.sequence;
+  const totalSets = Math.max(1, sequence.totalSets);
+  const verifiedSets = Math.min(sequence.verifiedSets, totalSets);
+  const restored = restoration.status === 'restored' && restoration.canOpenRecoveredWallet;
+  const receiptDate = restoration.receipt?.restoredAt
+    ? new Date(restoration.receipt.restoredAt).toLocaleString()
+    : 'Pending provider receipt';
+  const strengthLabel = restoration.sequenceVerified
+    ? `Strong (${sequence.strengthScore} / 100)`
+    : `In progress (${sequence.strengthScore} / 100)`;
 
-  const primaryRoute = restoration.canOpenRecoveredWallet
-    ? 'Portfolio'
-    : restoration.status === 'verification_in_progress'
-      ? 'VerifyRecoverySequence'
-      : restoration.status === 'verified_waiting_provider'
-        ? 'RecoveryCenter'
-        : 'RecoverLostWallet';
-
-  const primaryLabel = restoration.canOpenRecoveredWallet
-    ? 'Open Recovered Wallet'
-    : restoration.status === 'verification_in_progress'
-      ? 'Continue Sequence Verification'
-      : restoration.status === 'verified_waiting_provider'
-        ? 'Review Restoration Requirements'
-        : 'Start Lost-Wallet Recovery';
-
-  const primarySubtitle = restoration.canOpenRecoveredWallet
-    ? 'A verified restoration receipt permits wallet access'
-    : restoration.status === 'verified_waiting_provider'
-      ? 'Connect a production provider and verify a signed receipt'
-      : 'Complete the owner-controlled recovery sequence';
+  const continueRoute = restoration.status === 'verification_in_progress'
+    ? 'VerifyRecoverySequence'
+    : restoration.status === 'setup_required'
+      ? 'RecoverLostWallet'
+      : 'RecoveryCenter';
 
   return (
     <NomadPage maxWidth={880}>
-      <PageHeader
-        title={restoration.status === 'restored' ? 'Wallet Recovered' : 'Wallet Recovery Status'}
-        subtitle={restoration.status === 'restored' ? 'Step 4 of 4' : 'Evidence-based restoration gate'}
-        icon="◇"
-        color={status.color}
-        help
-      />
+      <PageHeader title={status.title} subtitle={status.subtitle} icon="◇" color={status.color} status={false} help />
 
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void refresh()} style={styles.retryButton}>
+          <Pressable testID="wallet-recovery-retry" accessibilityRole="button" accessibilityLabel="Retry wallet restoration evidence" onPress={() => void refresh()} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       ) : null}
 
-      <CompletionSteps
-        status={restoration.status}
-        hasSession={restoration.activeRecoverySession}
-        sequenceVerified={restoration.sequenceVerified}
-      />
+      <CompletionSteps status={restoration.status} hasSession={restoration.activeRecoverySession} sequenceVerified={restoration.sequenceVerified} />
 
-      <Panel tone={status.tone} style={styles.statusPanel}>
-        <View style={[styles.statusBadge, { borderColor: status.color }]}>
-          <Text style={[styles.statusMark, { color: status.color }]}>{restoration.status === 'restored' ? '✓' : '!'}</Text>
-        </View>
-        <Text style={[styles.statusEyebrow, { color: status.color }]}>{status.title}</Text>
-        <Text style={styles.statusHeadline}>{status.headline}</Text>
-        <Text style={styles.statusText}>{status.detail}</Text>
-        <View style={styles.statusBoundary}>
-          <Text style={styles.statusBoundaryLabel}>PRIVATE KEYS RESTORED</Text>
-          <Text style={[styles.statusBoundaryValue, { color: restoration.privateKeysRestored ? C.green : C.red }]}>
-            {restoration.privateKeysRestored ? 'CONFIRMED' : 'NO'}
-          </Text>
-        </View>
+      <Panel tone={status.tone} style={styles.hero}>
+        <RecoveryCompletionGraphic color={status.color} restored={restored} />
+        <Text style={[styles.heroTitle, { color: status.color }]}>{status.headline}</Text>
+        <Text style={styles.heroText}>{status.detail}</Text>
+        {!restored ? (
+          <View style={[styles.pendingPill, { borderColor: status.color }]}>
+            <Text style={[styles.pendingPillText, { color: status.color }]}>PRIVATE KEYS RESTORED: NO</Text>
+          </View>
+        ) : null}
       </Panel>
 
-      <View style={[styles.metricRow, compact && styles.metricRowCompact]}>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>TIME SETS</Text>
-          <Text style={[styles.metricValue, { color: restoration.sequenceVerified ? C.green : C.blue }]}>{verifiedSets}/{sequence.totalSets}</Text>
-          <Text style={styles.metricSub}>{restoration.sequenceVerified ? 'Verified' : 'Verification progress'}</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>RESTORATION PROVIDER</Text>
-          <Text style={[styles.metricStatus, { color: restoration.restorationProviderConnected ? C.green : C.red }]}>
-            {restoration.restorationProviderConnected ? 'CONNECTED' : 'NOT CONNECTED'}
-          </Text>
-          <Text style={styles.metricSub}>Key-restoration boundary</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>SIGNED RECEIPT</Text>
-          <Text style={[styles.metricStatus, { color: restoration.receiptSignatureVerified ? C.green : C.red }]}>
-            {restoration.receiptSignatureVerified ? 'VERIFIED' : 'UNAVAILABLE'}
-          </Text>
-          <Text style={styles.metricSub}>Required for completion</Text>
-        </Panel>
-      </View>
-
-      <Panel style={styles.progressPanel}>
-        <View style={styles.progressHeading}>
-          <View>
-            <Text style={styles.sectionTitle}>SEQUENCE VERIFICATION</Text>
-            <Text style={styles.sectionSub}>Digest matching is separate from wallet-key restoration</Text>
-          </View>
-          <Text style={styles.progressValue}>{verifiedSets} of {sequence.totalSets}</Text>
-        </View>
-        <ProgressBar value={sequencePercent} color={C.green} height={9} />
-        <View style={styles.milestones}>
-          {[6, 12, 18, 24].map((value) => (
-            <View key={value} style={styles.milestone}>
-              <Text style={[styles.milestoneMark, verifiedSets >= value && { color: C.green }]}>{verifiedSets >= value ? '✓' : '•'}</Text>
-              <Text style={styles.milestoneLabel}>{value} Sets</Text>
-            </View>
-          ))}
-        </View>
+      <Panel style={styles.summaryPanel}>
+        <Text style={[styles.sectionTitle, { color: status.color }]}>WALLET SUMMARY</Text>
+        <SummaryRow label="Wallet Name" value="My Nomad Wallet" />
+        <SummaryRow label="Recovery Date" value={receiptDate} />
+        <SummaryRow label="Recovery Method" value="24 Time Sets" />
+        <SummaryRow label="Time Sets Verified" value={`${verifiedSets} of ${totalSets}`} color={restoration.sequenceVerified ? C.green : C.blue} />
+        <SummaryRow label="Security Strength" value={strengthLabel} color={restoration.sequenceVerified ? C.green : C.yellow} last />
       </Panel>
 
-      <Panel style={styles.checkPanel}>
-        <View style={styles.sectionHeading}>
-          <View>
-            <Text style={styles.sectionTitle}>RESTORATION EVIDENCE</Text>
-            <Text style={styles.sectionSub}>Every requirement must pass before Wallet Recovered is valid</Text>
-          </View>
-          <Pressable onPress={() => void refresh()} disabled={loading} style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed, loading && styles.disabled]}>
-            <Text style={styles.refreshText}>{loading ? 'Checking…' : 'Recheck'}</Text>
-          </Pressable>
+      <Panel tone={restored ? 'green' : 'yellow'} style={styles.restoreNotice}>
+        <View style={styles.noticeIcon}>
+          <NomadGlyph kind={restored ? 'security' : 'recovery'} color={restored ? C.green : C.yellow} size={47} />
         </View>
-        {restoration.checks.map((item, index) => (
-          <CheckRow key={item.id} item={item} last={index === restoration.checks.length - 1} />
-        ))}
+        <Text style={styles.noticeText}>
+          {restored
+            ? 'Your wallet, keys, and settings have been fully restored. You can now access and manage your funds securely.'
+            : 'Your Time Set sequence is verified, but wallet keys and settings remain unchanged until a connected provider supplies a valid signed restoration receipt.'}
+        </Text>
       </Panel>
 
-      <View style={[styles.infoColumns, compact && styles.infoColumnsCompact]}>
-        <Panel style={styles.summaryPanel}>
-          <Text style={styles.sectionTitle}>RECOVERY SUMMARY</Text>
-          <SummaryRow label="Recovery Session" value={session?.id ?? 'Not started'} />
-          <SummaryRow label="Reason" value={session?.reason.replace(/_/g, ' ') ?? 'Not selected'} />
-          <SummaryRow label="Verification Provider" value={restoration.lostWallet.verificationProvider.replace(/_/g, ' ')} />
-          <SummaryRow label="Digest Algorithm" value={restoration.lostWallet.digestAlgorithm} />
-          <SummaryRow label="Session Contains Secrets" value={session?.containsSecrets === false ? 'No' : 'No session'} color={C.green} />
-          <SummaryRow label="Wallet State Changed" value={restoration.walletStateChangedByRecovery ? 'Yes' : 'No'} color={restoration.walletStateChangedByRecovery ? C.green : C.red} />
-          <SummaryRow label="Checked" value={new Date(restoration.checkedAt).toLocaleString()} last />
-        </Panel>
-
-        <Panel tone="yellow" style={styles.boundaryPanel}>
-          <RoundIcon symbol="▣" color={C.yellow} size={55} filled />
-          <Text style={styles.boundaryTitle}>Verification Is Not Restoration</Text>
-          <Text style={styles.boundaryText}>
-            Matching all 24 salted digests proves that the entered sequence matches the enrolled recovery evidence. It does not reconstruct a seed, restore private keys or authorize a new device.
-          </Text>
-          <View style={styles.boundaryList}>
-            <Text style={styles.boundaryItem}>× Cross-device recovery package</Text>
-            <Text style={styles.boundaryItem}>× Hardware-backed identity proof</Text>
-            <Text style={styles.boundaryItem}>× Provider-signed restoration receipt</Text>
-            <Text style={styles.boundaryItem}>× Restored key material</Text>
+      {!restored && restoration.status === 'verified_waiting_provider' ? (
+        <Panel tone="yellow" style={styles.evidencePanel}>
+          <View style={styles.evidenceHeading}>
+            <Text style={styles.evidenceTitle}>RESTORATION REQUIREMENTS</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Recheck restoration requirements" disabled={loading} onPress={() => void refresh()} style={styles.recheckButton}>
+              <Text style={styles.recheckText}>{loading ? 'Checking…' : 'Recheck'}</Text>
+            </Pressable>
           </View>
+          {restoration.checks.map((check, index) => {
+            const passed = check.status === 'pass';
+            return (
+              <View key={check.id} style={[styles.evidenceRow, index < restoration.checks.length - 1 && styles.summaryBorder]}>
+                <Text style={[styles.evidenceMark, { color: passed ? C.green : C.red }]}>{passed ? '✓' : '×'}</Text>
+                <View style={styles.evidenceCopy}>
+                  <Text style={styles.evidenceLabel}>{check.label}</Text>
+                  <Text style={styles.evidenceDetail}>{check.detail}</Text>
+                </View>
+              </View>
+            );
+          })}
         </Panel>
-      </View>
-
-      <Panel style={styles.activityPanel}>
-        <View style={styles.activityHeading}>
-          <View>
-            <Text style={styles.sectionTitle}>RECOVERY ACTIVITY</Text>
-            <Text style={styles.sectionSub}>Metadata records only—no Time Set values or private keys</Text>
-          </View>
-          <Text style={styles.activityCount}>{lostWallet.activity.length}</Text>
-        </View>
-        {recentActivity.length ? recentActivity.map((item, index) => (
-          <ActivityRow
-            key={item.id}
-            title={item.title}
-            detail={item.detail}
-            timestamp={item.timestamp}
-            severity={item.severity}
-            last={index === recentActivity.length - 1}
-          />
-        )) : <Text style={styles.emptyActivity}>No lost-wallet recovery activity is recorded.</Text>}
-      </Panel>
-
-      <PrimaryButton
-        label={primaryLabel}
-        subtitle={primarySubtitle}
-        icon={restoration.canOpenRecoveredWallet ? '▣' : '◇'}
-        tone={restoration.status === 'restored' ? 'green' : restoration.status === 'verified_waiting_provider' ? 'green' : 'blue'}
-        disabled={loading}
-        onPress={() => navigation.navigate(primaryRoute)}
-      />
+      ) : null}
 
       <Pressable
-        onPress={() => navigation.navigate(lostWallet.ownerAuthorityStatus === 'pending' ? 'OwnerAuthorityApproval' : 'CreateOwnerAuthority')}
-        style={styles.secondaryAction}
+        testID="open-recovered-wallet"
+        accessibilityRole="button"
+        accessibilityLabel={restored ? 'Open recovered wallet' : 'Open wallet blocked until restoration evidence is verified'}
+        disabled={!restored || loading}
+        onPress={() => navigation.navigate('Portfolio')}
+        style={({ pressed }) => [styles.openButton, (!restored || loading) && styles.openButtonDisabled, pressed && restored && styles.pressed]}
       >
-        <Text style={styles.secondaryText}>
-          {lostWallet.ownerAuthorityStatus === 'pending' ? 'Review Owner Authority' : 'Configure Owner Authority'}
-        </Text>
+        <NomadGlyph kind="wallet" color={restored ? C.bg : C.muted2} size={36} />
+        <Text style={[styles.openButtonText, !restored && styles.openButtonTextDisabled]}>{restored ? 'Open Wallet' : 'Open Wallet — Blocked'}</Text>
       </Pressable>
 
-      <Panel tone="red" style={styles.warningPanel}>
-        <Text style={styles.warningIcon}>⚠</Text>
-        <Text style={styles.warningText}>
-          Do not treat a verified Time Set sequence as proof that funds or private keys were restored. Only a cryptographically verified provider receipt and confirmed wallet-state change may unlock the recovered-wallet action.
-        </Text>
-      </Panel>
+      <Pressable
+        testID="wallet-recovery-secondary"
+        accessibilityRole="button"
+        accessibilityLabel={restored ? 'Go to Home' : 'Return to Recovery Center'}
+        onPress={() => navigation.navigate(restored ? 'Portfolio' : continueRoute)}
+        style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}
+      >
+        <Text style={[styles.secondaryText, { color: restored ? C.green : status.color }]}>{restored ? 'Go to Home' : restoration.status === 'verification_in_progress' ? 'Continue Verification' : restoration.status === 'setup_required' ? 'Start Recovery' : 'Return to Recovery Center'}</Text>
+      </Pressable>
 
       <BottomNav active="Recovery" items={[
         ['⌂', 'Home', 'Portfolio'],
@@ -381,83 +251,48 @@ export default function WalletRecoveredScreen() {
 }
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.72 },
   errorBanner: { minHeight: 48, marginBottom: 10, borderWidth: 1, borderColor: C.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center' },
   errorText: { flex: 1, color: C.red, fontSize: 10, lineHeight: 15 },
   retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
   retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  stepper: { minHeight: 96, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  stepper: { minHeight: 120, paddingHorizontal: 17, paddingVertical: 17, flexDirection: 'row', alignItems: 'center' },
   step: { flex: 1, alignItems: 'center' },
-  stepCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, backgroundColor: 'rgba(255,255,255,.02)', alignItems: 'center', justifyContent: 'center' },
-  stepDone: { backgroundColor: C.green },
-  stepActive: { backgroundColor: 'rgba(255,194,41,.08)' },
-  stepMark: { fontWeight: '900' },
-  stepText: { fontSize: 8, textAlign: 'center', marginTop: 6 },
-  stepSub: { color: C.muted, fontSize: 7, marginTop: 2 },
-  stepArrow: { color: C.muted, fontSize: 17 },
-  statusPanel: { minHeight: 350, marginTop: 17, padding: 23, alignItems: 'center', justifyContent: 'center' },
-  statusBadge: { width: 126, height: 126, borderRadius: 63, borderWidth: 7, backgroundColor: 'rgba(2,18,12,.72)', alignItems: 'center', justifyContent: 'center' },
-  statusMark: { fontSize: 62, fontWeight: '900' },
-  statusEyebrow: { fontSize: 10, fontWeight: '900', marginTop: 18 },
-  statusHeadline: { color: '#fff', fontSize: 27, fontWeight: '900', textAlign: 'center', marginTop: 8 },
-  statusText: { color: '#edf3f8', fontSize: 11, lineHeight: 18, textAlign: 'center', maxWidth: 560, marginTop: 10 },
-  statusBoundary: { minWidth: 230, marginTop: 20, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statusBoundaryLabel: { color: C.muted, fontSize: 8, fontWeight: '900' },
-  statusBoundaryValue: { fontSize: 10, fontWeight: '900' },
-  metricRow: { flexDirection: 'row', gap: 10, marginTop: 17 },
-  metricRowCompact: { flexDirection: 'column' },
-  metricCard: { flex: 1, minHeight: 111, padding: 14 },
-  metricLabel: { color: C.muted, fontSize: 8, fontWeight: '900' },
-  metricValue: { fontSize: 27, fontWeight: '900', marginTop: 9 },
-  metricStatus: { fontSize: 12, fontWeight: '900', marginTop: 12 },
-  metricSub: { color: C.muted, fontSize: 8, marginTop: 5 },
-  progressPanel: { marginTop: 17, padding: 17 },
-  progressHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
-  progressValue: { color: C.green, fontSize: 13, fontWeight: '900' },
-  milestones: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  milestone: { alignItems: 'center' },
-  milestoneMark: { color: C.muted, fontSize: 16 },
-  milestoneLabel: { color: C.muted, fontSize: 7, marginTop: 3 },
-  checkPanel: { marginTop: 17, padding: 17 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 7 },
-  sectionTitle: { color: C.green, fontSize: 13, fontWeight: '900', letterSpacing: .3 },
-  sectionSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 3 },
-  refreshButton: { borderWidth: 1, borderColor: C.green, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
-  refreshText: { color: C.green, fontSize: 8, fontWeight: '900' },
-  checkRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  checkMark: { width: 39, height: 39, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  checkMarkText: { fontSize: 16, fontWeight: '900' },
-  checkCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  checkTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  checkDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
-  checkStatus: { marginLeft: 8, fontSize: 7, fontWeight: '900' },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
-  infoColumns: { flexDirection: 'row', gap: 12, marginTop: 17 },
-  infoColumnsCompact: { flexDirection: 'column' },
-  summaryPanel: { flex: 1, padding: 17 },
-  summaryRow: { minHeight: 51, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 15 },
-  summaryLabel: { color: '#eef3f7', fontSize: 9 },
-  summaryValue: { flex: 1, color: '#eef3f7', fontSize: 9, fontWeight: '700', textAlign: 'right', textTransform: 'capitalize' },
-  boundaryPanel: { flex: 1, padding: 17, alignItems: 'flex-start' },
-  boundaryTitle: { color: C.yellow, fontSize: 14, fontWeight: '900', marginTop: 12 },
-  boundaryText: { color: '#f0e8d6', fontSize: 9, lineHeight: 15, marginTop: 7 },
-  boundaryList: { marginTop: 12 },
-  boundaryItem: { color: C.muted, fontSize: 8, lineHeight: 15 },
-  activityPanel: { marginTop: 17, padding: 17 },
-  activityHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
-  activityCount: { color: C.green, fontSize: 15, fontWeight: '900' },
-  activityRow: { minHeight: 76, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-  activityMark: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  activityMarkText: { fontSize: 15, fontWeight: '900' },
-  activityCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  activityTitle: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  activityDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
-  activityTime: { color: '#738397', fontSize: 7, marginTop: 4 },
-  emptyActivity: { color: C.muted, fontSize: 9, paddingVertical: 18 },
-  secondaryAction: { alignSelf: 'center', padding: 13 },
-  secondaryText: { color: C.green, fontSize: 11, fontWeight: '800' },
-  warningPanel: { minHeight: 82, marginTop: 5, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  warningIcon: { color: C.red, fontSize: 25, marginRight: 12 },
-  warningText: { flex: 1, color: '#e7edf5', fontSize: 9, lineHeight: 15 },
-  pressed: { opacity: .72 },
-  disabled: { opacity: .5 },
+  stepCircle: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#56606c', alignItems: 'center', justifyContent: 'center' },
+  stepCircleActive: { borderColor: C.green, backgroundColor: C.green },
+  stepMark: { color: '#d4d9df', fontSize: 16, fontWeight: '800' },
+  stepMarkActive: { color: C.bg },
+  stepLabel: { color: '#d4d9df', fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 8 },
+  stepArrow: { color: '#767d86', fontSize: 27, marginHorizontal: 4, marginBottom: 31 },
+  hero: { minHeight: 555, marginTop: 20, paddingHorizontal: 22, paddingTop: 13, paddingBottom: 28, alignItems: 'center', justifyContent: 'center' },
+  graphic: { width: 280, height: 260, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.45, shadowRadius: 25 },
+  heroTitle: { fontSize: 31, fontWeight: '900', textAlign: 'center', marginTop: 5 },
+  heroText: { color: '#e8edf1', maxWidth: 600, fontSize: 17, lineHeight: 25, textAlign: 'center', marginTop: 14 },
+  pendingPill: { marginTop: 20, borderWidth: 1, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 },
+  pendingPillText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  summaryPanel: { marginTop: 20, paddingHorizontal: 25, paddingTop: 23, paddingBottom: 8 },
+  sectionTitle: { fontSize: 14, fontWeight: '900', marginBottom: 10 },
+  summaryRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 18 },
+  summaryBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
+  summaryLabel: { color: '#f0f2f4', fontSize: 13 },
+  summaryValue: { flex: 1, color: '#f0f2f4', fontSize: 13, textAlign: 'right' },
+  restoreNotice: { minHeight: 108, marginTop: 17, paddingHorizontal: 25, paddingVertical: 17, flexDirection: 'row', alignItems: 'center' },
+  noticeIcon: { width: 62, alignItems: 'center' },
+  noticeText: { flex: 1, minWidth: 0, color: '#eef1f4', fontSize: 13, lineHeight: 20, marginLeft: 16 },
+  evidencePanel: { marginTop: 17, padding: 19 },
+  evidenceHeading: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  evidenceTitle: { color: C.yellow, fontSize: 13, fontWeight: '900' },
+  recheckButton: { borderWidth: 1, borderColor: C.yellow, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  recheckText: { color: C.yellow, fontSize: 8, fontWeight: '900' },
+  evidenceRow: { minHeight: 73, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
+  evidenceMark: { width: 32, fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  evidenceCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  evidenceLabel: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  evidenceDetail: { color: C.muted, fontSize: 8.5, lineHeight: 14, marginTop: 4 },
+  openButton: { minHeight: 84, marginTop: 18, borderRadius: 12, backgroundColor: C.green, paddingHorizontal: 23, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 15 },
+  openButtonDisabled: { backgroundColor: '#15293a', borderWidth: 1, borderColor: '#33485a' },
+  openButtonText: { color: C.bg, fontSize: 25, fontWeight: '900' },
+  openButtonTextDisabled: { color: C.muted2 },
+  secondaryAction: { minHeight: 50, alignItems: 'center', justifyContent: 'center' },
+  secondaryText: { fontSize: 14, fontWeight: '800' },
 });
