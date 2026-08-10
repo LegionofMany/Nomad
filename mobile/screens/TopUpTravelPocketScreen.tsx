@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { useNomadTravelTopUp } from '../nomad';
 import type {
@@ -9,48 +10,44 @@ import type {
   NomadTravelTopUpMode,
   NomadTravelTopUpQuote,
 } from '../nomad';
-import {
-  BottomNav,
-  C,
-  NomadPage,
-  PageHeader,
-  Panel,
-  PrimaryButton,
-  ProgressBar,
-  RoundIcon,
-  useNomadLayout,
-} from '../ui/NomadShell';
+import { C, NomadGlyph, NomadPage, Panel, ProgressBar, useNomadLayout } from '../ui/NomadShell';
 
 type Step = 1 | 2 | 3;
 
-const tokenVisuals: Record<string, { icon: string; color: string }> = {
-  USDT: { icon: '₮', color: '#33d790' },
-  USDC: { icon: '$', color: '#1684ff' },
-  BTC: { icon: '₿', color: '#ff9900' },
-  ETH: { icon: '◆', color: '#627eea' },
-  DAI: { icon: 'D', color: '#f5ac25' },
-  HBAR: { icon: 'H', color: '#6b42ff' },
-  XRP: { icon: 'X', color: '#2c2f35' },
-  XLM: { icon: 'S', color: '#187bff' },
-  XDC: { icon: 'X', color: '#005ba8' },
-  ADA: { icon: 'A', color: '#246bff' },
-  ALGO: { icon: 'A', color: '#2e72d8' },
+const assetVisuals: Record<string, { mark: string; color: string; name: string }> = {
+  USDT: { mark: '₮', color: '#26a17b', name: 'Tether' },
+  USDC: { mark: '$', color: '#2775ca', name: 'USD Coin' },
+  BTC: { mark: '₿', color: '#ff9814', name: 'Bitcoin' },
+  ETH: { mark: '♦', color: '#627eea', name: 'Ethereum' },
+  DAI: { mark: 'D', color: '#f5ac25', name: 'Dai Stablecoin' },
+  HBAR: { mark: 'H', color: '#6b42ff', name: 'Hedera' },
+  XRP: { mark: '×', color: '#31353c', name: 'XRP' },
+  XLM: { mark: 'S', color: '#1684ff', name: 'Stellar' },
+  XDC: { mark: 'X', color: '#075c9e', name: 'XDC Network' },
+  ADA: { mark: 'A', color: '#246bff', name: 'Cardano' },
+  ALGO: { mark: 'A', color: '#2e72d8', name: 'Algorand' },
 };
 
 function visualFor(symbol: string) {
-  return tokenVisuals[symbol.toUpperCase()] ?? { icon: symbol.slice(0, 1), color: C.blue };
+  return assetVisuals[symbol.toUpperCase()] ?? { mark: symbol.slice(0, 1), color: C.blue, name: symbol };
 }
 
-function formatDate(value?: string) {
-  if (!value) return 'Not recorded';
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return 'Time unavailable';
-  return new Date(parsed).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+function standardizedNetwork(asset: NomadTravelTopUpAsset) {
+  const network = (asset.network || '').trim();
+  const symbol = asset.symbol.toUpperCase();
+  if (symbol === 'USDT' && /tron|trc/i.test(network)) return 'TRC20';
+  if (['USDC', 'DAI'].includes(symbol) && /ethereum|erc/i.test(network)) return 'ERC20';
+  if (symbol === 'ETH') return 'Ethereum';
+  if (symbol === 'BTC') return 'Bitcoin';
+  if (symbol === 'HBAR') return 'Hedera';
+  if (symbol === 'XRP') return 'XRPL';
+  if (symbol === 'XLM') return 'Stellar';
+  return network || 'Network unavailable';
+}
+
+function displaySymbol(asset: NomadTravelTopUpAsset) {
+  const network = standardizedNetwork(asset);
+  return ['TRC20', 'ERC20'].includes(network) ? `${asset.symbol} (${network})` : asset.symbol;
 }
 
 function sanitizeAmount(value: string) {
@@ -59,111 +56,158 @@ function sanitizeAmount(value: string) {
   return fractions.length ? `${whole}.${fractions.join('').slice(0, 8)}` : whole;
 }
 
-function Stepper({ step, completed }: { step: Step; completed: boolean }) {
-  const steps: Array<{ number: Step; label: string }> = [
-    { number: 1, label: 'Select Asset' },
-    { number: 2, label: 'Enter Amount' },
-    { number: 3, label: completed ? 'Draft Created' : 'Review Draft' },
-  ];
-
+function Header({ title, step, onBack }: { title: string; step: Step; onBack(): void }) {
+  const navigation = useNavigation<any>();
+  const { compact } = useNomadLayout();
   return (
-    <Panel style={styles.stepper}>
-      {steps.map((item, index) => {
-        const done = item.number < step || (item.number === 3 && completed);
-        const active = item.number === step && !done;
-        const color = done ? C.green : active ? C.blue : C.muted;
-        return (
-          <React.Fragment key={item.number}>
-            <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, { borderColor: color }, done && styles.stepDone, active && styles.stepActive]}>
-                <Text style={[styles.stepNumber, { color: done ? C.bg : color }]}>{done ? '✓' : item.number}</Text>
-              </View>
-              <Text style={[styles.stepLabel, { color }]}>{item.label}</Text>
-            </View>
-            {index < steps.length - 1 ? <View style={[styles.stepLine, done && styles.stepLineDone]} /> : null}
-          </React.Fragment>
-        );
-      })}
-    </Panel>
-  );
-}
-
-function AssetRow({
-  asset,
-  selected,
-  last,
-  onPress,
-}: {
-  asset: NomadTravelTopUpAsset;
-  selected: boolean;
-  last?: boolean;
-  onPress(): void;
-}) {
-  const visual = visualFor(asset.symbol);
-  return (
-    <Pressable
-      disabled={!asset.quoteAvailable}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.assetRow,
-        !last && styles.rowBorder,
-        selected && styles.assetSelected,
-        !asset.quoteAvailable && styles.disabled,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={[styles.assetBadge, { backgroundColor: visual.color }]}>
-        <Text style={styles.assetMark}>{visual.icon}</Text>
+    <View style={styles.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.backButton}>
+        <Text style={styles.backArrow}>‹</Text>
+      </Pressable>
+      <View style={styles.headerCenter}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>{title}</Text>
+        <Text style={styles.headerSubtitle}>Step {step} of 3</Text>
       </View>
-      <View style={styles.assetCopy}>
-        <Text style={styles.assetSymbol}>{asset.symbol}</Text>
-        <Text numberOfLines={1} style={styles.assetName}>{asset.name} • {asset.network || 'Network unavailable'}</Text>
-      </View>
-      <View style={styles.assetNumbers}>
-        <Text numberOfLines={1} style={styles.assetBalance}>{asset.balanceLabel}</Text>
-        <Text style={styles.assetValue}>{asset.fiatValueLabel}</Text>
-      </View>
-      <Text style={[styles.assetStatus, { color: asset.quoteAvailable ? C.green : C.yellow }]}>
-        {asset.quoteAvailable ? (selected ? '✓' : '›') : 'NO PRICE'}
-      </Text>
-    </Pressable>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  color = '#fff',
-  last,
-}: {
-  label: string;
-  value: string;
-  color?: string;
-  last?: boolean;
-}) {
-  return (
-    <View style={[styles.detailRow, !last && styles.rowBorder]}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, { color }]}>{value}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Open help" onPress={() => navigation.navigate('Settings')} style={styles.helpButton}>
+        <Text style={styles.helpLabel}>Help</Text>
+        <Text style={styles.helpQuestion}>?</Text>
+      </Pressable>
     </View>
   );
 }
 
-function DraftRow({ item, last }: { item: NomadTravelTopUpDraftReceipt; last?: boolean }) {
-  const color = item.walletDraftStatus === 'failed'
-    ? C.red
-    : item.broadcasted
-      ? C.green
-      : C.yellow;
+function Stepper({ step, complete }: { step: Step; complete: boolean }) {
+  const { compact } = useNomadLayout();
+  const items = [
+    { number: 1 as const, label: 'Select Asset' },
+    { number: 2 as const, label: 'Enter Amount' },
+    { number: 3 as const, label: 'Review & Confirm' },
+  ];
   return (
-    <View style={[styles.draftRow, !last && styles.rowBorder]}>
-      <RoundIcon symbol={item.broadcasted ? '✓' : item.walletDraftStatus === 'failed' ? '!' : '▰'} color={color} size={42} filled />
-      <View style={styles.draftCopy}>
-        <Text style={styles.draftTitle}>{item.amountAssetLabel} • {item.sourceAsset}</Text>
-        <Text style={styles.draftDetail}>{item.estimatedLocalLabel} preview • pocket balance unchanged</Text>
-        <Text style={styles.draftTime}>{formatDate(item.createdAt)} • {item.mode.replace('_', ' ')}</Text>
+    <View style={styles.stepper}>
+      {items.map((item, index) => {
+        const done = item.number < step || (item.number === 3 && complete);
+        const active = item.number === step && !done;
+        return (
+          <React.Fragment key={item.number}>
+            <View style={[styles.stepItem, compact && styles.stepItemCompact]}>
+              <View style={[styles.stepCircle, active && styles.stepCircleActive, done && styles.stepCircleDone]}>
+                <Text style={[styles.stepNumber, (active || done) && styles.stepNumberActive]}>{done ? '✓' : item.number}</Text>
+              </View>
+              <Text style={[styles.stepLabel, active && styles.stepLabelActive, done && styles.stepLabelDone]}>{item.label}</Text>
+            </View>
+            {index < items.length - 1 ? <View style={[styles.stepLine, item.number < step && styles.stepLineDone]} /> : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
+function TravelPocketArtwork({ color = C.green, size = 94 }: { color?: string; size?: number }) {
+  return (
+    <Svg accessibilityLabel="Travel Pocket" width={size} height={size} viewBox="0 0 100 100" fill="none">
+      <Defs>
+        <LinearGradient id="pocketGlow" x1="10" y1="10" x2="90" y2="90">
+          <Stop stopColor={color} stopOpacity=".35" />
+          <Stop offset="1" stopColor={color} stopOpacity=".04" />
+        </LinearGradient>
+      </Defs>
+      <Path d="M17 42h66v43H17z" fill="url(#pocketGlow)" stroke={color} strokeWidth="3" strokeLinejoin="round" />
+      <Path d="M28 42V28h18l7 8h20v6M23 24l11-6 15 8M74 26l9 5-8 6" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m39 62 29-13-8 25-8-9-13-3Z" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m52 65 8-8" stroke={color} strokeWidth="3" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GlobeArtwork({ size = 70 }: { size?: number }) {
+  return (
+    <Svg accessibilityLabel="Active region" width={size} height={size} viewBox="0 0 72 72" fill="none">
+      <Circle cx="36" cy="36" r="29" stroke={C.green} strokeWidth="3" />
+      <Path d="M7 36h58M36 7v58M36 7c9 8 14 18 14 29S45 57 36 65C27 57 22 47 22 36S27 15 36 7Z" stroke={C.green} strokeWidth="2.4" strokeLinecap="round" />
+      <Path d="M13 21h46M13 51h46" stroke={C.green} strokeWidth="2" strokeLinecap="round" opacity=".8" />
+    </Svg>
+  );
+}
+
+function TokenBadge({ symbol, size = 55 }: { symbol: string; size?: number }) {
+  const visual = visualFor(symbol);
+  if (symbol.toUpperCase() === 'ETH') {
+    return (
+      <View style={[styles.tokenBadge, { width: size, height: size, borderRadius: size / 2, backgroundColor: visual.color }]}>
+        <Svg width={size * .58} height={size * .58} viewBox="0 0 40 40" fill="none">
+          <Path d="M20 2 8 21l12 7 12-7L20 2Z" fill="#fff" opacity=".95" />
+          <Path d="m8 24 12 14 12-14-12 7-12-7Z" fill="#fff" opacity=".68" />
+        </Svg>
       </View>
-      <Text style={[styles.draftStatus, { color }]}>{item.walletDraftStatus.toUpperCase()}</Text>
+    );
+  }
+  return (
+    <View style={[styles.tokenBadge, { width: size, height: size, borderRadius: size / 2, backgroundColor: visual.color }]}>
+      {symbol.toUpperCase() === 'USDC' ? <View style={[styles.usdcRing, { width: size * .72, height: size * .72, borderRadius: size * .36 }]} /> : null}
+      <Text style={[styles.tokenMark, { fontSize: size * .44 }]}>{visual.mark}</Text>
+      {symbol.toUpperCase() === 'DAI' ? <View style={[styles.daiLine, { width: size * .48 }]} /> : null}
+    </View>
+  );
+}
+
+function AssetRow({ asset, selected, last, compact, onPress }: { asset: NomadTravelTopUpAsset; selected: boolean; last: boolean; compact: boolean; onPress(): void }) {
+  const visual = visualFor(asset.symbol);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${visual.name}`}
+      disabled={!asset.quoteAvailable}
+      onPress={onPress}
+      style={({ pressed }) => [styles.assetRow, compact && styles.assetRowCompact, !last && styles.rowBorder, selected && styles.assetRowSelected, !asset.quoteAvailable && styles.disabled, pressed && styles.pressed]}
+    >
+      <TokenBadge symbol={asset.symbol} size={compact ? 45 : 55} />
+      <View style={[styles.assetCopy, compact && styles.assetCopyCompact]}>
+        <Text style={[styles.assetTitle, compact && styles.assetTitleCompact]}>{displaySymbol(asset)}</Text>
+        <Text style={[styles.assetName, compact && styles.assetNameCompact]}>{visual.name}</Text>
+      </View>
+      <View style={[styles.assetNumbers, compact && styles.assetNumbersCompact]}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.assetBalance, compact && styles.assetBalanceCompact]}>{asset.balanceLabel}</Text>
+        <Text style={[styles.assetValue, compact && styles.assetValueCompact]}>{asset.fiatValueLabel}</Text>
+      </View>
+      <Text style={[styles.assetArrow, compact && styles.assetArrowCompact, selected && styles.assetArrowSelected]}>{selected ? '✓' : asset.quoteAvailable ? '›' : '—'}</Text>
+    </Pressable>
+  );
+}
+
+function DetailRow({ label, value, color, last = false }: { label: string; value: string; color?: string; last?: boolean }) {
+  return (
+    <View style={[styles.detailRow, !last && styles.rowBorder]}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailValue, color ? { color } : null]}>{value}</Text>
+    </View>
+  );
+}
+
+const bottomItems = [
+  { label: 'Home', route: 'Portfolio', kind: 'home' as const },
+  { label: 'Wallets', route: 'Wallets', kind: 'wallet' as const },
+  { label: 'Travel', route: 'TravelMode', kind: 'travel' as const },
+  { label: 'Security', route: 'SecurityCenter', kind: 'security' as const },
+  { label: 'More', route: 'Settings', kind: 'settings' as const },
+];
+
+function PageBottomNav() {
+  const navigation = useNavigation<any>();
+  const { compact, desktop } = useNomadLayout();
+  if (desktop) return null;
+  return (
+    <View style={[styles.bottomNav, compact && styles.bottomNavCompact]}>
+      {bottomItems.map((item) => {
+        const active = item.label === 'Travel';
+        return (
+          <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={`Open ${item.label}`} onPress={() => navigation.navigate(item.route)} style={[styles.navItem, compact && styles.navItemCompact, active && styles.navItemActive]}>
+            <NomadGlyph kind={item.kind} color={active ? C.green : C.muted} size={compact ? 21 : 25} />
+            <Text style={[styles.navLabel, compact && styles.navLabelCompact, active && styles.navLabelActive]}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -174,15 +218,7 @@ export default function TopUpTravelPocketScreen() {
   const { compact } = useNomadLayout();
   const mode: NomadTravelTopUpMode = route.params?.mode === 'wallet_transfer' ? 'wallet_transfer' : 'top_up';
   const preferredAssetSymbol = typeof route.params?.assetSymbol === 'string' ? route.params.assetSymbol : undefined;
-  const {
-    topUp,
-    loading,
-    error,
-    refresh,
-    createQuote,
-    createWalletDraft,
-    quoteSecondsRemaining,
-  } = useNomadTravelTopUp(mode, preferredAssetSymbol);
+  const { topUp, loading, error, refresh, createQuote, createWalletDraft, quoteSecondsRemaining } = useNomadTravelTopUp(mode, preferredAssetSymbol);
 
   const [step, setStep] = useState<Step>(1);
   const [selectedSymbol, setSelectedSymbol] = useState(preferredAssetSymbol?.toUpperCase() || '');
@@ -203,26 +239,14 @@ export default function TopUpTravelPocketScreen() {
     setFeedback('');
   }, [mode]);
 
-  const selectedAsset = useMemo(
-    () => topUp.assets.find((asset) => asset.symbol === selectedSymbol),
-    [selectedSymbol, topUp.assets],
-  );
+  const selectedAsset = useMemo(() => topUp.assets.find((asset) => asset.symbol === selectedSymbol), [selectedSymbol, topUp.assets]);
   const numericAmount = Number(amount);
-  const validAmount = Boolean(
-    selectedAsset
-      && selectedAsset.quoteAvailable
-      && Number.isFinite(numericAmount)
-      && numericAmount > 0
-      && numericAmount <= selectedAsset.balance,
-  );
+  const validAmount = Boolean(selectedAsset && selectedAsset.quoteAvailable && Number.isFinite(numericAmount) && numericAmount > 0 && numericAmount <= selectedAsset.balance);
   const quote = topUp.activeQuote ?? reviewQuote;
   const quoteExpired = Boolean(quote && !draftReceipt && quoteSecondsRemaining <= 0);
   const travel = topUp.travelPocket;
-  const dataPreview = travel.dataSource !== 'connected';
   const modeTitle = mode === 'wallet_transfer' ? 'Send to Travel Pocket' : 'Top Up Travel Pocket';
-  const modeSubtitle = mode === 'wallet_transfer'
-    ? 'Create a wallet transfer draft for your Travel Pocket'
-    : 'Create a reviewable Travel Pocket funding draft';
+  const flowComplete = Boolean(draftReceipt && draftReceipt.walletDraftStatus !== 'failed');
 
   const chooseAsset = (asset: NomadTravelTopUpAsset) => {
     setSelectedSymbol(asset.symbol);
@@ -230,14 +254,18 @@ export default function TopUpTravelPocketScreen() {
     setReviewQuote(null);
     setDraftReceipt(null);
     setFeedback('');
+  };
+
+  const continueToAmount = () => {
+    if (!selectedAsset || !selectedAsset.quoteAvailable) return;
     setStep(2);
+    setFeedback('');
   };
 
   const applyPercent = (percent: number) => {
     if (!selectedAsset) return;
-    const value = selectedAsset.balance * percent;
     const decimals = ['BTC', 'ETH'].includes(selectedAsset.symbol) ? 8 : 6;
-    setAmount(value.toFixed(decimals).replace(/0+$/, '').replace(/\.$/, ''));
+    setAmount((selectedAsset.balance * percent).toFixed(decimals).replace(/0+$/, '').replace(/\.$/, ''));
     setFeedback('');
   };
 
@@ -247,13 +275,13 @@ export default function TopUpTravelPocketScreen() {
       return;
     }
     try {
-      setFeedback('Calculating a time-limited Travel Pocket funding preview…');
+      setFeedback('Creating a time-limited Travel Pocket funding preview…');
       const next = await createQuote(selectedAsset.symbol, amount);
-      if (!next) throw new Error('The funding preview was not returned by the adapter.');
+      if (!next) throw new Error('The funding preview was not returned.');
       setReviewQuote(next);
       setDraftReceipt(null);
       setStep(3);
-      setFeedback('Preview created. Network fees remain unavailable until wallet signing review.');
+      setFeedback('Preview created. Network fees remain unavailable until wallet review.');
     } catch (nextError) {
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the funding preview.');
     }
@@ -261,9 +289,9 @@ export default function TopUpTravelPocketScreen() {
 
   const requestWalletDraft = async () => {
     try {
-      setFeedback('Requesting a reviewable draft from the connected wallet adapter…');
+      setFeedback('Requesting a reviewable draft from the wallet adapter…');
       const result = await createWalletDraft();
-      if (!result.receipt) throw new Error('The wallet adapter did not return a local draft receipt.');
+      if (!result.receipt) throw new Error('The wallet adapter did not return a draft receipt.');
       setDraftReceipt(result.receipt);
       setFeedback(result.result.status === 'failed'
         ? result.result.failure?.message || 'The wallet adapter rejected the funding draft.'
@@ -273,16 +301,27 @@ export default function TopUpTravelPocketScreen() {
     }
   };
 
-  const editFunding = () => {
-    setDraftReceipt(null);
-    setReviewQuote(null);
-    setFeedback('Create a new preview after changing the amount.');
-    setStep(2);
+  const goBack = () => {
+    if (step === 3) {
+      setDraftReceipt(null);
+      setReviewQuote(null);
+      setStep(2);
+      setFeedback('Create a new preview after changing the amount.');
+      return;
+    }
+    if (step === 2) {
+      setStep(1);
+      setFeedback('');
+      return;
+    }
+    navigation.goBack();
   };
 
   return (
-    <NomadPage maxWidth={940}>
-      <PageHeader title={modeTitle} subtitle={modeSubtitle} icon="＋" color={topUp.frozen ? C.red : C.green} help />
+    <NomadPage maxWidth={850}>
+      <Header title={modeTitle} step={step} onBack={goBack} />
+      <View style={styles.headerRule} />
+      <Stepper step={step} complete={flowComplete} />
 
       {error ? (
         <View style={styles.errorBanner}>
@@ -291,399 +330,330 @@ export default function TopUpTravelPocketScreen() {
         </View>
       ) : null}
 
-      <Stepper step={step} completed={Boolean(draftReceipt && draftReceipt.walletDraftStatus !== 'failed')} />
-
       <Panel tone={topUp.frozen ? 'red' : 'green'} style={[styles.balancePanel, compact && styles.balancePanelCompact]}>
         <View style={styles.balanceIdentity}>
-          <RoundIcon symbol="▰" color={topUp.frozen ? C.red : C.green} size={compact ? 55 : 70} filled />
-          <View style={styles.balanceCopy}>
-            <Text style={styles.balanceEyebrow}>CURRENT TRAVEL POCKET</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balanceMain}>
-              {travel.pocketBalanceLocal || 'Balance unavailable'}
-            </Text>
-            <Text style={styles.balanceSub}>{travel.pocketBalanceFiat || 'USD value unavailable'} • balance changes only after confirmation</Text>
+          <TravelPocketArtwork color={topUp.frozen ? C.red : C.green} size={compact ? 64 : 96} />
+          <View style={[styles.balanceCopy, compact && styles.balanceCopyCompact]}>
+            <Text style={[styles.balanceLabel, compact && styles.balanceLabelCompact, topUp.frozen && { color: C.red }]}>Travel Pocket Balance</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.balanceValue, compact && styles.balanceValueCompact]}>{travel.pocketBalanceFiat || 'Balance unavailable'}</Text>
+            <Text style={[styles.balanceSub, compact && styles.balanceSubCompact]}>USD Value</Text>
           </View>
         </View>
-        <View style={styles.destinationCard}>
-          <Text style={styles.destinationLabel}>DESTINATION</Text>
-          <Text style={styles.destinationRegion}>{travel.regionInput || 'Global'}</Text>
-          <Text style={styles.destinationCurrency}>{travel.localCurrency || travel.preferredStablecoin || 'USD Stable'}</Text>
-          <Text style={[styles.sourceBadge, { color: dataPreview ? C.yellow : C.green, borderColor: dataPreview ? C.yellow : C.green }]}>
-            {dataPreview ? 'PREVIEW FX' : 'CONNECTED FX'}
-          </Text>
+        <View style={[styles.regionBlock, compact && styles.regionBlockCompact]}>
+          <GlobeArtwork size={compact ? 46 : 72} />
+          <View style={[styles.regionCopy, compact && styles.regionCopyCompact]}>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.regionName, compact && styles.regionNameCompact]}>{travel.regionInput || 'Global'}</Text>
+            <Text style={[styles.regionSub, compact && styles.regionSubCompact]}>Active Region</Text>
+          </View>
         </View>
       </Panel>
 
       {topUp.frozen ? (
-        <Panel tone="red" style={styles.blockedPanel}>
-          <RoundIcon symbol="!" color={C.red} size={48} filled />
-          <View style={styles.blockedCopy}>
-            <Text style={styles.blockedTitle}>Travel Pocket Funding Blocked</Text>
-            <Text style={styles.blockedText}>Emergency Freeze is active for the wallet or Travel Pocket. No quote or wallet draft will be created.</Text>
+        <Panel tone="red" style={styles.freezePanel}>
+          <View style={styles.freezeIcon}><Text style={styles.freezeMark}>!</Text></View>
+          <View style={styles.freezeCopy}>
+            <Text style={styles.freezeTitle}>Travel Pocket funding is frozen</Text>
+            <Text style={styles.freezeText}>No quote or wallet draft can be created until Emergency Freeze is cleared.</Text>
           </View>
-          <Pressable onPress={() => navigation.navigate('EmergencyFreeze')} style={styles.blockedButton}><Text style={styles.blockedButtonText}>Review Freeze</Text></Pressable>
+          <Pressable onPress={() => navigation.navigate('EmergencyFreeze')} style={styles.freezeButton}><Text style={styles.freezeButtonText}>Review</Text></Pressable>
         </Panel>
       ) : null}
 
-      <View style={[styles.metricRow, compact && styles.metricRowCompact]}>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>WALLET SESSION</Text>
-          <Text style={[styles.metricStatus, { color: topUp.walletSessionStatus === 'unlocked' ? C.green : topUp.walletSessionStatus === 'unknown' ? C.yellow : C.red }]}>
-            {topUp.walletSessionStatus.toUpperCase()}
-          </Text>
-          <Text style={styles.metricSub}>{topUp.walletSessionProviderConnected ? 'Session provider connected' : 'Session check unavailable'}</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>FUNDING ASSETS</Text>
-          <Text style={[styles.metricValue, { color: topUp.assets.length ? C.blue : C.yellow }]}>{topUp.assets.length}</Text>
-          <Text style={styles.metricSub}>Connected wallet snapshot</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>NETWORK FEE</Text>
-          <Text style={[styles.metricStatus, { color: C.yellow }]}>AT WALLET REVIEW</Text>
-          <Text style={styles.metricSub}>No live fee provider</Text>
-        </Panel>
-      </View>
-
       {step === 1 ? (
-        <Panel style={styles.contentPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>SELECT A WALLET ASSET</Text>
-              <Text style={styles.sectionSub}>Only balances returned by the connected wallet adapter are listed</Text>
-            </View>
-            <Text style={styles.sectionCount}>{topUp.assets.length}</Text>
-          </View>
+        <>
+          <Panel style={styles.assetPanel}>
+            <Text style={styles.sectionTitle}>SELECT ASSET TO TOP UP</Text>
+            <View style={styles.sectionRule} />
+            {topUp.assets.length ? topUp.assets.map((asset, index) => (
+              <AssetRow
+                key={`${asset.symbol}-${asset.chainId || asset.network || index}`}
+                asset={asset}
+                selected={asset.symbol === selectedSymbol}
+                last={index === topUp.assets.length - 1}
+                compact={compact}
+                onPress={() => chooseAsset(asset)}
+              />
+            )) : (
+              <View style={styles.emptyState}>
+                <NomadGlyph kind="wallet" color={C.yellow} size={48} />
+                <Text style={styles.emptyTitle}>No funding assets available</Text>
+                <Text style={styles.emptyText}>Connect or unlock the wallet to load its current asset snapshot. Demo balances are not substituted.</Text>
+                <Pressable onPress={() => void refresh()} style={styles.refreshButton}><Text style={styles.refreshText}>Refresh Wallet Snapshot</Text></Pressable>
+              </View>
+            )}
+          </Panel>
 
-          {topUp.assets.length ? topUp.assets.map((asset, index) => (
-            <AssetRow
-              key={`${asset.symbol}-${asset.chainId || asset.network || index}`}
-              asset={asset}
-              selected={asset.symbol === selectedSymbol}
-              last={index === topUp.assets.length - 1}
-              onPress={() => chooseAsset(asset)}
-            />
-          )) : (
-            <View style={styles.emptyState}>
-              <RoundIcon symbol="▣" color={C.yellow} size={56} filled />
-              <Text style={styles.emptyTitle}>No Funding Assets Available</Text>
-              <Text style={styles.emptyText}>Page 21 no longer uses invented fallback balances. Unlock or connect the wallet and refresh its asset snapshot.</Text>
-              <Pressable onPress={() => void refresh()} style={styles.outlineButton}><Text style={styles.outlineButtonText}>Refresh Wallet Snapshot</Text></Pressable>
-            </View>
-          )}
-        </Panel>
+          <Panel style={styles.infoPanel}>
+            <View style={styles.infoIcon}><Text style={styles.infoMark}>i</Text></View>
+            <Text style={styles.infoText}>Choose an asset returned by your connected wallet. Nomad will prepare a local-value preview before requesting any wallet-owned funding draft.</Text>
+          </Panel>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue to enter amount"
+            disabled={!selectedAsset || !selectedAsset.quoteAvailable || loading || topUp.frozen}
+            onPress={continueToAmount}
+            style={[styles.continueButton, (!selectedAsset || !selectedAsset.quoteAvailable || loading || topUp.frozen) && styles.disabled]}
+          >
+            <Text style={styles.continueText}>Continue</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {step === 2 && selectedAsset ? (
-        <Panel style={styles.contentPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>ENTER FUNDING AMOUNT</Text>
-              <Text style={styles.sectionSub}>The amount is validated against the current wallet snapshot</Text>
-            </View>
+        <Panel style={styles.amountPanel}>
+          <View style={styles.amountHeading}>
+            <Text style={styles.sectionTitle}>ENTER TOP UP AMOUNT</Text>
             <Pressable onPress={() => setStep(1)} style={styles.changeButton}><Text style={styles.changeText}>Change Asset</Text></Pressable>
           </View>
-
+          <View style={styles.sectionRule} />
           <View style={styles.selectedAssetCard}>
-            <View style={[styles.assetBadge, { backgroundColor: visualFor(selectedAsset.symbol).color }]}>
-              <Text style={styles.assetMark}>{visualFor(selectedAsset.symbol).icon}</Text>
-            </View>
+            <TokenBadge symbol={selectedAsset.symbol} size={64} />
             <View style={styles.selectedAssetCopy}>
-              <Text style={styles.selectedAssetTitle}>{selectedAsset.symbol} • {selectedAsset.name}</Text>
-              <Text style={styles.selectedAssetSub}>Available {selectedAsset.balanceLabel} • {selectedAsset.fiatValueLabel}</Text>
+              <Text style={styles.selectedAssetTitle}>{displaySymbol(selectedAsset)}</Text>
+              <Text style={styles.selectedAssetSub}>{visualFor(selectedAsset.symbol).name} · Available {selectedAsset.balanceLabel}</Text>
             </View>
+            <Text style={styles.selectedAssetValue}>{selectedAsset.fiatValueLabel}</Text>
           </View>
 
-          <View style={styles.amountBox}>
+          <Text style={styles.inputLabel}>AMOUNT</Text>
+          <View style={styles.amountInputRow}>
             <TextInput
               accessibilityLabel="Travel Pocket funding amount"
               keyboardType="decimal-pad"
-              onChangeText={(value) => {
-                setAmount(sanitizeAmount(value));
-                setFeedback('');
-              }}
+              onChangeText={(value) => { setAmount(sanitizeAmount(value)); setFeedback(''); }}
               placeholder="0.00"
-              placeholderTextColor="#62748b"
+              placeholderTextColor="#718196"
               style={styles.amountInput}
               value={amount}
             />
             <Text style={styles.amountSymbol}>{selectedAsset.symbol}</Text>
           </View>
-
           <View style={styles.percentRow}>
-            {[0.25, 0.5, 0.75, 1].map((percent) => (
-              <Pressable key={percent} onPress={() => applyPercent(percent)} style={({ pressed }) => [styles.percentButton, pressed && styles.pressed]}>
+            {[.25, .5, .75, 1].map((percent) => (
+              <Pressable key={percent} onPress={() => applyPercent(percent)} style={styles.percentButton}>
                 <Text style={styles.percentText}>{percent === 1 ? 'MAX' : `${percent * 100}%`}</Text>
               </Pressable>
             ))}
           </View>
-
-          <View style={styles.validationBox}>
-            <DetailRow label="Entered Amount" value={amount ? `${amount} ${selectedAsset.symbol}` : 'Not entered'} />
+          <View style={styles.amountSummary}>
             <DetailRow label="Available Balance" value={selectedAsset.balanceLabel} />
-            <DetailRow label="Snapshot Unit Price" value={selectedAsset.unitPriceUsd > 0 ? `$${selectedAsset.unitPriceUsd.toLocaleString('en-US', { maximumFractionDigits: 6 })}` : 'Unavailable'} />
-            <DetailRow label="Validation" value={validAmount ? 'READY FOR PREVIEW' : 'ENTER VALID AMOUNT'} color={validAmount ? C.green : C.yellow} last />
+            <DetailRow label="Wallet Snapshot Value" value={selectedAsset.fiatValueLabel} />
+            <DetailRow label="Validation" value={validAmount ? 'READY FOR PREVIEW' : 'ENTER A VALID AMOUNT'} color={validAmount ? C.green : C.yellow} last />
           </View>
-
-          <PrimaryButton
-            label={loading ? 'Calculating Preview…' : 'Review Funding Preview'}
-            subtitle="Create a 90-second estimate before requesting a wallet draft"
-            icon="›"
-            disabled={!validAmount || loading || topUp.frozen}
-            onPress={() => void reviewFunding()}
-            tone="green"
-          />
+          <Pressable disabled={!validAmount || loading || topUp.frozen} onPress={() => void reviewFunding()} style={[styles.continueButton, (!validAmount || loading || topUp.frozen) && styles.disabled]}>
+            <Text style={styles.continueText}>{loading ? 'Creating Preview…' : 'Review & Confirm'}</Text>
+          </Pressable>
         </Panel>
       ) : null}
 
       {step === 3 && quote ? (
-        <Panel style={styles.contentPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>{draftReceipt ? 'WALLET DRAFT RECEIPT' : 'REVIEW FUNDING PREVIEW'}</Text>
-              <Text style={styles.sectionSub}>{draftReceipt ? 'The pocket balance remains unchanged until confirmation' : 'This estimate is not an executable exchange rate'}</Text>
+        <Panel style={styles.reviewPanel}>
+          <View style={styles.reviewHeading}>
+            <View>
+              <Text style={styles.sectionTitle}>{draftReceipt ? 'WALLET DRAFT STATUS' : 'REVIEW TOP UP'}</Text>
+              <Text style={styles.reviewSubtitle}>{draftReceipt ? 'The pocket balance remains unchanged until settlement.' : 'Preview only · wallet approval is required.'}</Text>
             </View>
-            {!draftReceipt ? (
-              <View style={[styles.countdownBadge, { borderColor: quoteExpired ? C.red : C.green }]}>
-                <Text style={[styles.countdownText, { color: quoteExpired ? C.red : C.green }]}>{quoteExpired ? 'EXPIRED' : `${quoteSecondsRemaining}s`}</Text>
-              </View>
-            ) : null}
+            {!draftReceipt ? <Text style={[styles.timerBadge, quoteExpired && styles.timerExpired]}>{quoteExpired ? 'EXPIRED' : `${quoteSecondsRemaining}s`}</Text> : null}
           </View>
-
+          <View style={styles.sectionRule} />
           <View style={styles.transferGraphic}>
             <View style={styles.transferAsset}>
-              <View style={[styles.largeAssetBadge, { backgroundColor: visualFor(quote.sourceAsset.symbol).color }]}><Text style={styles.largeAssetMark}>{visualFor(quote.sourceAsset.symbol).icon}</Text></View>
-              <Text style={styles.transferAssetTitle}>{quote.amountAssetLabel}</Text>
-              <Text style={styles.transferAssetSub}>{quote.amountUsdLabel} wallet snapshot</Text>
+              <TokenBadge symbol={quote.sourceAsset.symbol} size={70} />
+              <Text style={styles.transferTitle}>{quote.amountAssetLabel}</Text>
+              <Text style={styles.transferSub}>{quote.amountUsdLabel} snapshot</Text>
             </View>
             <Text style={styles.transferArrow}>→</Text>
             <View style={styles.transferAsset}>
-              <RoundIcon symbol="▰" color={C.green} size={68} filled />
-              <Text style={styles.transferAssetTitle}>{quote.estimatedLocalLabel}</Text>
-              <Text style={styles.transferAssetSub}>{quote.destinationStablecoin} preview</Text>
+              <TravelPocketArtwork size={72} />
+              <Text style={styles.transferTitle}>{quote.estimatedLocalLabel}</Text>
+              <Text style={styles.transferSub}>{quote.destinationStablecoin} preview</Text>
             </View>
           </View>
-
-          <View style={styles.reviewBox}>
-            <DetailRow label="Funding Mode" value={quote.mode === 'wallet_transfer' ? 'Wallet Transfer' : 'Travel Pocket Top Up'} />
-            <DetailRow label="Source Asset" value={`${quote.sourceAsset.symbol} • ${quote.sourceAsset.network || 'Network unavailable'}`} />
-            <DetailRow label="Source Amount" value={quote.amountAssetLabel} />
-            <DetailRow label="Snapshot USD Value" value={quote.amountUsdLabel} />
-            <DetailRow label="Destination" value={`${quote.destinationRegion} • ${quote.destinationStablecoin}`} />
-            <DetailRow label="Estimated Local Value" value={quote.estimatedLocalLabel} color={C.green} />
-            <DetailRow label="FX Evidence" value={`${quote.exchangeRateSource.replace('_', ' ')} • ${quote.exchangeRate}`} color={quote.exchangeRateSource === 'provider' ? C.green : C.yellow} />
-            <DetailRow label="Network Fee" value={quote.networkFeeLabel} color={C.yellow} />
-            <DetailRow label="Wallet Approval" value="REQUIRED" color={C.green} />
-            <DetailRow label="Pocket Balance Updated" value={draftReceipt?.pocketBalanceUpdated ? 'YES' : 'NO'} color={C.yellow} last />
+          <View style={styles.reviewDetails}>
+            <DetailRow label="Funding Asset" value={`${quote.sourceAsset.symbol} · ${standardizedNetwork(quote.sourceAsset)}`} />
+            <DetailRow label="Destination" value={`${quote.destinationRegion} · ${quote.destinationStablecoin}`} />
+            <DetailRow label="FX Evidence" value={quote.exchangeRateSource === 'provider' ? 'CONNECTED PROVIDER' : 'LOCAL PREVIEW'} color={quote.exchangeRateSource === 'provider' ? C.green : C.yellow} />
+            <DetailRow label="Network Fee" value="AT WALLET REVIEW" color={C.yellow} />
+            <DetailRow label="Wallet Approval" value="REQUIRED" color={C.green} last />
           </View>
 
-          <ProgressBar value={draftReceipt?.broadcasted ? 100 : draftReceipt?.submitted ? 75 : draftReceipt?.signed ? 50 : draftReceipt ? 25 : 0} color={draftReceipt?.broadcasted ? C.green : C.yellow} height={8} />
-
           {draftReceipt ? (
-            <Panel tone={draftReceipt.walletDraftStatus === 'failed' ? 'red' : 'yellow'} style={styles.receiptPanel}>
-              <RoundIcon symbol={draftReceipt.walletDraftStatus === 'failed' ? '!' : '▰'} color={draftReceipt.walletDraftStatus === 'failed' ? C.red : C.yellow} size={50} filled />
-              <View style={styles.receiptCopy}>
-                <Text style={styles.receiptTitle}>Wallet Status: {draftReceipt.walletDraftStatus.toUpperCase()}</Text>
-                <Text style={styles.receiptText}>Signed: {draftReceipt.signed ? 'Yes' : 'No'} • Submitted: {draftReceipt.submitted ? 'Yes' : 'No'} • Broadcast: {draftReceipt.broadcasted ? 'Yes' : 'No'}</Text>
-                <Text style={styles.receiptText}>Travel Pocket balance updated: No</Text>
-              </View>
-            </Panel>
+            <View style={styles.draftStatusCard}>
+              <Text style={[styles.draftStatusTitle, { color: draftReceipt.walletDraftStatus === 'failed' ? C.red : C.green }]}>Draft {draftReceipt.walletDraftStatus.toUpperCase()}</Text>
+              <Text style={styles.draftStatusText}>Signed: {draftReceipt.signed ? 'Yes' : 'No'} · Submitted: {draftReceipt.submitted ? 'Yes' : 'No'} · Broadcast: {draftReceipt.broadcasted ? 'Yes' : 'No'}</Text>
+              <ProgressBar value={draftReceipt.broadcasted ? 100 : draftReceipt.submitted ? 75 : draftReceipt.signed ? 50 : 25} color={draftReceipt.walletDraftStatus === 'failed' ? C.red : C.green} height={7} />
+            </View>
           ) : null}
 
           {quoteExpired && !draftReceipt ? (
-            <PrimaryButton
-              label="Refresh Funding Preview"
-              subtitle="Recalculate current wallet and local-currency values"
-              icon="↻"
-              disabled={loading}
-              onPress={() => void reviewFunding()}
-              tone="green"
-            />
+            <Pressable disabled={loading} onPress={() => void reviewFunding()} style={[styles.continueButton, loading && styles.disabled]}><Text style={styles.continueText}>Refresh Preview</Text></Pressable>
           ) : draftReceipt ? (
-            <PrimaryButton
-              label="Return to Travel Pocket"
-              subtitle="The current balance remains unchanged until broadcast confirmation"
-              icon="✈"
-              onPress={() => navigation.navigate('TravelMode')}
-              tone="green"
-            />
+            <Pressable onPress={() => navigation.navigate('TravelMode')} style={styles.continueButton}><Text style={styles.continueText}>Return to Travel Pocket</Text></Pressable>
           ) : topUp.walletSessionStatus === 'locked' || topUp.walletSessionStatus === 'expired' ? (
-            <PrimaryButton
-              label="Unlock Wallet to Continue"
-              subtitle="Wallet verification is required before draft creation"
-              icon="◷"
-              onPress={() => navigation.navigate('UnlockWallet')}
-              tone="green"
-            />
+            <Pressable onPress={() => navigation.navigate('UnlockWallet')} style={styles.continueButton}><Text style={styles.continueText}>Unlock Wallet to Continue</Text></Pressable>
           ) : (
-            <PrimaryButton
-              label={loading ? 'Requesting Wallet Draft…' : 'Create Wallet-Owned Draft'}
-              subtitle="Nomad requests the draft; the wallet controls signing and broadcast"
-              icon="▰"
-              disabled={loading || quoteExpired || topUp.frozen || !topUp.canCreateDraft}
-              onPress={() => void requestWalletDraft()}
-              tone="green"
-            />
+            <Pressable disabled={loading || quoteExpired || topUp.frozen || !topUp.canCreateDraft} onPress={() => void requestWalletDraft()} style={[styles.continueButton, (loading || quoteExpired || topUp.frozen || !topUp.canCreateDraft) && styles.disabled]}>
+              <Text style={styles.continueText}>{loading ? 'Requesting Draft…' : 'Create Wallet-Owned Draft'}</Text>
+            </Pressable>
           )}
-
-          {!draftReceipt ? <Pressable onPress={editFunding} style={styles.editButton}><Text style={styles.editText}>‹ Edit asset or amount</Text></Pressable> : null}
         </Panel>
       ) : null}
 
-      {feedback ? (
-        <Text style={[styles.feedback, /unable|failed|blocked|expired|rejected/i.test(feedback) && { color: C.yellow }]}>{feedback}</Text>
+      {feedback ? <Text style={[styles.feedback, /unable|failed|frozen|blocked|expired|rejected/i.test(feedback) && { color: C.yellow }]}>{feedback}</Text> : null}
+
+      {step !== 1 ? (
+        <Panel style={styles.boundaryPanel}>
+          <View style={styles.boundaryIcon}><Text style={styles.boundaryIconText}>i</Text></View>
+          <Text style={styles.boundaryText}>Nomad prepares a reviewable Travel Pocket intent. It does not custody, convert, sign, broadcast, or settle funds on this screen. Live fees appear only during wallet review.</Text>
+        </Panel>
       ) : null}
 
-      <View style={[styles.infoColumns, compact && styles.infoColumnsCompact]}>
-        <Panel style={styles.infoPanel}>
-          <Text style={styles.sectionTitle}>FUNDING BOUNDARY</Text>
-          <Text style={styles.infoText}>Page 21 calculates a wallet-snapshot preview and creates an internal Travel Pocket transaction intent. It does not custody, convert, sign or broadcast funds.</Text>
-          <DetailRow label="Destination Type" value="Internal Travel Pocket intent" />
-          <DetailRow label="Signing Provider" value="Connected wallet adapter" />
-          <DetailRow label="Live Fee Provider" value="NOT CONNECTED" color={C.yellow} />
-          <DetailRow label="Executable FX Provider" value="NOT CONNECTED" color={C.yellow} last />
-        </Panel>
-
-        <Panel style={styles.infoPanel}>
-          <Text style={styles.sectionTitle}>DATA INTEGRITY</Text>
-          <DetailRow label="Wallet Assets" value="Connected wallet snapshot" />
-          <DetailRow label="Travel Currency" value={dataPreview ? 'Local preview' : 'Connected provider'} color={dataPreview ? C.yellow : C.green} />
-          <DetailRow label="Storage" value="In-memory stub" color={C.yellow} />
-          <DetailRow label="Checked" value={formatDate(topUp.checkedAt)} last />
-        </Panel>
-      </View>
-
-      <Panel style={styles.draftsPanel}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>RECENT FUNDING DRAFTS</Text>
-            <Text style={styles.sectionSub}>Local receipts do not prove signing, broadcast or Travel Pocket settlement</Text>
-          </View>
-          <Text style={styles.sectionCount}>{topUp.recentDrafts.length}</Text>
-        </View>
-        {topUp.recentDrafts.length ? topUp.recentDrafts.slice(0, 5).map((item, index) => (
-          <DraftRow key={item.id} item={item} last={index === Math.min(5, topUp.recentDrafts.length) - 1} />
-        )) : <Text style={styles.emptyDrafts}>No Travel Pocket funding drafts are recorded yet.</Text>}
-      </Panel>
-
-      <BottomNav active="Travel" items={[
-        ['⌂', 'Home', 'Portfolio'],
-        ['▣', 'Wallets', 'Wallets'],
-        ['✈', 'Travel', 'TravelMode'],
-        ['◇', 'Security', 'SecurityCenter'],
-        ['•••', 'More', 'Settings'],
-      ]} />
+      <PageBottomNav />
     </NomadPage>
   );
 }
 
 const styles = StyleSheet.create({
-  errorBanner: { minHeight: 48, marginBottom: 12, borderWidth: 1, borderColor: C.red, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center' },
-  errorText: { flex: 1, color: C.red, fontSize: 10, lineHeight: 15 },
-  retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
-  retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  stepper: { minHeight: 90, padding: 13, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center' },
-  stepItem: { width: 100, alignItems: 'center' },
-  stepCircle: { width: 39, height: 39, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  stepDone: { backgroundColor: C.green },
-  stepActive: { backgroundColor: 'rgba(22,132,255,.12)' },
-  stepNumber: { fontWeight: '900' },
-  stepLabel: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 7 },
-  stepLine: { flex: 1, height: 1, backgroundColor: C.border, marginTop: 20 },
+  header: { minHeight: 80, flexDirection: 'row', alignItems: 'center' },
+  backButton: { width: 43, minHeight: 56, alignItems: 'flex-start', justifyContent: 'center' },
+  backArrow: { color: '#fff', fontSize: 49, lineHeight: 49, fontWeight: '200' },
+  headerCenter: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 10 },
+  headerTitle: { color: '#fff', fontSize: 30, fontWeight: '800', textAlign: 'center' },
+  headerTitleCompact: { fontSize: 23 },
+  headerSubtitle: { color: '#d5d9e1', fontSize: 17, marginTop: 4 },
+  helpButton: { minWidth: 75, minHeight: 49, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  helpLabel: { color: C.green, fontSize: 15 },
+  helpQuestion: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: C.green, color: C.green, textAlign: 'center', lineHeight: 31, fontSize: 21, fontWeight: '700' },
+  headerRule: { height: 1, backgroundColor: 'rgba(255,255,255,.12)', marginTop: 3 },
+  stepper: { minHeight: 125, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 24, paddingHorizontal: 10 },
+  stepItem: { width: 116, alignItems: 'center' },
+  stepItemCompact: { width: 90 },
+  stepCircle: { width: 43, height: 43, borderRadius: 22, borderWidth: 1.3, borderColor: '#586170', backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
+  stepCircleActive: { borderColor: C.green, backgroundColor: C.green },
+  stepCircleDone: { borderColor: C.green, backgroundColor: C.green },
+  stepNumber: { color: '#d8dde6', fontSize: 17 },
+  stepNumberActive: { color: '#001108', fontWeight: '900' },
+  stepLabel: { color: '#d8dde6', fontSize: 11, lineHeight: 15, textAlign: 'center', marginTop: 10 },
+  stepLabelActive: { color: C.green, fontWeight: '900' },
+  stepLabelDone: { color: C.green },
+  stepLine: { flex: 1, height: 1.5, backgroundColor: '#414a57', marginTop: 21 },
   stepLineDone: { backgroundColor: C.green },
-  balancePanel: { minHeight: 176, marginTop: 16, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 18 },
-  balancePanelCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  errorBanner: { minHeight: 48, marginBottom: 13, borderWidth: 1, borderColor: C.red, borderRadius: 11, paddingHorizontal: 13, paddingVertical: 9, flexDirection: 'row', alignItems: 'center' },
+  errorText: { flex: 1, color: C.red, fontSize: 10, lineHeight: 15 },
+  retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 7 },
+  retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
+  balancePanel: { minHeight: 174, padding: 27, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 25, backgroundColor: 'rgba(1,28,22,.84)' },
+  balancePanelCompact: { padding: 18, gap: 12 },
   balanceIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  balanceCopy: { flex: 1, minWidth: 0, marginLeft: 14 },
-  balanceEyebrow: { color: C.green, fontSize: 9, fontWeight: '900' },
-  balanceMain: { color: '#fff', fontSize: 37, fontWeight: '900', marginTop: 5 },
-  balanceSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 5 },
-  destinationCard: { minWidth: 205, borderWidth: 1, borderColor: C.border, borderRadius: 12, backgroundColor: 'rgba(1,14,19,.5)', padding: 14 },
-  destinationLabel: { color: C.muted, fontSize: 8, fontWeight: '900' },
-  destinationRegion: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 6 },
-  destinationCurrency: { color: C.green, fontSize: 10, marginTop: 4 },
-  sourceBadge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, fontSize: 7, fontWeight: '900', marginTop: 10 },
-  blockedPanel: { minHeight: 91, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  blockedCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  blockedTitle: { color: C.red, fontSize: 13, fontWeight: '900' },
-  blockedText: { color: '#f4e7e9', fontSize: 9, lineHeight: 15, marginTop: 4 },
-  blockedButton: { borderWidth: 1, borderColor: C.red, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 9, marginLeft: 10 },
-  blockedButtonText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  metricRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  metricRowCompact: { flexDirection: 'column' },
-  metricCard: { flex: 1, minHeight: 102, padding: 14 },
-  metricLabel: { color: C.muted, fontSize: 8, fontWeight: '900' },
-  metricValue: { fontSize: 28, fontWeight: '900', marginTop: 8 },
-  metricStatus: { fontSize: 13, fontWeight: '900', marginTop: 11 },
-  metricSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 5 },
-  contentPanel: { marginTop: 16, padding: 17 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionCopy: { flex: 1, minWidth: 0 },
-  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900' },
-  sectionSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
-  sectionCount: { color: C.blue, fontSize: 22, fontWeight: '900' },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
-  assetRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  assetSelected: { backgroundColor: 'rgba(32,239,112,.04)' },
-  assetBadge: { width: 45, height: 45, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  assetMark: { color: '#fff', fontSize: 19, fontWeight: '900' },
-  assetCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  assetSymbol: { color: '#fff', fontSize: 13, fontWeight: '900' },
-  assetName: { color: C.muted, fontSize: 9, marginTop: 4 },
-  assetNumbers: { minWidth: 130, alignItems: 'flex-end', marginLeft: 8 },
-  assetBalance: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  assetValue: { color: C.muted, fontSize: 9, marginTop: 4 },
-  assetStatus: { minWidth: 54, marginLeft: 10, fontSize: 9, fontWeight: '900', textAlign: 'right' },
-  emptyState: { minHeight: 220, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  emptyTitle: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 12 },
-  emptyText: { color: C.muted, fontSize: 10, lineHeight: 16, textAlign: 'center', maxWidth: 460, marginTop: 7 },
-  outlineButton: { minHeight: 42, marginTop: 14, borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
-  outlineButtonText: { color: C.green, fontSize: 10, fontWeight: '900' },
-  changeButton: { borderWidth: 1, borderColor: C.green, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
+  balanceCopy: { flex: 1, minWidth: 0, marginLeft: 20 },
+  balanceCopyCompact: { marginLeft: 10 },
+  balanceLabel: { color: C.green, fontSize: 14, fontWeight: '800' },
+  balanceLabelCompact: { fontSize: 10 },
+  balanceValue: { color: '#fff', fontSize: 37, fontWeight: '500', marginTop: 6 },
+  balanceValueCompact: { fontSize: 27, marginTop: 3 },
+  balanceSub: { color: '#c7ccd5', fontSize: 15, marginTop: 5 },
+  balanceSubCompact: { fontSize: 10, marginTop: 3 },
+  regionBlock: { minWidth: 235, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  regionBlockCompact: { minWidth: 0, flexShrink: 1 },
+  regionCopy: { minWidth: 0, marginLeft: 16 },
+  regionCopyCompact: { marginLeft: 7 },
+  regionName: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  regionNameCompact: { fontSize: 13 },
+  regionSub: { color: '#c7ccd5', fontSize: 13, marginTop: 5 },
+  regionSubCompact: { fontSize: 9, marginTop: 3 },
+  freezePanel: { minHeight: 86, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  freezeIcon: { width: 45, height: 45, borderRadius: 23, borderWidth: 1.5, borderColor: C.red, alignItems: 'center', justifyContent: 'center' },
+  freezeMark: { color: C.red, fontSize: 23, fontWeight: '900' },
+  freezeCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  freezeTitle: { color: C.red, fontSize: 13, fontWeight: '900' },
+  freezeText: { color: '#f0dfe3', fontSize: 9, lineHeight: 14, marginTop: 4 },
+  freezeButton: { borderWidth: 1, borderColor: C.red, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9, marginLeft: 10 },
+  freezeButtonText: { color: C.red, fontSize: 9, fontWeight: '900' },
+  assetPanel: { marginTop: 24, paddingHorizontal: 28, paddingTop: 25, paddingBottom: 11 },
+  sectionTitle: { color: C.green, fontSize: 17, fontWeight: '900' },
+  sectionRule: { height: 1, backgroundColor: 'rgba(255,255,255,.1)', marginTop: 15 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,.1)' },
+  assetRow: { minHeight: 105, flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 8, borderLeftWidth: 2, borderLeftColor: 'transparent' },
+  assetRowCompact: { minHeight: 83, paddingVertical: 10, paddingHorizontal: 3 },
+  assetRowSelected: { borderLeftColor: C.green, backgroundColor: 'rgba(40,233,120,.045)' },
+  assetCopy: { flex: 1, minWidth: 0, marginLeft: 20 },
+  assetCopyCompact: { marginLeft: 10 },
+  assetTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  assetTitleCompact: { fontSize: 12 },
+  assetName: { color: '#d4d7de', fontSize: 14, marginTop: 6 },
+  assetNameCompact: { fontSize: 9, marginTop: 3 },
+  assetNumbers: { minWidth: 180, alignItems: 'flex-end', marginLeft: 10 },
+  assetNumbersCompact: { minWidth: 105, marginLeft: 5 },
+  assetBalance: { color: '#fff', fontSize: 15 },
+  assetBalanceCompact: { fontSize: 10 },
+  assetValue: { color: '#d4d7de', fontSize: 14, marginTop: 6 },
+  assetValueCompact: { fontSize: 9, marginTop: 3 },
+  assetArrow: { width: 34, color: C.green, fontSize: 39, lineHeight: 39, fontWeight: '300', textAlign: 'right', marginLeft: 9 },
+  assetArrowCompact: { width: 21, fontSize: 29, lineHeight: 31, marginLeft: 4 },
+  assetArrowSelected: { fontSize: 20, fontWeight: '900' },
+  tokenBadge: { position: 'relative', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  tokenMark: { zIndex: 2, color: '#fff', fontWeight: '900' },
+  usdcRing: { position: 'absolute', borderWidth: 2.2, borderColor: '#fff' },
+  daiLine: { position: 'absolute', bottom: 14, height: 2, backgroundColor: '#fff' },
+  emptyState: { minHeight: 255, alignItems: 'center', justifyContent: 'center', padding: 22 },
+  emptyTitle: { color: '#fff', fontSize: 17, fontWeight: '900', marginTop: 13 },
+  emptyText: { maxWidth: 470, color: C.muted, fontSize: 11, lineHeight: 18, textAlign: 'center', marginTop: 7 },
+  refreshButton: { minHeight: 44, marginTop: 15, borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  refreshText: { color: C.green, fontSize: 10, fontWeight: '900' },
+  infoPanel: { minHeight: 127, marginTop: 25, padding: 27, flexDirection: 'row', alignItems: 'center' },
+  infoIcon: { width: 55, height: 55, borderRadius: 28, borderWidth: 2.5, borderColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 26 },
+  infoMark: { color: C.blue, fontSize: 31, fontWeight: '700' },
+  infoText: { flex: 1, color: '#d7dbe2', fontSize: 15, lineHeight: 25 },
+  continueButton: { minHeight: 75, marginTop: 25, borderRadius: 13, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  continueText: { color: '#001108', fontSize: 21, fontWeight: '800' },
+  amountPanel: { marginTop: 24, padding: 26 },
+  amountHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  changeButton: { borderWidth: 1, borderColor: C.green, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8 },
   changeText: { color: C.green, fontSize: 9, fontWeight: '900' },
-  selectedAssetCard: { minHeight: 76, marginTop: 16, borderWidth: 1, borderColor: C.border, borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center' },
-  selectedAssetCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  selectedAssetTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  selectedAssetSub: { color: C.muted, fontSize: 9, marginTop: 5 },
-  amountBox: { minHeight: 86, marginTop: 16, borderWidth: 1, borderColor: C.green, borderRadius: 12, backgroundColor: C.panel2, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
-  amountInput: { flex: 1, minWidth: 0, color: '#fff', fontSize: 32, fontWeight: '900', outlineStyle: 'none' } as any,
-  amountSymbol: { color: C.green, fontSize: 16, fontWeight: '900', marginLeft: 12 },
-  percentRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  percentButton: { flex: 1, minHeight: 40, borderWidth: 1, borderColor: C.border, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  percentText: { color: C.green, fontSize: 9, fontWeight: '900' },
-  validationBox: { marginTop: 16, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 10, paddingHorizontal: 12 },
-  detailRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  detailLabel: { color: C.muted, fontSize: 10 },
-  detailValue: { flex: 1, color: '#fff', fontSize: 10, fontWeight: '700', textAlign: 'right' },
-  countdownBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
-  countdownText: { fontSize: 10, fontWeight: '900' },
-  transferGraphic: { minHeight: 164, marginTop: 16, borderWidth: 1, borderColor: C.border, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', padding: 16 },
+  selectedAssetCard: { minHeight: 90, marginTop: 18, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 13, flexDirection: 'row', alignItems: 'center' },
+  selectedAssetCopy: { flex: 1, minWidth: 0, marginLeft: 14 },
+  selectedAssetTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  selectedAssetSub: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 5 },
+  selectedAssetValue: { color: '#fff', fontSize: 13, marginLeft: 10 },
+  inputLabel: { color: C.green, fontSize: 10, fontWeight: '900', marginTop: 22, marginBottom: 8 },
+  amountInputRow: { minHeight: 92, borderWidth: 1.5, borderColor: C.green, borderRadius: 13, backgroundColor: C.panel2, paddingHorizontal: 19, flexDirection: 'row', alignItems: 'center' },
+  amountInput: { flex: 1, minWidth: 0, color: '#fff', fontSize: 36, fontWeight: '700', outlineStyle: 'none' } as any,
+  amountSymbol: { color: C.green, fontSize: 18, fontWeight: '900', marginLeft: 12 },
+  percentRow: { flexDirection: 'row', gap: 9, marginTop: 13 },
+  percentButton: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: C.border, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  percentText: { color: C.green, fontSize: 10, fontWeight: '900' },
+  amountSummary: { marginTop: 18, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, paddingHorizontal: 13 },
+  detailRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  detailLabel: { color: C.muted, fontSize: 11 },
+  detailValue: { flex: 1, color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'right' },
+  reviewPanel: { marginTop: 24, padding: 26 },
+  reviewHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  reviewSubtitle: { color: C.muted, fontSize: 10, marginTop: 4 },
+  timerBadge: { color: C.green, borderWidth: 1, borderColor: C.green, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, fontSize: 10, fontWeight: '900' },
+  timerExpired: { color: C.red, borderColor: C.red },
+  transferGraphic: { minHeight: 185, marginTop: 20, borderWidth: 1, borderColor: C.border, borderRadius: 13, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   transferAsset: { flex: 1, alignItems: 'center' },
-  largeAssetBadge: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
-  largeAssetMark: { color: '#fff', fontSize: 28, fontWeight: '900' },
-  transferAssetTitle: { color: '#fff', fontSize: 13, fontWeight: '900', textAlign: 'center', marginTop: 10 },
-  transferAssetSub: { color: C.muted, fontSize: 8, textAlign: 'center', marginTop: 4 },
-  transferArrow: { color: C.green, fontSize: 31, fontWeight: '900', marginHorizontal: 8 },
-  reviewBox: { marginTop: 16, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 10, paddingHorizontal: 12 },
-  receiptPanel: { minHeight: 86, marginTop: 16, padding: 13, flexDirection: 'row', alignItems: 'center' },
-  receiptCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  receiptTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  receiptText: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
-  editButton: { alignSelf: 'center', padding: 13 },
-  editText: { color: C.green, fontSize: 10, fontWeight: '800' },
-  feedback: { color: C.green, fontSize: 10, lineHeight: 16, marginTop: 12 },
-  infoColumns: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  infoColumnsCompact: { flexDirection: 'column' },
-  infoPanel: { flex: 1, padding: 16 },
-  infoText: { color: '#eef3f7', fontSize: 9, lineHeight: 15, marginTop: 9, marginBottom: 8 },
-  draftsPanel: { marginTop: 16, padding: 17 },
-  draftRow: { minHeight: 76, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-  draftCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  draftTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  draftDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
-  draftTime: { color: C.muted, fontSize: 7, marginTop: 4 },
-  draftStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8 },
-  emptyDrafts: { color: C.muted, fontSize: 9, paddingVertical: 22, textAlign: 'center' },
+  transferTitle: { color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center', marginTop: 10 },
+  transferSub: { color: C.muted, fontSize: 9, textAlign: 'center', marginTop: 4 },
+  transferArrow: { color: C.green, fontSize: 34, fontWeight: '700', marginHorizontal: 8 },
+  reviewDetails: { marginTop: 18, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 11, paddingHorizontal: 13 },
+  draftStatusCard: { marginTop: 18, borderWidth: 1, borderColor: C.green, borderRadius: 11, padding: 15 },
+  draftStatusTitle: { fontSize: 13, fontWeight: '900' },
+  draftStatusText: { color: C.muted, fontSize: 10, lineHeight: 16, marginTop: 5, marginBottom: 12 },
+  feedback: { color: C.green, fontSize: 10, lineHeight: 16, marginTop: 12, paddingHorizontal: 3 },
+  boundaryPanel: { minHeight: 104, marginTop: 18, padding: 19, flexDirection: 'row', alignItems: 'center' },
+  boundaryIcon: { width: 43, height: 43, borderRadius: 22, borderWidth: 2, borderColor: C.blue, alignItems: 'center', justifyContent: 'center', marginRight: 15 },
+  boundaryIconText: { color: C.blue, fontSize: 23, fontWeight: '800' },
+  boundaryText: { flex: 1, color: '#d4dce7', fontSize: 11, lineHeight: 18 },
+  bottomNav: { minHeight: 82, marginTop: 28, borderWidth: 1, borderColor: C.border, borderRadius: 20, backgroundColor: 'rgba(3,13,25,.98)', padding: 6, flexDirection: 'row', alignItems: 'center' },
+  bottomNavCompact: { minHeight: 60, borderRadius: 14, padding: 4 },
+  navItem: { flex: 1, minHeight: 68, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  navItemCompact: { minHeight: 50, borderRadius: 10 },
+  navItemActive: { backgroundColor: 'rgba(40,233,120,.08)' },
+  navLabel: { color: C.muted, fontSize: 11, marginTop: 5 },
+  navLabelCompact: { fontSize: 8, marginTop: 2 },
+  navLabelActive: { color: C.green },
   pressed: { opacity: .74 },
-  disabled: { opacity: .45 },
+  disabled: { opacity: .42 },
 });
