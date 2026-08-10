@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { useNomadUnlock } from '../nomad';
+import { useNomadRecovery, useNomadUnlock } from '../nomad';
 import type { NomadUnlockVerificationStatus } from '../nomad';
 import { useAppState } from '../state/appState';
 import {
@@ -11,21 +12,128 @@ import {
   NomadPage,
   PageHeader,
   Panel,
-  ProgressBar,
   RoundIcon,
   useNomadLayout,
 } from '../ui/NomadShell';
 
+const TIME_VALUE_PATTERN = /^\d{1,2}$/;
+const COUNTDOWN_PATTERN = /^\d{2}:\d{2}:\d{2}$/;
+const DIAL_CENTER = 180;
+const DIAL_RADIUS = 154;
+const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS;
+const DIAL_TICKS = Array.from({ length: 60 }, (_, index) => {
+  const angle = ((index * 6) - 90) * (Math.PI / 180);
+  const major = index % 5 === 0;
+  const inner = major ? 127 : 137;
+  const outer = 146;
+  return {
+    id: `unlock-tick-${index}`,
+    major,
+    x1: DIAL_CENTER + Math.cos(angle) * inner,
+    y1: DIAL_CENTER + Math.sin(angle) * inner,
+    x2: DIAL_CENTER + Math.cos(angle) * outer,
+    y2: DIAL_CENTER + Math.sin(angle) * outer,
+  };
+});
+
 function statusInfo(status: NomadUnlockVerificationStatus) {
   switch (status) {
-    case 'ready': return { color: C.green, title: 'READY TO VERIFY', timer: 'OPEN NOW', tone: 'green' as const };
-    case 'unlocked': return { color: C.green, title: 'WALLET UNLOCKED', timer: 'UNLOCKED', tone: 'green' as const };
-    case 'temporarily_locked': return { color: C.yellow, title: 'TRY AGAIN SOON', timer: 'LOCKED', tone: 'yellow' as const };
-    case 'waiting': return { color: C.blue, title: 'ACCESS WINDOW CLOSED', timer: null, tone: 'blue' as const };
-    case 'recovery_required': return { color: C.red, title: 'RECOVERY REQUIRED', timer: 'LOCKED', tone: 'red' as const };
-    case 'not_configured': return { color: C.purple, title: 'TIME SET REQUIRED', timer: 'SETUP', tone: 'yellow' as const };
-    case 'no_wallet': return { color: C.yellow, title: 'WALLET SETUP REQUIRED', timer: 'SETUP', tone: 'yellow' as const };
+    case 'ready': return { color: C.green, title: 'Ready to Verify', timer: 'OPEN NOW', tone: 'green' as const };
+    case 'unlocked': return { color: C.green, title: 'Wallet Unlocked', timer: 'UNLOCKED', tone: 'green' as const };
+    case 'temporarily_locked': return { color: C.yellow, title: 'Verification Paused', timer: 'LOCKED', tone: 'yellow' as const };
+    case 'waiting': return { color: C.green, title: 'Waiting for Access Window', timer: null, tone: 'green' as const };
+    case 'recovery_required': return { color: C.red, title: 'Recovery Required', timer: 'LOCKED', tone: 'red' as const };
+    case 'not_configured': return { color: C.purple, title: 'Time Set Required', timer: 'SETUP', tone: 'yellow' as const };
+    case 'no_wallet': return { color: C.yellow, title: 'Wallet Setup Required', timer: 'SETUP', tone: 'yellow' as const };
   }
+}
+
+function UnlockDial({
+  color,
+  label,
+  progress,
+  size,
+  value,
+}: {
+  color: string;
+  label: string;
+  progress: number;
+  size: number;
+  value: string;
+}) {
+  const safeProgress = Math.max(0, Math.min(100, progress));
+  const markerAngle = ((safeProgress * 3.6) - 90) * (Math.PI / 180);
+  const markerX = DIAL_CENTER + Math.cos(markerAngle) * DIAL_RADIUS;
+  const markerY = DIAL_CENTER + Math.sin(markerAngle) * DIAL_RADIUS;
+  const showUnits = COUNTDOWN_PATTERN.test(value);
+
+  return (
+    <View accessibilityLabel={`${label}: ${value}`} style={[styles.dial, { width: size, height: size, shadowColor: color }]}>
+      <Svg width={size} height={size} viewBox="0 0 360 360" fill="none">
+        <Defs>
+          <LinearGradient id="unlockArc" x1="31" y1="38" x2="329" y2="322">
+            <Stop stopColor="#27f379" />
+            <Stop offset="0.5" stopColor={color} />
+            <Stop offset="1" stopColor="#087541" />
+          </LinearGradient>
+        </Defs>
+        <Circle cx={DIAL_CENTER} cy={DIAL_CENTER} r="166" fill="#031712" fillOpacity=".92" stroke="#073e31" strokeWidth="2" />
+        <Circle cx={DIAL_CENTER} cy={DIAL_CENTER} r={DIAL_RADIUS} stroke="#0a543d" strokeWidth="13" opacity=".55" />
+        <Circle
+          cx={DIAL_CENTER}
+          cy={DIAL_CENTER}
+          r={DIAL_RADIUS}
+          stroke="url(#unlockArc)"
+          strokeWidth="13"
+          strokeLinecap="round"
+          strokeDasharray={`${DIAL_CIRCUMFERENCE} ${DIAL_CIRCUMFERENCE}`}
+          strokeDashoffset={DIAL_CIRCUMFERENCE * (1 - safeProgress / 100)}
+          rotation="-90"
+          origin={`${DIAL_CENTER}, ${DIAL_CENTER}`}
+        />
+        {DIAL_TICKS.map((tick) => (
+          <Line
+            key={tick.id}
+            x1={tick.x1}
+            y1={tick.y1}
+            x2={tick.x2}
+            y2={tick.y2}
+            stroke={tick.major ? color : '#0a6b4b'}
+            strokeWidth={tick.major ? 3 : 1.5}
+            strokeLinecap="round"
+            opacity={tick.major ? 0.78 : 0.43}
+          />
+        ))}
+        <Circle cx={markerX} cy={markerY} r="7" fill={color} />
+        <Circle cx={markerX} cy={markerY} r="15" fill={color} opacity=".18" />
+      </Svg>
+      <View style={styles.dialContent}>
+        <Text style={[styles.timerLabel, { color }]}>{label}</Text>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={styles.timerValue}>{value}</Text>
+        {showUnits ? (
+          <View style={styles.timerUnits}>
+            <Text style={[styles.timerUnit, { color }]}>HOURS</Text>
+            <Text style={[styles.timerUnit, { color }]}>MINUTES</Text>
+            <Text style={[styles.timerUnit, { color }]}>SECONDS</Text>
+          </View>
+        ) : <Text style={[styles.timerState, { color }]}>OWNER-CONTROLLED ACCESS</Text>}
+      </View>
+    </View>
+  );
+}
+
+function SuccessSeal({ size }: { size: number }) {
+  return (
+    <View accessibilityLabel="Wallet service confirmed access" style={[styles.successSeal, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Svg width={size * 0.58} height={size * 0.58} viewBox="0 0 100 100" fill="none">
+        <Defs><LinearGradient id="successCheck" x1="16" y1="20" x2="86" y2="83"><Stop stopColor="#28f27a" /><Stop offset="1" stopColor="#04a95a" /></LinearGradient></Defs>
+        <Circle cx="50" cy="50" r="45" fill="#062119" stroke="url(#successCheck)" strokeWidth="4" />
+        <Path d="m27 51 15 15 31-34" stroke="url(#successCheck)" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+      <Text style={styles.successSealTitle}>ACCESS GRANTED</Text>
+      <Text style={styles.successSealSub}>Wallet service confirmed</Text>
+    </View>
+  );
 }
 
 function DetailRow({
@@ -65,10 +173,7 @@ function TimeField({
 }) {
   const handleChange = (next: string) => {
     const digits = next.replace(/[^0-9]/g, '').slice(0, 2);
-    if (!digits) {
-      onChange('');
-      return;
-    }
+    if (!digits) return onChange('');
     const number = Number(digits);
     onChange(number > max ? String(max).padStart(2, '0') : digits);
   };
@@ -77,6 +182,7 @@ function TimeField({
     <View style={styles.timeField}>
       <Text style={styles.timeLabel}>{label}</Text>
       <TextInput
+        testID={`unlock-${label.toLowerCase()}`}
         accessibilityLabel={`${label.toLowerCase()} for wallet verification`}
         autoComplete="off"
         editable={!disabled}
@@ -97,32 +203,48 @@ export default function UnlockWalletScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
   const { refresh: refreshAppState } = useAppState();
+  const { recovery } = useNomadRecovery();
   const { unlock, loading, error, refresh, verify } = useNomadUnlock();
   const [hour, setHour] = useState('');
   const [minute, setMinute] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [verified, setVerified] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   const status = statusInfo(unlock.status);
-  const validTime = /^\d{1,2}$/.test(hour)
-    && /^\d{1,2}$/.test(minute)
+  const validTime = TIME_VALUE_PATTERN.test(hour)
+    && TIME_VALUE_PATTERN.test(minute)
     && Number(hour) >= 0
     && Number(hour) <= 23
     && Number(minute) >= 0
     && Number(minute) <= 59;
   const inputComplete = hour.length > 0 && minute.length > 0 && validTime;
-  const isUnlocked = unlock.status === 'unlocked' || verified;
+  const isUnlocked = unlock.status === 'unlocked';
   const canSubmit = unlock.canVerify && inputComplete && !loading && !isUnlocked;
 
   const completedSteps = useMemo(() => {
     const windowReady = ['ready', 'temporarily_locked', 'unlocked'].includes(unlock.status);
-    return [windowReady, inputComplete, verified || isUnlocked, isUnlocked];
-  }, [unlock.status, inputComplete, verified, isUnlocked]);
+    const timeEntered = attempted || unlock.recentFailures > 0 || isUnlocked;
+    return [windowReady, timeEntered, isUnlocked, isUnlocked];
+  }, [unlock.status, unlock.recentFailures, attempted, isUnlocked]);
   const progress = completedSteps.filter(Boolean).length * 25;
 
-  const timerValue = unlock.status === 'temporarily_locked'
-    ? `00:${String(Math.floor(unlock.remainingLockSeconds / 60)).padStart(2, '0')}:${String(unlock.remainingLockSeconds % 60).padStart(2, '0')}`
-    : status.timer ?? unlock.clock.countdownLabel;
+  const timerValue = loading && attempted && unlock.status === 'ready'
+    ? 'VERIFYING'
+    : unlock.status === 'temporarily_locked'
+      ? `00:${String(Math.floor(unlock.remainingLockSeconds / 60)).padStart(2, '0')}:${String(unlock.remainingLockSeconds % 60).padStart(2, '0')}`
+      : status.timer ?? unlock.clock.countdownLabel;
+  const timerLabel = unlock.status === 'waiting'
+    ? 'TIME REMAINING'
+    : unlock.status === 'temporarily_locked'
+      ? 'TRY AGAIN IN'
+      : unlock.status === 'ready'
+        ? 'ACCESS WINDOW'
+        : 'WALLET STATUS';
+  const dialProgress = unlock.status === 'ready'
+    ? 100
+    : unlock.status === 'temporarily_locked'
+      ? Math.max(8, 100 - Math.min(100, (unlock.remainingLockSeconds / 300) * 100))
+      : unlock.clock.cycleProgressPercent;
 
   const clearEntry = () => {
     setHour('');
@@ -136,19 +258,24 @@ export default function UnlockWalletScreen() {
     }
 
     try {
-      setFeedback('Verifying the daily access window and wallet secret…');
+      setAttempted(true);
+      setFeedback('Verifying the daily access window and owner-controlled Time Set…');
       const attempt = await verify({ hour: Number(hour), minute: Number(minute) });
       const result = attempt.result;
 
-      if (result.ok) {
+      if (result.ok && attempt.state.status === 'unlocked') {
         await refreshAppState();
-        setVerified(true);
         setFeedback('Wallet verification complete. The wallet service opened the local session.');
         clearEntry();
         return;
       }
 
-      setVerified(false);
+      if (result.ok) {
+        clearEntry();
+        setFeedback('Wallet verification succeeded, but access is still awaiting confirmed session state.');
+        return;
+      }
+
       clearEntry();
       switch (result.reason) {
         case 'outside_window':
@@ -173,7 +300,6 @@ export default function UnlockWalletScreen() {
           break;
       }
     } catch (nextError) {
-      setVerified(false);
       clearEntry();
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to verify wallet access.');
     }
@@ -198,158 +324,131 @@ export default function UnlockWalletScreen() {
           : 'View Time Clock';
 
   const latestEvent = unlock.clock.events[0];
+  const unlockEvent = unlock.clock.events.find((item) => item.type === 'unlock_success');
+  const unlockedAt = isUnlocked
+    ? unlockEvent ? new Date(unlockEvent.timestamp).toLocaleString() : 'Confirmed session'
+    : 'Not unlocked';
+  const mainTitle = isUnlocked
+    ? 'Wallet Unlocked!'
+    : unlock.status === 'ready'
+      ? 'Ready to Unlock Wallet'
+      : unlock.status === 'waiting'
+        ? 'Time Set in Progress…'
+        : status.title;
+  const mainSubtitle = isUnlocked
+    ? 'Access granted. The wallet service confirmed this local session.'
+    : unlock.status === 'ready'
+      ? 'Enter the exact owner-configured time to begin wallet verification.'
+      : unlock.status === 'waiting'
+        ? 'Verification remains disabled until the daily access window opens.'
+        : unlock.status === 'temporarily_locked'
+          ? `Progressive lockout is active. ${unlock.attemptsRemaining} attempts remain before recovery is required.`
+          : unlock.status === 'recovery_required'
+            ? 'The attempt limit was reached. Continue through protected recovery.'
+            : 'Complete the required wallet and recovery setup before verification.';
+  const headerSubtitle = isUnlocked
+    ? 'Owner access verified'
+    : unlock.status === 'waiting'
+      ? 'Time Set in progress…'
+      : unlock.status === 'ready'
+        ? 'Access window open'
+        : unlock.status === 'temporarily_locked'
+          ? 'Verification paused'
+          : 'Protected owner access';
 
   return (
     <NomadPage maxWidth={880}>
       <PageHeader
         title="Unlock Wallet"
-        subtitle={isUnlocked ? 'Owner access verified' : 'Verify your owner-controlled Time Set'}
+        subtitle={headerSubtitle}
         icon="▣"
         color={status.color}
         status={false}
-        right={(
-          <Pressable onPress={() => navigation.navigate('TimeClockAccess')}>
+        right={!isUnlocked ? (
+          <Pressable testID="unlock-cancel" accessibilityRole="button" accessibilityLabel="Cancel wallet unlock" onPress={() => navigation.navigate('TimeClockAccess')}>
             <Text style={[styles.cancel, { color: status.color }]}>Cancel</Text>
           </Pressable>
-        )}
+        ) : null}
       />
 
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void refresh()} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
         </View>
       ) : null}
 
       <Panel style={styles.topStats}>
         <View style={styles.topStat}>
-          <Text style={[styles.topIcon, { color: status.color }]}>◷</Text>
-          <View style={styles.topCopy}>
-            <Text style={styles.topTitle}>Access Window</Text>
-            <Text style={styles.topValue}>{unlock.clock.accessWindowLabel}</Text>
-          </View>
+          <RoundIcon symbol="▦" color={status.color} size={44} filled />
+          <View style={styles.topCopy}><Text style={styles.topTitle}>Time Set</Text><Text style={styles.topValue}>{unlock.clock.configuredTime ? '24 Hour Cycle' : 'Not Configured'}</Text></View>
         </View>
         <View style={styles.topDivider} />
         <View style={styles.topStat}>
-          <Text style={[styles.topIcon, { color: status.color }]}>◎</Text>
-          <View style={styles.topCopy}>
-            <Text style={styles.topTitle}>Device Time</Text>
-            <Text style={styles.topValue}>{unlock.clock.currentTimeLabel} • {unlock.clock.timeZoneLabel}</Text>
-          </View>
+          <Text style={[styles.topIcon, { color: status.color }]}>◷</Text>
+          <View style={styles.topCopy}><Text style={styles.topTitle}>Started</Text><Text style={styles.topValue}>{recovery.cycleStartedLabel}</Text></View>
         </View>
         <Text style={[styles.topShield, { color: status.color }]}>◇</Text>
       </Panel>
 
-      <View style={styles.timerSection}>
-        <View
-          style={[
-            styles.timer,
-            {
-              width: compact ? 225 : 300,
-              height: compact ? 225 : 300,
-              borderRadius: compact ? 113 : 150,
-              borderColor: status.color,
-            },
-          ]}
-        >
-          <Text style={[styles.timerLabel, { color: status.color }]}>{status.title}</Text>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={[styles.timerValue, { fontSize: compact ? 37 : 49 }]}
-          >
-            {timerValue}
-          </Text>
-          {timerValue.includes(':') ? (
-            <View style={styles.timerUnits}>
-              <Text style={[styles.timerUnit, { color: status.color }]}>HOURS</Text>
-              <Text style={[styles.timerUnit, { color: status.color }]}>MINUTES</Text>
-              <Text style={[styles.timerUnit, { color: status.color }]}>SECONDS</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.unlockTitle}>{isUnlocked ? 'Access Granted' : status.title.replace(/_/g, ' ')}</Text>
-        <Text style={styles.unlockSub}>
-          {isUnlocked
-            ? 'The wallet service confirmed the Time Set and opened the local wallet session.'
-            : unlock.status === 'ready'
-              ? 'Enter the exact owner-configured time. It is not displayed or prefilled on this page.'
-              : unlock.status === 'waiting'
-                ? 'Verification is disabled until the owner-configured daily access window opens.'
-                : unlock.status === 'temporarily_locked'
-                  ? 'Progressive lockout is active after an incorrect verification attempt.'
-                  : unlock.status === 'recovery_required'
-                    ? 'The maximum failed-attempt limit was reached. The clock cannot bypass recovery.'
-                    : 'Complete the required wallet and recovery setup before verification.'}
-        </Text>
+      <View style={styles.heroSection}>
+        {isUnlocked ? (
+          <SuccessSeal size={compact ? 225 : 306} />
+        ) : (
+          <UnlockDial color={status.color} label={timerLabel} progress={dialProgress} size={compact ? 278 : 368} value={timerValue} />
+        )}
+        <Text style={styles.unlockTitle}>{mainTitle}</Text>
+        <Text style={styles.unlockSub}>{mainSubtitle}</Text>
       </View>
 
-      <Panel tone={status.tone} style={styles.verificationPanel}>
-        <View style={styles.verificationHeading}>
-          <View>
-            <Text style={[styles.verificationEyebrow, { color: status.color }]}>OWNER TIME SET</Text>
-            <Text style={styles.verificationTitle}>Enter 24-hour verification time</Text>
-            <Text style={styles.verificationSub}>The value is checked only by the local wallet service after the daily window opens.</Text>
+      {unlock.status === 'ready' ? (
+        <Panel tone="green" style={styles.verificationPanel}>
+          <View style={styles.verificationHeading}>
+            <View style={styles.verificationCopy}>
+              <Text style={styles.verificationEyebrow}>OWNER TIME SET</Text>
+              <Text style={styles.verificationTitle}>Enter 24-hour verification time</Text>
+              <Text style={styles.verificationSub}>Checked only by the local wallet service. The configured value is never displayed or prefilled.</Text>
+            </View>
+            <View style={[styles.attemptPill, { borderColor: unlock.attemptsRemaining <= 2 ? C.red : C.green }]}>
+              <Text style={[styles.attemptValue, { color: unlock.attemptsRemaining <= 2 ? C.red : C.green }]}>{unlock.attemptsRemaining}</Text>
+              <Text style={styles.attemptLabel}>ATTEMPTS LEFT</Text>
+            </View>
           </View>
-          <View style={[styles.attemptPill, { borderColor: unlock.attemptsRemaining <= 2 ? C.red : status.color }]}>
-            <Text style={[styles.attemptValue, { color: unlock.attemptsRemaining <= 2 ? C.red : status.color }]}>{unlock.attemptsRemaining}</Text>
-            <Text style={styles.attemptLabel}>ATTEMPTS LEFT</Text>
+          <View style={styles.timeEntryRow}>
+            <TimeField label="HOUR" value={hour} max={23} disabled={loading} onChange={setHour} />
+            <Text style={styles.colon}>:</Text>
+            <TimeField label="MINUTE" value={minute} max={59} disabled={loading} onChange={setMinute} />
           </View>
-        </View>
+          <Pressable
+            testID="unlock-verify"
+            accessibilityRole="button"
+            accessibilityLabel="Verify Time Set and unlock wallet"
+            disabled={!canSubmit}
+            onPress={() => void handleVerify()}
+            style={({ pressed }) => [styles.verifyButton, { backgroundColor: canSubmit ? C.green : '#183047' }, pressed && canSubmit && styles.pressed]}
+          >
+            <Text style={[styles.verifyButtonText, { color: canSubmit ? C.bg : C.muted }]}>{loading ? 'VERIFYING…' : 'VERIFY & UNLOCK'}</Text>
+          </Pressable>
+        </Panel>
+      ) : null}
 
-        <View style={[styles.timeEntryRow, compact && styles.timeEntryCompact]}>
-          <TimeField label="HOUR" value={hour} max={23} disabled={!unlock.canVerify || loading || isUnlocked} onChange={setHour} />
-          <Text style={styles.colon}>:</Text>
-          <TimeField label="MINUTE" value={minute} max={59} disabled={!unlock.canVerify || loading || isUnlocked} onChange={setMinute} />
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          disabled={!canSubmit}
-          onPress={() => void handleVerify()}
-          style={({ pressed }) => [
-            styles.verifyButton,
-            { backgroundColor: canSubmit ? status.color : '#183047' },
-            pressed && canSubmit && styles.pressed,
-          ]}
-        >
-          <Text style={[styles.verifyButtonText, { color: canSubmit ? C.bg : C.muted }]}>
-            {loading ? 'VERIFYING…' : isUnlocked ? 'WALLET UNLOCKED' : 'VERIFY & UNLOCK'}
-          </Text>
-        </Pressable>
-
-        {feedback ? (
-          <Text style={[
-            styles.feedback,
-            /failed|incorrect|closed|locked|required|unable|did not/i.test(feedback) && { color: C.yellow },
-            /complete|opened/i.test(feedback) && { color: C.green },
-          ]}>
-            {feedback}
-          </Text>
-        ) : null}
-      </Panel>
+      {feedback ? (
+        <Text style={[
+          styles.feedback,
+          /failed|incorrect|closed|locked|required|unable|did not/i.test(feedback) && { color: C.yellow },
+          /complete|opened/i.test(feedback) && { color: C.green },
+        ]}>{feedback}</Text>
+      ) : null}
 
       <Panel style={styles.progressPanel}>
-        <View style={styles.progressHeading}>
-          <Text style={styles.progressTitle}>VERIFICATION PROGRESS</Text>
-          <Text style={[styles.progressValue, { color: status.color }]}>{progress}%</Text>
-        </View>
-        <ProgressBar value={progress} color={status.color} height={8} />
+        <View style={styles.progressHeading}><Text style={styles.progressTitle}>VERIFICATION PROGRESS</Text><Text style={[styles.progressValue, { color: status.color }]}>{progress}%</Text></View>
+        <View style={[styles.progressRail, { backgroundColor: `${status.color}70` }]} />
         <View style={styles.steps}>
-          {[
-            'Window Open',
-            'Time Entered',
-            'Wallet Verified',
-            'Access Granted',
-          ].map((label, index) => {
+          {['Window Open', 'Time Entered', 'Wallet Verified', 'Access Granted'].map((label, index) => {
             const done = completedSteps[index];
             return (
               <View key={label} style={styles.step}>
-                <View style={[styles.stepCircle, { borderColor: status.color }, done && { backgroundColor: status.color }]}>
-                  <Text style={[styles.stepMark, { color: status.color }, done && { color: C.bg }]}>{done ? '✓' : index + 1}</Text>
-                </View>
+                <View style={[styles.stepCircle, { borderColor: status.color }, done && { backgroundColor: status.color }]}><Text style={[styles.stepMark, { color: status.color }, done && { color: C.bg }]}>{done ? '✓' : index + 1}</Text></View>
                 <Text style={[styles.stepText, done && { color: status.color }]}>{label}</Text>
               </View>
             );
@@ -357,100 +456,89 @@ export default function UnlockWalletScreen() {
         </View>
       </Panel>
 
-      <Panel tone={isUnlocked ? 'green' : status.tone} style={styles.resultPanel}>
-        <RoundIcon symbol={isUnlocked ? '✓' : unlock.status === 'recovery_required' ? '!' : '◷'} color={isUnlocked ? C.green : status.color} size={62} filled />
-        <View style={styles.resultCopy}>
-          <Text style={styles.resultTitle}>{isUnlocked ? 'Wallet Unlocked' : status.title}</Text>
-          <Text style={styles.resultSub}>
-            {isUnlocked
-              ? 'Final signing and transaction approval remain controlled by the connected wallet service.'
-              : `Verification provider: ${unlock.verificationProvider.replace(/_/g, ' ')}.`}
-          </Text>
-        </View>
-        <Pressable onPress={() => navigation.navigate(primaryRoute)} style={[styles.resultButton, { borderColor: status.color }]}>
-          <Text style={[styles.resultButtonText, { color: status.color }]}>{primaryLabel}  ›</Text>
-        </Pressable>
-      </Panel>
+      {isUnlocked || unlock.status !== 'ready' ? (
+        <Panel tone={isUnlocked ? 'green' : status.tone} style={styles.resultPanel}>
+          <RoundIcon symbol={isUnlocked ? '✓' : unlock.status === 'recovery_required' ? '!' : '◷'} color={isUnlocked ? C.green : status.color} size={62} filled />
+          <View style={styles.resultCopy}>
+            <Text style={styles.resultTitle}>{isUnlocked ? 'Wallet Unlocked!' : status.title}</Text>
+            <Text style={styles.resultSub}>{isUnlocked ? 'Access granted. Welcome back.' : mainSubtitle}</Text>
+          </View>
+          <Pressable testID="unlock-result-action" accessibilityRole="button" accessibilityLabel={primaryLabel} onPress={() => navigation.navigate(primaryRoute)} style={[styles.resultButton, { borderColor: status.color }]}>
+            <Text style={[styles.resultButtonText, { color: status.color }]}>{primaryLabel}</Text><Text style={[styles.resultArrow, { color: status.color }]}>›</Text>
+          </Pressable>
+        </Panel>
+      ) : null}
 
       <Panel style={styles.detailsPanel}>
-        <Text style={styles.detailsTitle}>ACCESS EVIDENCE</Text>
-        <DetailRow icon="◷" label="Daily Window" value={unlock.clock.accessWindowLabel} />
-        <DetailRow icon="◎" label="Clock Source" value="Device local clock" color={C.yellow} />
-        <DetailRow icon="⌁" label="Trusted Time" value="Not connected" color={C.yellow} />
-        <DetailRow icon="!" label="Recent Failures" value={`${unlock.recentFailures} / ${unlock.maximumFailuresBeforeRecovery}`} color={unlock.recentFailures ? C.yellow : C.green} />
-        <DetailRow icon="▣" label="Session" value={isUnlocked ? 'Unlocked' : 'Protected'} color={isUnlocked ? C.green : status.color} />
-        <DetailRow icon="◇" label="Persistence" value="In-memory development stub" color={C.yellow} last />
+        <Text style={styles.detailsTitle}>DETAILS</Text>
+        <DetailRow icon="▦" label="Time Set" value={unlock.clock.configuredTime ? '24 Hour Cycle' : 'Not Configured'} />
+        <DetailRow icon="◷" label="Started" value={recovery.cycleStartedLabel} />
+        <DetailRow icon="▣" label="Unlocked" value={unlockedAt} color={isUnlocked ? C.green : C.muted} />
+        <DetailRow icon="◇" label="Security Status" value={isUnlocked ? 'Wallet Service Confirmed' : status.title} color={isUnlocked ? C.green : status.color} last />
       </Panel>
 
-      {latestEvent ? (
+      {latestEvent && !isUnlocked ? (
         <Panel style={styles.eventPanel}>
           <RoundIcon symbol={latestEvent.type === 'unlock_success' ? '✓' : '!'} color={latestEvent.severity === 'critical' ? C.red : latestEvent.severity === 'warning' ? C.yellow : C.green} size={43} filled />
-          <View style={styles.eventCopy}>
-            <Text style={styles.eventTitle}>{latestEvent.title}</Text>
-            <Text style={styles.eventDetail}>{latestEvent.detail}</Text>
-            <Text style={styles.eventTime}>{new Date(latestEvent.timestamp).toLocaleString()}</Text>
-          </View>
+          <View style={styles.eventCopy}><Text style={styles.eventTitle}>{latestEvent.title}</Text><Text style={styles.eventDetail}>{latestEvent.detail}</Text><Text style={styles.eventTime}>{new Date(latestEvent.timestamp).toLocaleString()}</Text></View>
         </Panel>
       ) : null}
 
       <Panel tone="green" style={styles.footerPanel}>
-        <RoundIcon symbol="◇" color={C.green} size={45} />
-        <View style={styles.footerCopy}>
-          <Text style={styles.footerTitle}>Protected by owner-controlled Time Sets</Text>
-          <Text style={styles.footerText}>Nomad does not reveal the configured verification value, bypass the daily access window or claim access before wallet-service confirmation.</Text>
-        </View>
-        <Pressable onPress={() => navigation.navigate('RecoveryCenter')}>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
+        <RoundIcon symbol="◇" color={C.green} size={46} />
+        <View style={styles.footerCopy}><Text style={styles.footerTitle}>Your wallet is protected by Nomad Time Sets.</Text><Text style={styles.footerText}>You’re in control. Your time. Your freedom. Nomad never displays the configured value or bypasses wallet-service confirmation.</Text></View>
+        <Pressable testID="unlock-learn-more" accessibilityRole="button" accessibilityLabel="Learn more about Nomad Time Sets" onPress={() => navigation.navigate('RecoveryCenter')} style={({ pressed }) => [styles.learnButton, pressed && styles.pressed]}><Text style={styles.learnText}>Learn More</Text><Text style={styles.chevron}>›</Text></Pressable>
       </Panel>
 
-      <BottomNav
-        active="Recovery"
-        items={[
-          ['⌂', 'Home', 'Portfolio'],
-          ['▣', 'Wallets', 'Wallets'],
-          ['✈', 'Travel', 'TravelMode'],
-          ['◇', 'Security', 'SecurityCenter'],
-          ['↻', 'Recovery', 'RecoveryCenter'],
-        ]}
-      />
+      <BottomNav active="Recovery" items={[
+        ['⌂', 'Home', 'Portfolio'],
+        ['▣', 'Wallets', 'Wallets'],
+        ['✈', 'Travel', 'TravelMode'],
+        ['◇', 'Security', 'SecurityCenter'],
+        ['↻', 'Recovery', 'RecoveryCenter'],
+      ]} />
     </NomadPage>
   );
 }
 
 const styles = StyleSheet.create({
-  pressed: { opacity: 0.74 },
+  pressed: { opacity: 0.72 },
   cancel: { fontSize: 12, fontWeight: '800' },
   errorBanner: { minHeight: 48, marginBottom: 12, borderWidth: 1, borderColor: C.red, borderRadius: 10, backgroundColor: 'rgba(255,68,90,.08)', padding: 11, flexDirection: 'row', alignItems: 'center' },
   errorText: { flex: 1, minWidth: 0, color: C.red, fontSize: 10 },
   retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginLeft: 8 },
   retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  topStats: { minHeight: 84, padding: 13, flexDirection: 'row', alignItems: 'center' },
+  topStats: { minHeight: 92, padding: 13, flexDirection: 'row', alignItems: 'center' },
   topStat: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  topCopy: { flex: 1, minWidth: 0 },
+  topCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
   topIcon: { fontSize: 25, marginRight: 11 },
   topTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
   topValue: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
-  topDivider: { width: 1, height: 55, backgroundColor: C.borderSoft, marginHorizontal: 12 },
-  topShield: { fontSize: 33, marginLeft: 10 },
-  timerSection: { alignItems: 'center', marginTop: 24 },
-  timer: { borderWidth: 13, backgroundColor: 'rgba(4,29,26,.86)', alignItems: 'center', justifyContent: 'center', shadowColor: C.green, shadowOpacity: .45, shadowRadius: 25 },
-  timerLabel: { fontSize: 10, fontWeight: '900', textAlign: 'center', paddingHorizontal: 20 },
-  timerValue: { color: '#fff', fontWeight: '900', letterSpacing: -1, marginTop: 11, maxWidth: '82%' },
-  timerUnits: { flexDirection: 'row', gap: 18, marginTop: 11 },
+  topDivider: { width: 1, height: 56, backgroundColor: C.borderSoft, marginHorizontal: 13 },
+  topShield: { fontSize: 34, marginLeft: 10 },
+  heroSection: { alignItems: 'center', marginTop: 22 },
+  dial: { alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.46, shadowRadius: 27 },
+  dialContent: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingHorizontal: '15%' },
+  timerLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
+  timerValue: { width: '100%', color: '#fff', fontSize: 48, lineHeight: 60, fontWeight: '900', letterSpacing: -1.2, textAlign: 'center', marginTop: 8 },
+  timerUnits: { flexDirection: 'row', gap: 20, marginTop: 5 },
   timerUnit: { fontSize: 8 },
-  unlockTitle: { color: '#fff', fontSize: 23, fontWeight: '900', textAlign: 'center', marginTop: 20 },
-  unlockSub: { color: C.muted, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 7, maxWidth: 570 },
-  verificationPanel: { marginTop: 21, padding: 18 },
+  timerState: { fontSize: 8, fontWeight: '800', marginTop: 5 },
+  successSeal: { borderWidth: 2, borderColor: C.green, backgroundColor: 'rgba(3,28,20,.82)', alignItems: 'center', justifyContent: 'center', shadowColor: C.green, shadowOpacity: 0.43, shadowRadius: 26 },
+  successSealTitle: { color: C.green, fontSize: 13, fontWeight: '900', marginTop: 7 },
+  successSealSub: { color: C.muted, fontSize: 8, marginTop: 4 },
+  unlockTitle: { color: '#fff', fontSize: 24, fontWeight: '900', textAlign: 'center', marginTop: 18 },
+  unlockSub: { color: '#cdd6e3', fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 7, maxWidth: 590 },
+  verificationPanel: { marginTop: 20, padding: 18 },
   verificationHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  verificationEyebrow: { fontSize: 9, fontWeight: '900' },
+  verificationCopy: { flex: 1, minWidth: 0 },
+  verificationEyebrow: { color: C.green, fontSize: 9, fontWeight: '900' },
   verificationTitle: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 5 },
   verificationSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 5, maxWidth: 560 },
   attemptPill: { minWidth: 82, borderWidth: 1, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 7, alignItems: 'center' },
   attemptValue: { fontSize: 18, fontWeight: '900' },
   attemptLabel: { color: C.muted, fontSize: 6, marginTop: 2 },
   timeEntryRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 18 },
-  timeEntryCompact: { paddingHorizontal: 0 },
   timeField: { flex: 1 },
   timeLabel: { color: C.muted, fontSize: 8, textAlign: 'center', marginBottom: 6 },
   timeInput: { minHeight: 72, borderWidth: 1, borderColor: C.green, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', fontSize: 31, fontWeight: '900', textAlign: 'center', outlineStyle: 'none' } as any,
@@ -458,37 +546,41 @@ const styles = StyleSheet.create({
   colon: { color: '#fff', fontSize: 34, marginHorizontal: 13, marginBottom: 14 },
   verifyButton: { minHeight: 57, marginTop: 16, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   verifyButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-  feedback: { color: C.muted, fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 11 },
+  feedback: { color: C.muted, fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 12 },
   progressPanel: { marginTop: 17, padding: 17 },
   progressHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   progressTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  progressValue: { fontSize: 12, fontWeight: '900' },
-  steps: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
+  progressValue: { fontSize: 11, fontWeight: '900' },
+  progressRail: { position: 'absolute', left: '12%', right: '12%', top: 64, height: 2 },
+  steps: { flexDirection: 'row', justifyContent: 'space-between' },
   step: { flex: 1, alignItems: 'center' },
-  stepCircle: { width: 31, height: 31, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  stepCircle: { width: 31, height: 31, borderRadius: 16, borderWidth: 2, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' },
   stepMark: { fontSize: 10, fontWeight: '900' },
-  stepText: { color: C.muted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 6, paddingHorizontal: 2 },
-  resultPanel: { minHeight: 94, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
+  stepText: { color: C.muted, fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 7, paddingHorizontal: 2 },
+  resultPanel: { minHeight: 105, marginTop: 17, padding: 15, flexDirection: 'row', alignItems: 'center' },
   resultCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
-  resultTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  resultTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
   resultSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
-  resultButton: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, marginLeft: 8 },
+  resultButton: { minHeight: 43, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', marginLeft: 8 },
   resultButtonText: { fontSize: 9, fontWeight: '900' },
+  resultArrow: { fontSize: 22, marginLeft: 9 },
   detailsPanel: { marginTop: 17, padding: 16 },
   detailsTitle: { color: '#fff', fontSize: 13, fontWeight: '900', marginBottom: 6 },
-  detailRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center' },
+  detailRow: { minHeight: 57, flexDirection: 'row', alignItems: 'center' },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
-  detailIcon: { color: C.green, fontSize: 18, width: 30 },
+  detailIcon: { color: C.green, fontSize: 19, width: 31 },
   detailLabel: { color: '#fff', fontSize: 11, flex: 1 },
-  detailValue: { maxWidth: '56%', fontSize: 9, lineHeight: 13, textAlign: 'right' },
+  detailValue: { maxWidth: '58%', fontSize: 9, lineHeight: 13, textAlign: 'right' },
   eventPanel: { minHeight: 83, marginTop: 17, padding: 13, flexDirection: 'row', alignItems: 'center' },
   eventCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
   eventTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
   eventDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
   eventTime: { color: C.muted, fontSize: 7, marginTop: 4 },
-  footerPanel: { minHeight: 82, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
+  footerPanel: { minHeight: 88, marginTop: 17, padding: 14, flexDirection: 'row', alignItems: 'center' },
   footerCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  footerTitle: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  footerText: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
+  footerTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  footerText: { color: C.muted, fontSize: 8.5, lineHeight: 14, marginTop: 4 },
+  learnButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', marginLeft: 9 },
+  learnText: { color: C.green, fontSize: 9, fontWeight: '900' },
   chevron: { color: C.green, fontSize: 27, marginLeft: 8 },
 });
