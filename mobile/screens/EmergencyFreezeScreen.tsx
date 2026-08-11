@@ -1,68 +1,32 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
   useNomadEmergencyFreeze,
   type NomadEmergencyFreezeAsset,
-  type NomadEmergencyFreezeCheck,
   type NomadEmergencyFreezeEvent,
   type NomadEmergencyFreezeReleaseMethod,
   type NomadFreezeScope,
 } from '../nomad';
-import {
-  BottomNav,
-  C,
-  NomadPage,
-  PageHeader,
-  Panel,
-  PrimaryButton,
-  RoundIcon,
-  useNomadLayout,
-} from '../ui/NomadShell';
+import { C, NomadGlyph, NomadPage, Panel, useNomadLayout } from '../ui/NomadShell';
 
+type FreezeIcon = 'wallet' | 'travel' | 'assets' | 'authority';
 type FreezeOptionItem = {
   scope: NomadFreezeScope;
   title: string;
   subtitle: string;
-  icon: string;
+  icon: FreezeIcon;
   color: string;
   badge: string;
 };
 
 const freezeOptions: FreezeOptionItem[] = [
-  {
-    scope: 'entire_wallet',
-    title: 'Freeze Entire Wallet',
-    subtitle: 'Record the broadest outgoing-action policy and request an immediate wallet-session lock.',
-    icon: '▰',
-    color: C.red,
-    badge: 'MAXIMUM',
-  },
-  {
-    scope: 'travel_pocket',
-    title: 'Freeze Travel Pocket',
-    subtitle: 'Block Travel Pocket top-up, regional spending and POS review flows that consume the freeze policy.',
-    icon: '✈',
-    color: C.blue,
-    badge: 'TRAVEL',
-  },
-  {
-    scope: 'specific_assets',
-    title: 'Record Selected Assets',
-    subtitle: 'Attach chosen wallet assets to an incident while broader fallback protection remains in effect.',
-    icon: '◉',
-    color: C.purple,
-    badge: 'POLICY',
-  },
-  {
-    scope: 'owner_authority_alert',
-    title: 'Escalate to Owner Authority',
-    subtitle: 'Create a local authority request and alert record without claiming remote delivery.',
-    icon: '♙',
-    color: C.green,
-    badge: 'ALERT',
-  },
+  { scope: 'entire_wallet', title: 'Freeze Entire Wallet', subtitle: 'Lock all outgoing assets and transactions across your Nomad wallet.', icon: 'wallet', color: C.red, badge: 'High Protection' },
+  { scope: 'travel_pocket', title: 'Freeze Travel Pocket', subtitle: 'Stop Travel Pocket spending, top-ups, and payment drafts.', icon: 'travel', color: C.blue, badge: 'Medium Protection' },
+  { scope: 'specific_assets', title: 'Freeze Specific Assets', subtitle: 'Choose assets to protect while keeping broader wallet access available.', icon: 'assets', color: C.purple, badge: 'Custom' },
+  { scope: 'owner_authority_alert', title: 'Notify Owner Authority', subtitle: 'Record an emergency approval request for your Owner Authority.', icon: 'authority', color: C.green, badge: 'Recommended' },
 ];
 
 function formatDate(value?: string) {
@@ -70,141 +34,113 @@ function formatDate(value?: string) {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) return 'Time unavailable';
   return new Date(parsed).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 }
 
-function scopeLabel(scope?: NomadFreezeScope) {
-  if (scope === 'entire_wallet') return 'Entire Wallet';
-  if (scope === 'travel_pocket') return 'Travel Pocket';
-  if (scope === 'specific_assets') return 'Selected Assets';
-  if (scope === 'owner_authority_alert') return 'Owner Authority Alert';
-  return 'No Active Scope';
-}
-
-function statusInfo(status: string) {
-  if (status === 'active') return { color: C.red, tone: 'red' as const, title: 'EMERGENCY FREEZE ACTIVE', detail: 'The central security adapter reports an active protection scope.' };
-  if (status === 'release_requested') return { color: C.yellow, tone: 'yellow' as const, title: 'RELEASE REVIEW PENDING', detail: 'A release path was selected, but the freeze remains active until verified evidence is consumed.' };
-  if (status === 'legacy_freeze') return { color: C.red, tone: 'red' as const, title: 'ACTIVE FREEZE • RECEIPT MISSING', detail: 'The central adapter reports protection, but no matching Page 25 incident receipt is available.' };
-  if (status === 'alert_recorded') return { color: C.yellow, tone: 'yellow' as const, title: 'AUTHORITY ALERT RECORDED', detail: 'A local alert exists. It does not prove remote delivery or freeze wallet actions.' };
-  return { color: C.green, tone: 'green' as const, title: 'NO ACTIVE FREEZE', detail: 'Emergency protection can be activated without an unlocked wallet session.' };
-}
-
-function checkInfo(status: NomadEmergencyFreezeCheck['status']) {
-  if (status === 'pass') return { color: C.green, mark: '✓', label: 'PASS' };
-  if (status === 'warning') return { color: C.yellow, mark: '!', label: 'REVIEW' };
-  if (status === 'fail') return { color: C.red, mark: '×', label: 'FAIL' };
-  return { color: C.muted, mark: '—', label: 'UNAVAILABLE' };
-}
-
-function FreezeOption({
-  item,
-  selected,
-  active,
-  disabled,
-  onPress,
-}: {
-  item: FreezeOptionItem;
-  selected: boolean;
-  active: boolean;
-  disabled: boolean;
-  onPress(): void;
-}) {
+function LockShield({ size = 68, color = C.red }: { size?: number; color?: string }) {
   return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.option,
-        selected && { borderColor: item.color, backgroundColor: `${item.color}12` },
-        disabled && styles.disabled,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={[styles.optionIcon, { borderColor: `${item.color}66`, backgroundColor: `${item.color}16` }]}>
-        <Text style={[styles.optionMark, { color: item.color }]}>{item.icon}</Text>
-        <View style={[styles.optionBadgeIcon, { backgroundColor: active ? C.red : selected ? item.color : C.blue }]}>
-          <Text style={styles.optionBadgeIconText}>{active ? '❄' : selected ? '✓' : '•'}</Text>
-        </View>
-      </View>
-      <View style={styles.optionCopy}>
-        <Text style={styles.optionTitle}>{item.title}</Text>
-        <Text style={styles.optionSub}>{item.subtitle}</Text>
-      </View>
-      <View style={styles.optionRight}>
-        <Text style={[styles.protectionBadge, { color: item.color, borderColor: `${item.color}66` }]}>
-          {active ? 'ACTIVE' : item.badge}
-        </Text>
-        <Text style={[styles.optionArrow, { color: item.color }]}>{selected ? '✓' : '›'}</Text>
-      </View>
-    </Pressable>
+    <Svg accessibilityLabel="Emergency Freeze shield" width={size} height={size * 1.12} viewBox="0 0 90 102" fill="none">
+      <Path d="M45 5 80 20v30c0 25-13 40-35 52C23 90 10 75 10 50V20Z" fill={`${color}0c`} stroke={color} strokeWidth="4" />
+      <Rect x="29" y="47" width="32" height="27" rx="4" fill={`${color}18`} stroke={color} strokeWidth="3" />
+      <Path d="M35 47V36a10 10 0 0 1 20 0v11M45 57v8" stroke={color} strokeWidth="3" strokeLinecap="round" />
+    </Svg>
   );
 }
 
-function AssetRow({
-  asset,
-  selected,
-  onPress,
-  last,
-}: {
-  asset: NomadEmergencyFreezeAsset;
-  selected: boolean;
-  onPress(): void;
-  last?: boolean;
-}) {
+function EmergencyArtwork() {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.assetRow, !last && styles.rowBorder, pressed && styles.pressed]}>
-      <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
-        <Text style={styles.checkboxMark}>{selected ? '✓' : ''}</Text>
+    <View style={styles.emergencyArt}>
+      <Svg width="100%" height="100%" viewBox="0 0 220 220" fill="none">
+        <Circle cx="110" cy="110" r="96" stroke={C.red} strokeOpacity=".12" />
+        <Circle cx="110" cy="110" r="78" stroke={C.red} strokeOpacity=".25" strokeDasharray="2 8" />
+        <Circle cx="110" cy="110" r="62" fill="rgba(255,62,69,.08)" stroke={C.red} strokeOpacity=".35" />
+        <Path d="M14 110h47M159 110h47M110 14v45M110 161v45M42 42l35 35M143 143l35 35M178 42l-35 35M77 143l-35 35" stroke={C.red} strokeOpacity=".14" />
+      </Svg>
+      <View style={styles.emergencyLock}>
+        <Svg width={92} height={102} viewBox="0 0 92 102" fill="none">
+          <Rect x="15" y="42" width="62" height="52" rx="7" fill={C.red} />
+          <Path d="M27 42V28a19 19 0 0 1 38 0v14" stroke="#ff6a70" strokeWidth="8" strokeLinecap="round" />
+          <Circle cx="46" cy="65" r="7" fill="#651016" /><Path d="M46 71v11" stroke="#651016" strokeWidth="6" strokeLinecap="round" />
+        </Svg>
       </View>
-      <View style={styles.assetCopy}>
-        <Text style={styles.assetTitle}>{asset.symbol} • {asset.name}</Text>
-        <Text style={styles.assetSub}>{asset.network || asset.chainId || 'Network unavailable'} • {asset.balance}</Text>
-      </View>
-      <Text style={[styles.assetState, { color: selected ? C.purple : C.muted }]}>{selected ? 'INCLUDED' : 'SELECT'}</Text>
-    </Pressable>
-  );
-}
-
-function CheckRow({ item, last }: { item: NomadEmergencyFreezeCheck; last?: boolean }) {
-  const info = checkInfo(item.status);
-  return (
-    <View style={[styles.checkRow, !last && styles.rowBorder]}>
-      <View style={[styles.checkMark, { borderColor: info.color, backgroundColor: `${info.color}12` }]}>
-        <Text style={[styles.checkMarkText, { color: info.color }]}>{info.mark}</Text>
-      </View>
-      <View style={styles.checkCopy}>
-        <Text style={styles.checkTitle}>{item.label}</Text>
-        <Text style={styles.checkDetail}>{item.detail}</Text>
-      </View>
-      <Text style={[styles.checkStatus, { color: info.color }]}>{info.label}</Text>
     </View>
   );
 }
 
-function DetailRow({ label, value, color = '#fff', last }: { label: string; value: string; color?: string; last?: boolean }) {
+function FreezeGraphic({ kind, color }: { kind: FreezeIcon; color: string }) {
+  const stroke = { stroke: color, strokeWidth: 2.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   return (
-    <View style={[styles.detailRow, !last && styles.rowBorder]}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text selectable style={[styles.detailValue, { color }]}>{value}</Text>
+    <View style={[styles.optionIcon, { borderColor: `${color}66`, backgroundColor: `${color}0d` }]}>
+      <Svg width={62} height={62} viewBox="0 0 72 72" fill="none">
+        {kind === 'wallet' ? <><Path d="M10 22h42a9 9 0 0 1 9 9v26H10a8 8 0 0 1-8-8V20a8 8 0 0 1 8-8h37v10" {...stroke} /><Path d="M46 34h19v14H46a7 7 0 0 1 0-14Z" {...stroke} /><Circle cx="50" cy="41" r="2" fill={color} /></> : null}
+        {kind === 'travel' ? <><Path d="M12 25h48v32H12Z" {...stroke} /><Path d="M18 25v-7h36v7M28 18v-6h16v6M12 39c9 6 15 4 24 0 9 4 15 6 24 0" {...stroke} /></> : null}
+        {kind === 'assets' ? <><Circle cx="20" cy="22" r="13" {...stroke} /><Circle cx="51" cy="26" r="13" {...stroke} /><Circle cx="22" cy="52" r="13" {...stroke} /><Path d="M17 22h6M20 16v12M48 19l6 14M45 31h12M16 52h12M22 46v12" {...stroke} /></> : null}
+        {kind === 'authority' ? <><Circle cx="35" cy="20" r="10" {...stroke} /><Path d="M15 58c1-18 8-27 20-27s19 9 20 27Z" {...stroke} /><Path d="M55 8h9v9M64 8l-9 9" {...stroke} /></> : null}
+      </Svg>
+      <View style={styles.snowBadge}><Text style={styles.snowText}>{kind === 'authority' ? '♧' : '❄'}</Text></View>
     </View>
   );
 }
 
-function ActivityRow({ item, last }: { item: NomadEmergencyFreezeEvent; last?: boolean }) {
+function Header() {
+  const navigation = useNavigation<any>();
+  return (
+    <View style={styles.header}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
+      <View style={styles.headerShield}><LockShield size={62} /></View>
+      <View style={styles.headerCopy}><Text style={styles.headerTitle}>Emergency Freeze</Text><Text style={styles.headerSubtitle}>Protect your assets instantly</Text></View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Emergency Freeze help" onPress={() => navigation.navigate('SecurityCenter')} style={styles.helpButton}><Text style={styles.helpLabel}>Help</Text><Text style={styles.helpCircle}>?</Text></Pressable>
+    </View>
+  );
+}
+
+function FreezeOption({ item, selected, active, disabled, onPress }: { item: FreezeOptionItem; selected: boolean; active: boolean; disabled: boolean; onPress(): void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={item.title} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.option, selected && { borderColor: item.color, backgroundColor: `${item.color}08` }, disabled && styles.disabled, pressed && styles.pressed]}>
+      <FreezeGraphic kind={item.icon} color={item.color} />
+      <View style={styles.optionCopy}><Text style={styles.optionTitle}>{item.title}</Text><Text style={styles.optionSubtitle}>{item.subtitle}</Text></View>
+      <View style={styles.optionRight}><Text style={[styles.optionBadge, { color: item.color, borderColor: `${item.color}55`, backgroundColor: `${item.color}0c` }]}>{active ? 'Active' : item.badge}</Text><Text style={[styles.chevron, { color: item.color }]}>{selected ? '✓' : '›'}</Text></View>
+    </Pressable>
+  );
+}
+
+function AssetRow({ asset, selected, last, onPress }: { asset: NomadEmergencyFreezeAsset; selected: boolean; last: boolean; onPress(): void }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.assetRow, !last && styles.rowDivider]}>
+      <View style={[styles.checkbox, selected && styles.checkboxActive]}><Text style={styles.checkboxText}>{selected ? '✓' : ''}</Text></View>
+      <View style={styles.assetCopy}><Text style={styles.assetTitle}>{asset.symbol} · {asset.name}</Text><Text style={styles.assetSubtitle}>{asset.balance} · {asset.network || asset.chainId || 'Network unavailable'}</Text></View>
+      <Text style={[styles.assetState, selected && { color: C.purple }]}>{selected ? 'INCLUDED' : 'SELECT'}</Text>
+    </Pressable>
+  );
+}
+
+function ActivityItem({ item, last }: { item: NomadEmergencyFreezeEvent; last: boolean }) {
   const color = item.severity === 'critical' ? C.red : item.severity === 'warning' ? C.yellow : C.blue;
   return (
-    <View style={[styles.activityRow, !last && styles.rowBorder]}>
-      <RoundIcon symbol={item.type === 'activation' ? '❄' : item.type === 'alert' ? '♙' : item.type === 'release_request' ? '↺' : 'i'} color={color} size={42} filled />
-      <View style={styles.activityCopy}>
-        <Text style={styles.activityTitle}>{item.title}</Text>
-        <Text style={styles.activityDetail}>{item.detail}</Text>
-        <Text style={styles.activityTime}>{formatDate(item.timestamp)}</Text>
-      </View>
+    <View style={[styles.activityItem, !last && styles.rowDivider]}>
+      <View style={[styles.activityIcon, { backgroundColor: `${color}15` }]}><Text style={[styles.activityIconText, { color }]}>{item.type === 'release_request' ? '↺' : item.type === 'alert' ? '♙' : '❄'}</Text></View>
+      <View style={styles.activityCopy}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activityDetail}>{item.detail}</Text><Text style={styles.activityTime}>{formatDate(item.timestamp)}</Text></View>
+      <LockShield size={37} color={color} />
+    </View>
+  );
+}
+
+function BottomNavigation() {
+  const navigation = useNavigation<any>();
+  const items = [
+    { label: 'Home', route: 'Portfolio', kind: 'home' as const },
+    { label: 'Wallets', route: 'Wallets', kind: 'wallet' as const },
+    { label: 'Travel', route: 'TravelMode', kind: 'travel' as const },
+    { label: 'Security', route: 'SecurityCenter', kind: 'security' as const },
+  ];
+  return (
+    <View style={styles.bottomNav}>
+      {items.map((item) => {
+        const active = item.label === 'Security';
+        return <Pressable key={item.label} onPress={() => navigation.navigate(item.route)} style={styles.navItem}><NomadGlyph kind={item.kind} color={active ? C.green : '#d4cdd0'} size={34} /><Text style={[styles.navLabel, active && styles.navActive]}>{item.label}</Text></Pressable>;
+      })}
+      <Pressable onPress={() => navigation.navigate('Settings')} style={styles.navItem}><Text style={styles.moreDots}>•••</Text><Text style={styles.navLabel}>More</Text></Pressable>
     </View>
   );
 }
@@ -214,7 +150,7 @@ export default function EmergencyFreezeScreen() {
   const { compact } = useNomadLayout();
   const { freeze, loading, error, refresh, activateFreeze, requestRelease } = useNomadEmergencyFreeze();
 
-  const [selectedScope, setSelectedScope] = useState<NomadFreezeScope>('entire_wallet');
+  const [selectedScope, setSelectedScope] = useState<NomadFreezeScope | undefined>();
   const [selectedAssetKeys, setSelectedAssetKeys] = useState<string[]>([]);
   const [reason, setReason] = useState('');
   const [confirmNoSecrets, setConfirmNoSecrets] = useState(false);
@@ -224,43 +160,40 @@ export default function EmergencyFreezeScreen() {
   const [feedback, setFeedback] = useState('');
   const [showAllActivity, setShowAllActivity] = useState(false);
 
-  const info = statusInfo(freeze.status);
   const currentIncident = freeze.currentIncident;
   const centralActive = freeze.centralSecurity.freezeStatus !== 'none';
   const activeScope = freeze.activeScope;
-  const visibleActivity = freeze.activity.slice(0, showAllActivity ? 16 : 5);
-  const selectedOption = freezeOptions.find((item) => item.scope === selectedScope) ?? freezeOptions[0];
+  const selectedOption = freezeOptions.find((item) => item.scope === selectedScope);
+  const visibleActivity = freeze.activity.slice(0, showAllActivity ? 14 : 4);
 
   useEffect(() => {
     if (activeScope && activeScope !== 'owner_authority_alert') setSelectedScope(activeScope);
   }, [activeScope]);
 
-  const activationAllowedByCurrentScope = !centralActive
-    || selectedScope === 'owner_authority_alert'
-    || (selectedScope === 'entire_wallet' && activeScope !== 'entire_wallet');
-  const hasRequiredAssets = selectedScope !== 'specific_assets' || selectedAssetKeys.length > 0;
-  const canActivate = freeze.canActivateFreeze
-    && activationAllowedByCurrentScope
+  const activationAllowed = !centralActive || selectedScope === 'owner_authority_alert' || (selectedScope === 'entire_wallet' && activeScope !== 'entire_wallet');
+  const hasAssets = selectedScope !== 'specific_assets' || selectedAssetKeys.length > 0;
+  const canActivate = Boolean(selectedScope)
+    && freeze.canActivateFreeze
+    && activationAllowed
     && reason.trim().length >= 8
-    && hasRequiredAssets
+    && hasAssets
     && confirmNoSecrets
     && confirmReleaseBoundary;
 
   const toggleAsset = (key: string) => {
-    setSelectedAssetKeys((current) => current.includes(key)
-      ? current.filter((item) => item !== key)
-      : [...current, key]);
+    setSelectedAssetKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
     setFeedback('');
   };
 
   const handleActivate = async () => {
+    if (!selectedScope || !selectedOption) return;
+    if (!freeze.canActivateFreeze) {
+      navigation.navigate('Lock');
+      return;
+    }
     try {
-      setFeedback(`Activating ${selectedOption.title.toLowerCase()} through the central security adapter…`);
-      const next = await activateFreeze({
-        scope: selectedScope,
-        selectedAssetKeys,
-        reason,
-      });
+      setFeedback(`Activating ${selectedOption.title.toLowerCase()}…`);
+      const next = await activateFreeze({ scope: selectedScope, selectedAssetKeys, reason });
       const incident = next.currentIncident;
       setReason('');
       setSelectedAssetKeys([]);
@@ -269,442 +202,226 @@ export default function EmergencyFreezeScreen() {
       setFeedback(selectedScope === 'owner_authority_alert'
         ? 'A local Owner Authority alert and approval request were recorded. Remote delivery is not confirmed.'
         : incident?.scope === 'entire_wallet' && !incident.walletLockConfirmed
-          ? 'The central freeze is active, but the connected wallet session lock was not confirmed. Review the evidence below.'
+          ? 'The central freeze is active, but the connected wallet-session lock was not confirmed.'
           : `${incident?.scopeLabel || 'Emergency'} protection is recorded. Direct release remains disabled.`);
     } catch (nextError) {
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to activate emergency protection.');
     }
   };
 
-  const handleReleaseRequest = async () => {
+  const handleRelease = async () => {
     try {
-      setFeedback('Recording a verified release request while keeping the freeze active…');
       await requestRelease(releaseMethod, releaseReason);
       setReleaseReason('');
       setFeedback(releaseMethod === 'owner_authority'
         ? 'A local Owner Authority release request is pending. Remote delivery and signed approval remain unverified.'
-        : 'Time Set verification was selected. The freeze remains active until a release provider consumes verified evidence.');
+        : 'Time Set verification was selected. The freeze remains active until verified evidence is consumed.');
     } catch (nextError) {
-      setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the release request.');
+      setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the verified release request.');
     }
   };
 
   return (
-    <NomadPage maxWidth={960}>
-      <PageHeader
-        title="Emergency Freeze"
-        subtitle="Record protection first; release only through verified evidence"
-        icon="❄"
-        color={info.color}
-        status={false}
-        help
-      />
+    <NomadPage maxWidth={900}>
+      <Header />
 
-      {error ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
-        </View>
-      ) : null}
+      {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
 
-      <Panel tone={info.tone} style={[styles.hero, compact && styles.heroCompact]}>
-        <View style={[styles.heroIcon, { borderColor: info.color }]}>
-          <Text style={[styles.heroMark, { color: info.color }]}>{freeze.status === 'clear' ? '▣' : '❄'}</Text>
-        </View>
+      <Panel tone="red" style={[styles.hero, compact && styles.heroCompact]}>
+        <EmergencyArtwork />
         <View style={styles.heroCopy}>
-          <Text style={[styles.heroEyebrow, { color: info.color }]}>EMERGENCY SECURITY STATE</Text>
-          <Text style={[styles.heroTitle, { color: info.color }]}>{info.title}</Text>
-          <Text style={styles.heroText}>{info.detail}</Text>
-          <Text style={styles.heroWarning}>Incoming-fund availability, chain-level enforcement and remote authority delivery are not independently confirmed by Page 25.</Text>
-        </View>
-        <View style={styles.heroStatus}>
-          <Text style={styles.heroStatusLabel}>CENTRAL SCOPE</Text>
-          <Text style={[styles.heroStatusValue, { color: info.color }]}>{scopeLabel(activeScope)}</Text>
-          <Text style={styles.heroStatusSub}>{freeze.centralSecurity.freezeStatus.toUpperCase()} • {freeze.walletSessionStatus.toUpperCase()}</Text>
+          <Text style={styles.heroTitle}>{centralActive ? 'Emergency Freeze Active' : 'Emergency Protection'}</Text>
+          <Text style={styles.heroText}>{centralActive ? `${freezeOptions.find((item) => item.scope === activeScope)?.title || 'Emergency protection'} is active. Release requires verified Time Set or Owner Authority evidence.` : 'Freeze your wallet or assets if your device is lost, stolen, or compromised. Release requires verified Time Sets or Owner Authority evidence.'}</Text>
+          <View style={styles.heroWarning}><Text style={styles.warningIcon}>△</Text><Text style={styles.warningText}>{centralActive ? 'The freeze remains active until verified release evidence is consumed.' : 'Frozen actions cannot be undone immediately.'}</Text></View>
         </View>
       </Panel>
 
-      <View style={[styles.metricRow, compact && styles.metricRowCompact]}>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>CENTRAL POLICY</Text>
-          <Text style={[styles.metricStatus, { color: centralActive ? C.red : C.green }]}>{centralActive ? 'ACTIVE' : 'CLEAR'}</Text>
-          <Text style={styles.metricSub}>Connected through the Nomad security bridge</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>DIRECT RELEASE</Text>
-          <Text style={[styles.metricStatus, { color: C.red }]}>DISABLED</Text>
-          <Text style={styles.metricSub}>No Page 25 clear or unfreeze control</Text>
-        </Panel>
-        <Panel style={styles.metricCard}>
-          <Text style={styles.metricLabel}>AUDIT STORAGE</Text>
-          <Text style={[styles.metricStatus, { color: C.yellow }]}>LOCAL STUB</Text>
-          <Text style={styles.metricSub}>Encrypted durable storage is not connected</Text>
-        </Panel>
+      <Text style={styles.promptTitle}>What would you like to freeze?</Text>
+      <View style={styles.optionsList}>
+        {freezeOptions.map((item) => {
+          const disabled = loading || (centralActive && item.scope !== 'owner_authority_alert' && !(item.scope === 'entire_wallet' && activeScope !== 'entire_wallet'));
+          return <FreezeOption key={item.scope} item={item} selected={selectedScope === item.scope} active={centralActive && activeScope === item.scope} disabled={disabled} onPress={() => { setSelectedScope(item.scope); setFeedback(''); }} />;
+        })}
       </View>
 
-      {currentIncident ? (
-        <Panel style={styles.incidentPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>CURRENT INCIDENT RECEIPT</Text>
-              <Text style={styles.sectionSub}>Secret-free local metadata bound to the active or pending scope</Text>
-            </View>
-            <Text style={[styles.incidentBadge, { color: info.color, borderColor: info.color }]}>{currentIncident.status.replace(/_/g, ' ').toUpperCase()}</Text>
-          </View>
-          <DetailRow label="Incident ID" value={currentIncident.id} />
-          <DetailRow label="Scope" value={currentIncident.scopeLabel} />
-          <DetailRow label="Reason" value={currentIncident.reason} />
-          <DetailRow label="Activated" value={formatDate(currentIncident.activatedAt)} />
-          <DetailRow label="Central Policy Recorded" value={currentIncident.centralPolicyRecorded ? 'YES' : 'NO'} color={currentIncident.centralPolicyRecorded ? C.green : C.red} />
-          <DetailRow label="Wallet Lock Requested" value={currentIncident.walletLockRequested ? 'YES' : 'NO'} />
-          <DetailRow label="Wallet Lock Confirmed" value={currentIncident.walletLockConfirmed ? 'YES' : 'NO'} color={currentIncident.walletLockConfirmed ? C.green : currentIncident.walletLockRequested ? C.red : C.muted} />
-          <DetailRow label="Authority Request" value={currentIncident.authorityRequestStatus.toUpperCase()} color={currentIncident.authorityRequestStatus === 'pending' ? C.yellow : C.muted} />
-          <DetailRow label="Remote Delivery" value="UNCONFIRMED" color={C.red} />
-          <DetailRow label="Contains Secrets" value="NO" color={C.green} last />
+      {selectedOption && (!centralActive || selectedScope === 'owner_authority_alert' || (selectedScope === 'entire_wallet' && activeScope !== 'entire_wallet')) ? (
+        <Panel style={styles.reviewPanel}>
+          <View style={styles.reviewHeading}><FreezeGraphic kind={selectedOption.icon} color={selectedOption.color} /><View style={styles.reviewCopy}><Text style={[styles.reviewTitle, { color: selectedOption.color }]}>{selectedOption.title}</Text><Text style={styles.reviewSubtitle}>Review and confirm this emergency action.</Text></View><Pressable onPress={() => setSelectedScope(undefined)} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable></View>
 
-          {currentIncident.selectedAssets.length ? (
-            <View style={styles.selectedSummary}>
-              <Text style={styles.selectedSummaryTitle}>INCIDENT ASSETS</Text>
-              <View style={styles.assetTags}>
-                {currentIncident.selectedAssets.map((asset) => (
-                  <Text key={asset.key} style={styles.assetTag}>{asset.symbol} • {asset.network || asset.chainId || 'Unknown network'}</Text>
-                ))}
-              </View>
-              <Text style={styles.selectedSummaryNote}>These assets are recorded as policy metadata. Chain-specific selective signing enforcement is not connected.</Text>
+          {selectedScope === 'specific_assets' ? (
+            <View style={styles.assetsPanel}>
+              <Text style={styles.fieldLabel}>SELECT WALLET ASSETS</Text>
+              {freeze.walletAssets.length ? freeze.walletAssets.map((asset, index) => <AssetRow key={asset.key} asset={asset} selected={selectedAssetKeys.includes(asset.key)} last={index === freeze.walletAssets.length - 1} onPress={() => toggleAsset(asset.key)} />) : <Text style={styles.emptyAssets}>No wallet assets are available. Choose Entire Wallet protection or restore the wallet connection.</Text>}
+              <Text style={styles.assetBoundary}>Specific-asset policy is recorded locally; connected transaction adapters may apply a broader protective block.</Text>
             </View>
           ) : null}
+
+          <Text style={styles.fieldLabel}>EMERGENCY REASON</Text>
+          <TextInput accessibilityLabel="Emergency freeze reason" multiline onChangeText={(value) => { setReason(value); setFeedback(''); }} placeholder="Example: Device lost during travel; block outgoing actions while ownership is verified." placeholderTextColor="#718096" style={styles.reasonInput} value={reason} />
+          <Text style={styles.secretWarning}>Never include a seed phrase, private key, wallet password, or Time Set.</Text>
+
+          <Pressable onPress={() => setConfirmNoSecrets((value) => !value)} style={styles.confirmRow}><View style={[styles.checkbox, confirmNoSecrets && styles.checkboxActive]}><Text style={styles.checkboxText}>{confirmNoSecrets ? '✓' : ''}</Text></View><Text style={styles.confirmText}>I included no wallet secrets in this emergency reason.</Text></Pressable>
+          <Pressable onPress={() => setConfirmReleaseBoundary((value) => !value)} style={styles.confirmRow}><View style={[styles.checkbox, confirmReleaseBoundary && styles.checkboxActive]}><Text style={styles.checkboxText}>{confirmReleaseBoundary ? '✓' : ''}</Text></View><Text style={styles.confirmText}>I understand activation is immediate and release requires separate verification.</Text></Pressable>
+
+          <Pressable disabled={loading || !canActivate} onPress={() => void handleActivate()} style={[styles.activateButton, { backgroundColor: selectedOption.color }, (loading || !canActivate) && styles.disabled]}><Text style={styles.activateText}>{loading ? 'Recording Protection…' : selectedScope === 'owner_authority_alert' ? 'Record Authority Alert' : `Activate ${selectedOption.title}`}</Text></Pressable>
         </Panel>
       ) : null}
 
-      {freeze.blockedActions.length ? (
-        <Panel tone="red" style={styles.blockedPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>PROTECTED ACTIONS</Text>
-              <Text style={styles.sectionSub}>Expected local policy effects; chain-level confirmation is separate</Text>
-            </View>
-            <Text style={[styles.sectionCount, { color: C.red }]}>{freeze.blockedActions.length}</Text>
-          </View>
-          {freeze.blockedActions.map((item) => (
-            <View key={item} style={styles.blockedRow}><Text style={styles.blockedMark}>×</Text><Text style={styles.blockedText}>{item}</Text></View>
-          ))}
-        </Panel>
-      ) : null}
-
-      <Panel style={styles.scopePanel}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>CHOOSE PROTECTION ACTION</Text>
-            <Text style={styles.sectionSub}>An active scope can only be escalated to Entire Wallet or paired with an authority alert</Text>
-          </View>
-          <Text style={[styles.sectionCount, { color: selectedOption.color }]}>4</Text>
-        </View>
-        {freezeOptions.map((item) => {
-          const scopeDisabled = loading || (centralActive
-            && item.scope !== 'owner_authority_alert'
-            && !(item.scope === 'entire_wallet' && activeScope !== 'entire_wallet'));
-          return (
-            <FreezeOption
-              key={item.scope}
-              item={item}
-              selected={selectedScope === item.scope}
-              active={centralActive && activeScope === item.scope}
-              disabled={scopeDisabled}
-              onPress={() => {
-                setSelectedScope(item.scope);
-                setFeedback('');
-              }}
-            />
-          );
-        })}
+      <Panel style={styles.infoPanel}>
+        <Text style={styles.infoIcon}>i</Text>
+        <View style={styles.infoCopy}><Text style={styles.infoText}>Outgoing transactions, swaps, and top-ups that consume the selected policy are blocked. Chain-level and incoming-fund enforcement depend on connected adapters.</Text><Pressable onPress={() => navigation.navigate('SecurityCenter')}><Text style={styles.learnText}>Learn more about Emergency Freeze  ›</Text></Pressable></View>
       </Panel>
 
-      {selectedScope === 'specific_assets' ? (
-        <Panel style={styles.assetPanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>SELECT WALLET ASSETS</Text>
-              <Text style={styles.sectionSub}>Attach one or more current wallet-snapshot assets to the incident</Text>
-            </View>
-            <Text style={[styles.sectionCount, { color: C.purple }]}>{selectedAssetKeys.length}</Text>
-          </View>
-          {freeze.walletAssets.length ? freeze.walletAssets.map((asset, index) => (
-            <AssetRow
-              key={asset.key}
-              asset={asset}
-              selected={selectedAssetKeys.includes(asset.key)}
-              last={index === freeze.walletAssets.length - 1}
-              onPress={() => toggleAsset(asset.key)}
-            />
-          )) : (
-            <View style={styles.emptyState}>
-              <RoundIcon symbol="◉" color={C.yellow} size={52} filled />
-              <Text style={styles.emptyTitle}>No Wallet Assets Available</Text>
-              <Text style={styles.emptyText}>Refresh the connected wallet snapshot or choose Entire Wallet protection.</Text>
-            </View>
-          )}
-          <Text style={styles.policyWarning}>Selected-assets mode records the intended scope but cannot prove chain-specific enforcement. Connected transaction adapters may apply a broader fallback block.</Text>
-        </Panel>
-      ) : null}
-
-      <Panel style={styles.activationPanel}>
-        <Text style={styles.sectionTitle}>ACTIVATION REVIEW</Text>
-        <Text style={styles.inputLabel}>Emergency reason</Text>
-        <TextInput
-          accessibilityLabel="Emergency freeze reason"
-          multiline
-          onChangeText={(value) => {
-            setReason(value);
-            setFeedback('');
-          }}
-          placeholder="Example: Device lost during travel; block outgoing actions while ownership is verified."
-          placeholderTextColor="#718096"
-          style={styles.reasonInput}
-          value={reason}
-        />
-        <Text style={styles.reasonNote}>Do not enter a seed phrase, private key, wallet password or Time Set.</Text>
-
-        <Pressable onPress={() => setConfirmNoSecrets((value) => !value)} style={styles.attestationRow}>
-          <View style={[styles.checkbox, confirmNoSecrets && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmNoSecrets ? '✓' : ''}</Text></View>
-          <Text style={styles.attestationText}>I included no wallet secrets in this incident reason.</Text>
-        </Pressable>
-        <Pressable onPress={() => setConfirmReleaseBoundary((value) => !value)} style={styles.attestationRow}>
-          <View style={[styles.checkbox, confirmReleaseBoundary && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmReleaseBoundary ? '✓' : ''}</Text></View>
-          <Text style={styles.attestationText}>I understand activation is immediate, while release requires a separate verified workflow.</Text>
-        </Pressable>
-
-        <PrimaryButton
-          label={loading ? 'Recording Protection…' : selectedScope === 'owner_authority_alert' ? 'Record Authority Escalation' : `Activate ${selectedOption.title}`}
-          subtitle={selectedScope === 'entire_wallet'
-            ? 'Central freeze first, then request wallet-session lock'
-            : selectedScope === 'specific_assets'
-              ? 'Record selected assets and apply the central fallback policy'
-              : selectedScope === 'owner_authority_alert'
-                ? 'Create a local request; remote delivery remains unconfirmed'
-                : 'Block Travel Pocket flows that consume the central policy'}
-          icon={selectedOption.icon}
-          tone="green"
-          disabled={loading || !canActivate}
-          onPress={() => void handleActivate()}
-        />
-      </Panel>
-
-      {freeze.canRequestRelease && currentIncident ? (
+      {centralActive && currentIncident ? (
         <Panel tone="yellow" style={styles.releasePanel}>
-          <View style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>REQUEST VERIFIED RELEASE</Text>
-              <Text style={styles.sectionSub}>This records a release path but does not clear the central freeze</Text>
-            </View>
-            <Text style={styles.releaseBadge}>FREEZE STAYS ACTIVE</Text>
+          <View style={styles.releaseHeading}><View><Text style={styles.releaseTitle}>REQUEST VERIFIED RELEASE</Text><Text style={styles.releaseSubtitle}>{currentIncident.scopeLabel} · activated {formatDate(currentIncident.activatedAt)}</Text></View><Text style={styles.activeBadge}>FREEZE STAYS ACTIVE</Text></View>
+          {freeze.blockedActions.length ? <View style={styles.blockedList}>{freeze.blockedActions.map((item) => <View key={item} style={styles.blockedRow}><Text style={styles.blockedMark}>×</Text><Text style={styles.blockedText}>{item}</Text></View>)}</View> : null}
+          <View style={[styles.releaseMethods, compact && styles.releaseMethodsCompact]}>
+            <Pressable onPress={() => setReleaseMethod('time_sets')} style={[styles.releaseMethod, releaseMethod === 'time_sets' && styles.releaseMethodActive]}><NomadGlyph kind="recovery" color={releaseMethod === 'time_sets' ? C.green : C.muted} size={35} /><Text style={styles.releaseMethodTitle}>Time Set Verification</Text><Text style={styles.releaseMethodText}>Continue through protected recovery verification.</Text></Pressable>
+            <Pressable onPress={() => setReleaseMethod('owner_authority')} style={[styles.releaseMethod, releaseMethod === 'owner_authority' && styles.releaseMethodActive]}><FreezeGraphic kind="authority" color={releaseMethod === 'owner_authority' ? C.green : C.muted} /><Text style={styles.releaseMethodTitle}>Owner Authority</Text><Text style={styles.releaseMethodText}>Record an independent approval request.</Text></Pressable>
           </View>
-
-          <View style={[styles.releaseMethodRow, compact && styles.releaseMethodRowCompact]}>
-            <Pressable onPress={() => setReleaseMethod('time_sets')} style={[styles.releaseMethod, releaseMethod === 'time_sets' && styles.releaseMethodActive]}>
-              <RoundIcon symbol="◷" color={releaseMethod === 'time_sets' ? C.green : C.muted} size={44} filled />
-              <Text style={styles.releaseMethodTitle}>Time Set Verification</Text>
-              <Text style={styles.releaseMethodText}>Continue through the protected recovery sequence.</Text>
-            </Pressable>
-            <Pressable onPress={() => setReleaseMethod('owner_authority')} style={[styles.releaseMethod, releaseMethod === 'owner_authority' && styles.releaseMethodActive]}>
-              <RoundIcon symbol="♙" color={releaseMethod === 'owner_authority' ? C.green : C.muted} size={44} filled />
-              <Text style={styles.releaseMethodTitle}>Owner Authority</Text>
-              <Text style={styles.releaseMethodText}>Create or reuse a local independent approval request.</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.inputLabel}>Release-review reason</Text>
-          <TextInput
-            accessibilityLabel="Emergency freeze release reason"
-            multiline
-            onChangeText={(value) => {
-              setReleaseReason(value);
-              setFeedback('');
-            }}
-            placeholder="Explain why release review is being requested. Do not include recovery secrets."
-            placeholderTextColor="#718096"
-            style={styles.releaseInput}
-            value={releaseReason}
-          />
-          <PrimaryButton
-            label={loading ? 'Recording Release Request…' : 'Request Verified Release Review'}
-            subtitle="No direct clear occurs; the central freeze remains active"
-            icon="↺"
-            tone="green"
-            disabled={loading || releaseReason.trim().length < 8}
-            onPress={() => void handleReleaseRequest()}
-          />
-
-          <View style={[styles.releaseActions, compact && styles.releaseActionsCompact]}>
-            <Pressable onPress={() => navigation.navigate('RecoveryCenter')} style={styles.releaseAction}><Text style={styles.releaseActionText}>Recovery Center</Text></Pressable>
-            <Pressable onPress={() => navigation.navigate('RecoverLostWallet')} style={styles.releaseAction}><Text style={styles.releaseActionText}>Time Set Intake</Text></Pressable>
-            <Pressable onPress={() => navigation.navigate('OwnerAuthorityApproval')} style={styles.releaseAction}><Text style={styles.releaseActionText}>Authority Evidence</Text></Pressable>
-          </View>
+          <TextInput accessibilityLabel="Emergency freeze release reason" multiline onChangeText={(value) => { setReleaseReason(value); setFeedback(''); }} placeholder="Explain why release review is being requested. Do not include recovery secrets." placeholderTextColor="#718096" style={styles.releaseInput} value={releaseReason} />
+          <Pressable disabled={loading || releaseReason.trim().length < 8} onPress={() => void handleRelease()} style={[styles.releaseButton, (loading || releaseReason.trim().length < 8) && styles.disabled]}><Text style={styles.releaseButtonText}>{loading ? 'Recording Request…' : 'Request Verified Release Review'}</Text></Pressable>
+          <View style={styles.releaseLinks}><Pressable onPress={() => navigation.navigate('RecoveryCenter')}><Text style={styles.releaseLink}>Recovery Center</Text></Pressable><Pressable onPress={() => navigation.navigate('OwnerAuthorityApproval')}><Text style={styles.releaseLink}>Authority Evidence</Text></Pressable></View>
         </Panel>
       ) : null}
 
-      <Panel style={styles.checkPanel}>
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionCopy}>
-            <Text style={styles.sectionTitle}>FREEZE EVIDENCE</Text>
-            <Text style={styles.sectionSub}>Every enforcement and release boundary is evaluated independently</Text>
-          </View>
-          <Text style={[styles.sectionCount, { color: info.color }]}>{freeze.checks.length}</Text>
-        </View>
-        {freeze.checks.map((item, index) => (
-          <CheckRow key={item.id} item={item} last={index === freeze.checks.length - 1} />
-        ))}
+      <View style={styles.activityHeading}><Text style={styles.activityHeadingText}>Recent Freeze Activity</Text>{freeze.activity.length > 4 ? <Pressable onPress={() => setShowAllActivity((value) => !value)}><Text style={styles.viewAll}>{showAllActivity ? 'Show Less' : 'View All'}</Text></Pressable> : null}</View>
+      <Panel style={styles.activityPanel}>
+        {visibleActivity.length ? visibleActivity.map((item, index) => <ActivityItem key={item.id} item={item} last={index === visibleActivity.length - 1} />) : <View style={styles.emptyActivity}><View style={styles.emptyActivityIcon}><Text style={styles.emptySnow}>❄</Text></View><View style={styles.emptyActivityCopy}><Text style={styles.emptyActivityTitle}>No freeze actions yet</Text><Text style={styles.emptyActivityText}>You’re all set. Stay secure!</Text></View><LockShield size={44} color={C.muted} /></View>}
       </Panel>
 
-      {visibleActivity.length ? (
-        <Panel style={styles.activityPanel}>
-          <Pressable onPress={() => setShowAllActivity((value) => !value)} style={styles.sectionHeading}>
-            <View style={styles.sectionCopy}>
-              <Text style={styles.sectionTitle}>EMERGENCY ACTIVITY</Text>
-              <Text style={styles.sectionSub}>Page 25 activation, alert and release-request events</Text>
-            </View>
-            <Text style={styles.activityToggle}>{showAllActivity ? 'Show less −' : 'Show all +'}</Text>
-          </Pressable>
-          {visibleActivity.map((item, index) => (
-            <ActivityRow key={item.id} item={item} last={index === visibleActivity.length - 1} />
-          ))}
-        </Panel>
-      ) : null}
+      {feedback ? <View style={styles.feedback}><Text style={styles.feedbackText}>{feedback}</Text></View> : null}
 
-      {feedback ? (
-        <Panel tone={/unable|not confirmed|unverified|disabled|cannot|already active|remains active/i.test(feedback) ? 'yellow' : 'green'} style={styles.feedbackPanel}>
-          <Text style={styles.feedbackIcon}>i</Text>
-          <Text style={styles.feedbackText}>{feedback}</Text>
-        </Panel>
-      ) : null}
-
-      <View style={[styles.navigationRow, compact && styles.navigationRowCompact]}>
-        <Pressable onPress={() => navigation.navigate('SecurityCenter')} style={styles.navigationButton}><Text style={styles.navigationText}>Security Center</Text></Pressable>
-        <Pressable onPress={() => navigation.navigate('BlockPagesSafety')} style={styles.navigationButton}><Text style={styles.navigationText}>Reqrium Safety</Text></Pressable>
-        <Pressable onPress={() => navigation.navigate('Settings')} style={styles.navigationButton}><Text style={styles.navigationText}>Security Settings</Text></Pressable>
-      </View>
-
-      <Panel style={styles.boundaryPanel}>
-        <RoundIcon symbol="i" color={C.blue} size={44} />
-        <Text style={styles.boundaryText}>Production Emergency Freeze still requires chain-specific signing policy, hardware-backed wallet locking, server or device attestation, encrypted durable audit logs, independent authority delivery, signed release receipts and a provider that consumes verified release evidence. Page 25 does not directly clear protection.</Text>
+      <Panel tone="yellow" style={styles.supportPanel}>
+        <View style={styles.supportIcon}><Text style={styles.supportIconText}>◖</Text></View><View style={styles.supportCopy}><Text style={styles.supportTitle}>Need help?</Text><Text style={styles.supportText}>Review Nomad support options or contact your Owner Authority.</Text></View><Pressable onPress={() => navigation.navigate('Settings')} style={styles.supportButton}><Text style={styles.supportButtonText}>Contact Support</Text></Pressable>
       </Panel>
 
-      <BottomNav active="Security" fifth={['•••', 'More', 'Settings']} />
+      <BottomNavigation />
     </NomadPage>
   );
 }
 
 const styles = StyleSheet.create({
-  errorBanner: { minHeight: 60, marginBottom: 14, borderWidth: 1, borderColor: C.red, borderRadius: 11, backgroundColor: 'rgba(80,8,18,.42)', padding: 12, flexDirection: 'row', alignItems: 'center' },
-  errorText: { flex: 1, color: C.red, fontSize: 10, lineHeight: 16 },
-  retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 10 },
-  retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  hero: { minHeight: 205, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 19 },
-  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
-  heroIcon: { width: 126, height: 126, borderRadius: 63, borderWidth: 5, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
-  heroMark: { fontSize: 60, fontWeight: '900' },
-  heroCopy: { flex: 1, minWidth: 0 },
-  heroEyebrow: { fontSize: 9, fontWeight: '900', letterSpacing: .8 },
-  heroTitle: { fontSize: 22, fontWeight: '900', marginTop: 8 },
-  heroText: { color: '#f1f5f9', fontSize: 11, lineHeight: 18, marginTop: 8 },
-  heroWarning: { color: '#f3d9d9', fontSize: 9, lineHeight: 15, marginTop: 10 },
-  heroStatus: { minWidth: 150, alignItems: 'flex-end' },
-  heroStatusLabel: { color: C.muted, fontSize: 8 },
-  heroStatusValue: { fontSize: 16, fontWeight: '900', marginTop: 8, textAlign: 'right' },
-  heroStatusSub: { color: C.muted, fontSize: 8, marginTop: 6, textAlign: 'right' },
-  metricRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  metricRowCompact: { flexDirection: 'column' },
-  metricCard: { flex: 1, minHeight: 102, padding: 14 },
-  metricLabel: { color: C.muted, fontSize: 8, fontWeight: '900' },
-  metricStatus: { fontSize: 14, fontWeight: '900', marginTop: 10 },
-  metricSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 7 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionCopy: { flex: 1, minWidth: 0 },
-  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', letterSpacing: .3 },
-  sectionSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
-  sectionCount: { fontSize: 24, fontWeight: '900' },
-  incidentPanel: { marginTop: 16, padding: 17 },
-  incidentBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6, fontSize: 8, fontWeight: '900' },
-  detailRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingVertical: 9 },
-  detailLabel: { color: C.muted, fontSize: 9, flex: .85 },
-  detailValue: { flex: 1.15, color: '#fff', fontSize: 9, fontWeight: '700', textAlign: 'right' },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft },
-  selectedSummary: { marginTop: 15, borderTopWidth: 1, borderTopColor: C.borderSoft, paddingTop: 14 },
-  selectedSummaryTitle: { color: C.purple, fontSize: 10, fontWeight: '900' },
-  assetTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
-  assetTag: { borderWidth: 1, borderColor: C.purple, borderRadius: 999, color: C.purple, paddingHorizontal: 9, paddingVertical: 5, fontSize: 8, fontWeight: '800' },
-  selectedSummaryNote: { color: C.yellow, fontSize: 8, lineHeight: 14, marginTop: 10 },
-  blockedPanel: { marginTop: 16, padding: 17 },
-  blockedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 11 },
-  blockedMark: { color: C.red, fontSize: 15, fontWeight: '900', marginRight: 10 },
-  blockedText: { flex: 1, color: '#f1e1e1', fontSize: 10, lineHeight: 15 },
-  scopePanel: { marginTop: 16, padding: 17 },
-  option: { minHeight: 105, marginTop: 12, borderWidth: 1, borderColor: C.border, borderRadius: 14, backgroundColor: C.panel2, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  optionIcon: { width: 67, height: 67, borderRadius: 34, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  optionMark: { fontSize: 29, fontWeight: '900' },
-  optionBadgeIcon: { position: 'absolute', right: -2, bottom: 2, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  optionBadgeIconText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  optionCopy: { flex: 1, minWidth: 0 },
-  optionTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  optionSub: { color: '#d6dee8', fontSize: 9, lineHeight: 15, marginTop: 5 },
-  optionRight: { alignItems: 'flex-end', marginLeft: 9 },
-  protectionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, fontSize: 7, fontWeight: '900' },
-  optionArrow: { fontSize: 24, marginTop: 6 },
-  assetPanel: { marginTop: 16, padding: 17 },
-  assetRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  checkbox: { width: 25, height: 25, borderWidth: 1, borderColor: C.border, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  checkboxChecked: { borderColor: C.green, backgroundColor: C.green },
-  checkboxMark: { color: C.bg, fontSize: 13, fontWeight: '900' },
-  assetCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  assetTitle: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  assetSub: { color: C.muted, fontSize: 8, marginTop: 4 },
-  assetState: { fontSize: 8, fontWeight: '900', marginLeft: 9 },
-  emptyState: { minHeight: 135, alignItems: 'center', justifyContent: 'center', padding: 18 },
-  emptyTitle: { color: '#fff', fontSize: 13, fontWeight: '900', marginTop: 10 },
-  emptyText: { color: C.muted, fontSize: 9, lineHeight: 14, textAlign: 'center', marginTop: 6 },
-  policyWarning: { color: C.yellow, fontSize: 8, lineHeight: 14, marginTop: 12 },
-  activationPanel: { marginTop: 16, padding: 17 },
-  inputLabel: { color: C.muted, fontSize: 9, marginTop: 15, marginBottom: 6 },
-  reasonInput: { minHeight: 110, borderWidth: 1, borderColor: C.border, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', padding: 13, fontSize: 10, lineHeight: 17, textAlignVertical: 'top', outlineStyle: 'none' } as any,
-  reasonNote: { color: C.yellow, fontSize: 8, lineHeight: 14, marginTop: 8 },
-  attestationRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  attestationText: { flex: 1, color: '#eef3f7', fontSize: 9, lineHeight: 15, marginLeft: 10 },
-  releasePanel: { marginTop: 16, padding: 17 },
-  releaseBadge: { color: C.red, borderWidth: 1, borderColor: C.red, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, fontSize: 7, fontWeight: '900' },
-  releaseMethodRow: { flexDirection: 'row', gap: 11, marginTop: 15 },
-  releaseMethodRowCompact: { flexDirection: 'column' },
-  releaseMethod: { flex: 1, minHeight: 132, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 14 },
-  releaseMethodActive: { borderColor: C.green, backgroundColor: 'rgba(32,239,112,.05)' },
-  releaseMethodTitle: { color: '#fff', fontSize: 11, fontWeight: '900', marginTop: 9 },
-  releaseMethodText: { color: C.muted, fontSize: 8, lineHeight: 14, marginTop: 5 },
-  releaseInput: { minHeight: 92, borderWidth: 1, borderColor: C.border, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', padding: 13, fontSize: 10, lineHeight: 17, textAlignVertical: 'top', outlineStyle: 'none' } as any,
-  releaseActions: { flexDirection: 'row', gap: 9, marginTop: 13 },
-  releaseActionsCompact: { flexDirection: 'column' },
-  releaseAction: { flex: 1, minHeight: 47, borderWidth: 1, borderColor: C.border, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  releaseActionText: { color: C.blue, fontSize: 9, fontWeight: '900' },
-  checkPanel: { marginTop: 16, padding: 17 },
-  checkRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', paddingVertical: 11 },
-  checkMark: { width: 35, height: 35, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  checkMarkText: { fontSize: 15, fontWeight: '900' },
-  checkCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  checkTitle: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  checkDetail: { color: '#dce4ed', fontSize: 8, lineHeight: 14, marginTop: 4 },
-  checkStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8 },
-  activityPanel: { marginTop: 16, padding: 17 },
-  activityToggle: { color: C.blue, fontSize: 9, fontWeight: '900' },
-  activityRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center', paddingVertical: 11 },
-  activityCopy: { flex: 1, minWidth: 0, marginLeft: 11 },
-  activityTitle: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  activityDetail: { color: C.muted, fontSize: 8, lineHeight: 14, marginTop: 4 },
-  activityTime: { color: C.blue, fontSize: 7, marginTop: 5 },
-  feedbackPanel: { minHeight: 70, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  feedbackIcon: { color: C.yellow, fontSize: 24, fontWeight: '900', marginRight: 12 },
-  feedbackText: { flex: 1, color: '#fff0d9', fontSize: 9, lineHeight: 15 },
-  navigationRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  navigationRowCompact: { flexDirection: 'column' },
-  navigationButton: { flex: 1, minHeight: 50, borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  navigationText: { color: C.blue, fontSize: 9, fontWeight: '900' },
-  boundaryPanel: { minHeight: 90, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' },
-  boundaryText: { flex: 1, minWidth: 0, color: '#edf2f7', fontSize: 9, lineHeight: 15, marginLeft: 12 },
-  pressed: { opacity: .78 },
+  header: { minHeight: 112, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, marginBottom: 14 },
+  backButton: { width: 48, height: 52, justifyContent: 'center' },
+  backText: { color: '#fff', fontSize: 49, lineHeight: 49, fontWeight: '200' },
+  headerShield: { width: 76, alignItems: 'center' },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerTitle: { color: '#fff', fontSize: 26, fontWeight: '800' },
+  headerSubtitle: { color: '#ddd6d8', fontSize: 15, marginTop: 5 },
+  helpButton: { minWidth: 92, minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 13 },
+  helpLabel: { color: C.green, fontSize: 18 },
+  helpCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: C.green, color: C.green, fontSize: 20, lineHeight: 29, textAlign: 'center', fontWeight: '700' },
+  errorBanner: { minHeight: 62, marginBottom: 14, borderWidth: 1, borderColor: C.red, borderRadius: 11, backgroundColor: 'rgba(80,8,18,.42)', padding: 13, flexDirection: 'row', alignItems: 'center' },
+  errorText: { flex: 1, color: '#ff9da5', fontSize: 11, lineHeight: 17 },
+  retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 13, paddingVertical: 8 },
+  retryText: { color: C.red, fontWeight: '800' },
+  hero: { minHeight: 265, padding: 23, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  heroCompact: { flexDirection: 'column', minHeight: 480 },
+  emergencyArt: { width: 235, height: 220, alignItems: 'center', justifyContent: 'center' },
+  emergencyLock: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  heroCopy: { flex: 1, minWidth: 0, marginLeft: 20 },
+  heroTitle: { color: C.red, fontSize: 24, fontWeight: '800' },
+  heroText: { color: '#f7f1f2', fontSize: 16, lineHeight: 27, marginTop: 12 },
+  heroWarning: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
+  warningIcon: { color: C.red, fontSize: 30, marginRight: 12 },
+  warningText: { flex: 1, color: '#e7dee0', fontSize: 13, lineHeight: 20 },
+  promptTitle: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 27, marginBottom: 13, marginLeft: 16 },
+  optionsList: { gap: 14 },
+  option: { minHeight: 154, borderWidth: 1, borderColor: '#294253', borderRadius: 13, backgroundColor: 'rgba(3,13,23,.93)', padding: 18, flexDirection: 'row', alignItems: 'center' },
+  optionIcon: { width: 100, height: 100, borderRadius: 50, borderWidth: 1.2, alignItems: 'center', justifyContent: 'center' },
+  snowBadge: { position: 'absolute', right: -2, bottom: 2, width: 35, height: 35, borderRadius: 18, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center' },
+  snowText: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  optionCopy: { flex: 1, minWidth: 0, marginLeft: 28 },
+  optionTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  optionSubtitle: { color: '#ded7da', fontSize: 15, lineHeight: 23, marginTop: 8, maxWidth: 420 },
+  optionRight: { alignItems: 'flex-end', marginLeft: 12 },
+  optionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7, fontSize: 12 },
+  chevron: { fontSize: 43, fontWeight: '200', marginTop: 8 },
+  pressed: { opacity: .76 },
   disabled: { opacity: .42 },
+  reviewPanel: { marginTop: 16, padding: 22 },
+  reviewHeading: { flexDirection: 'row', alignItems: 'center' },
+  reviewCopy: { flex: 1, marginLeft: 17 },
+  reviewTitle: { fontSize: 21, fontWeight: '800' },
+  reviewSubtitle: { color: C.muted, fontSize: 12, marginTop: 5 },
+  closeButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#536374', alignItems: 'center', justifyContent: 'center' },
+  closeText: { color: C.muted, fontSize: 25, lineHeight: 27 },
+  assetsPanel: { marginTop: 18, borderTopWidth: 1, borderTopColor: 'rgba(130,160,180,.18)', paddingTop: 15 },
+  fieldLabel: { color: '#d8d1d4', fontSize: 12, fontWeight: '700', marginTop: 19, marginBottom: 8 },
+  assetRow: { minHeight: 70, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(130,160,180,.16)' },
+  checkbox: { width: 26, height: 26, borderRadius: 6, borderWidth: 1.5, borderColor: '#607080', alignItems: 'center', justifyContent: 'center' },
+  checkboxActive: { borderColor: C.green, backgroundColor: C.green },
+  checkboxText: { color: '#001108', fontSize: 15, fontWeight: '900' },
+  assetCopy: { flex: 1, marginLeft: 13 },
+  assetTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  assetSubtitle: { color: C.muted, fontSize: 10, marginTop: 4 },
+  assetState: { color: C.muted, fontSize: 10, fontWeight: '800' },
+  emptyAssets: { color: C.yellow, fontSize: 12, lineHeight: 19, marginTop: 10 },
+  assetBoundary: { color: C.yellow, fontSize: 10, lineHeight: 16, marginTop: 11 },
+  reasonInput: { minHeight: 106, borderWidth: 1, borderColor: '#29445a', borderRadius: 10, backgroundColor: 'rgba(0,7,14,.72)', color: '#fff', padding: 14, fontSize: 13, lineHeight: 20, textAlignVertical: 'top', outlineStyle: 'none' } as any,
+  secretWarning: { color: C.yellow, fontSize: 10, lineHeight: 16, marginTop: 8 },
+  confirmRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  confirmText: { flex: 1, color: '#e5e0e2', fontSize: 12, lineHeight: 19, marginLeft: 12 },
+  activateButton: { minHeight: 66, borderRadius: 10, marginTop: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  activateText: { color: '#05080a', fontSize: 17, fontWeight: '900', textAlign: 'center' },
+  infoPanel: { minHeight: 135, marginTop: 18, padding: 22, flexDirection: 'row', alignItems: 'center' },
+  infoIcon: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: C.blue, color: C.blue, fontSize: 24, lineHeight: 41, textAlign: 'center', fontWeight: '700' },
+  infoCopy: { flex: 1, marginLeft: 22 },
+  infoText: { color: '#eee8eb', fontSize: 14, lineHeight: 22 },
+  learnText: { color: C.blue, fontSize: 13, marginTop: 13 },
+  releasePanel: { marginTop: 18, padding: 22 },
+  releaseHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  releaseTitle: { color: C.yellow, fontSize: 18, fontWeight: '800' },
+  releaseSubtitle: { color: '#eadca8', fontSize: 11, marginTop: 5 },
+  activeBadge: { color: C.red, borderWidth: 1, borderColor: C.red, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, fontSize: 9, fontWeight: '800' },
+  blockedList: { marginTop: 14 },
+  blockedRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  blockedMark: { color: C.red, fontSize: 16, marginRight: 10 },
+  blockedText: { color: '#f1e2e3', fontSize: 11 },
+  releaseMethods: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  releaseMethodsCompact: { flexDirection: 'column' },
+  releaseMethod: { flex: 1, minHeight: 136, borderWidth: 1, borderColor: '#385065', borderRadius: 11, padding: 14 },
+  releaseMethodActive: { borderColor: C.green, backgroundColor: 'rgba(40,233,120,.05)' },
+  releaseMethodTitle: { color: '#fff', fontSize: 13, fontWeight: '800', marginTop: 8 },
+  releaseMethodText: { color: C.muted, fontSize: 10, lineHeight: 16, marginTop: 5 },
+  releaseInput: { minHeight: 92, marginTop: 15, borderWidth: 1, borderColor: '#385065', borderRadius: 10, backgroundColor: 'rgba(0,7,14,.72)', color: '#fff', padding: 13, fontSize: 12, lineHeight: 19, textAlignVertical: 'top', outlineStyle: 'none' } as any,
+  releaseButton: { minHeight: 58, marginTop: 13, borderRadius: 9, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  releaseButtonText: { color: '#001108', fontSize: 15, fontWeight: '900' },
+  releaseLinks: { flexDirection: 'row', justifyContent: 'center', gap: 30, marginTop: 15 },
+  releaseLink: { color: C.blue, fontSize: 12, fontWeight: '700' },
+  activityHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12, paddingHorizontal: 16 },
+  activityHeadingText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  viewAll: { color: C.green, fontSize: 15 },
+  activityPanel: { padding: 18 },
+  activityItem: { minHeight: 82, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  activityIcon: { width: 53, height: 53, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
+  activityIconText: { fontSize: 24, fontWeight: '800' },
+  activityCopy: { flex: 1, marginLeft: 15 },
+  activityTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  activityDetail: { color: '#d1c9cd', fontSize: 10, lineHeight: 16, marginTop: 4 },
+  activityTime: { color: C.muted, fontSize: 9, marginTop: 4 },
+  emptyActivity: { minHeight: 80, flexDirection: 'row', alignItems: 'center' },
+  emptyActivityIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(150,160,170,.14)', alignItems: 'center', justifyContent: 'center' },
+  emptySnow: { color: '#aeb5bd', fontSize: 28 },
+  emptyActivityCopy: { flex: 1, marginLeft: 16 },
+  emptyActivityTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  emptyActivityText: { color: '#c9c1c5', fontSize: 12, marginTop: 5 },
+  feedback: { minHeight: 58, marginTop: 16, borderWidth: 1, borderColor: '#775817', borderRadius: 9, backgroundColor: 'rgba(67,47,5,.25)', padding: 13, justifyContent: 'center' },
+  feedbackText: { color: '#f0dda5', fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  supportPanel: { minHeight: 104, marginTop: 20, padding: 18, flexDirection: 'row', alignItems: 'center' },
+  supportIcon: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
+  supportIconText: { color: C.yellow, fontSize: 40, transform: [{ rotate: '-45deg' }] },
+  supportCopy: { flex: 1, marginLeft: 12 },
+  supportTitle: { color: C.yellow, fontSize: 17, fontWeight: '700' },
+  supportText: { color: '#ddd5d8', fontSize: 12, marginTop: 5 },
+  supportButton: { minWidth: 180, minHeight: 58, borderWidth: 1, borderColor: C.yellow, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
+  supportButtonText: { color: C.yellow, fontSize: 14, fontWeight: '700' },
+  bottomNav: { minHeight: 110, marginTop: 22, marginBottom: 6, borderWidth: 1, borderColor: '#183146', borderRadius: 15, backgroundColor: 'rgba(3,13,23,.95)', flexDirection: 'row' },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navLabel: { color: '#d3cccf', fontSize: 12, marginTop: 7 },
+  navActive: { color: C.green },
+  moreDots: { color: '#d3cccf', fontSize: 24, lineHeight: 26, letterSpacing: 2 },
 });
