@@ -1,25 +1,20 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import {
   useNomadWatch,
-  type NomadWatchCheck,
   type NomadWatchEmergencyAction,
-  type NomadWatchEmergencyReceipt,
-  type NomadWatchEvent,
   type NomadWatchPlatform,
-  type NomadWatchPreference,
 } from '../nomad';
 import {
-  BottomNav,
   C,
+  NomadGlyph,
   NomadPage,
-  PageHeader,
   Panel,
   PrimaryButton,
   ProgressBar,
-  RoundIcon,
   useNomadLayout,
 } from '../ui/NomadShell';
 
@@ -27,189 +22,451 @@ type EmergencyOption = {
   action: NomadWatchEmergencyAction;
   title: string;
   subtitle: string;
-  icon: string;
+  icon: 'security' | 'recovery';
   color: string;
 };
 
 const emergencyOptions: EmergencyOption[] = [
-  { action: 'emergency_lock', title: 'Emergency Lock', subtitle: 'Activate Entire Wallet protection and request a wallet-session lock.', icon: '▣', color: C.red },
-  { action: 'pause_spending', title: 'Pause Spending', subtitle: 'Activate the Travel Pocket freeze used by top-up and POS workflows.', icon: 'Ⅱ', color: C.yellow },
-  { action: 'alert_authority', title: 'Alert Authority', subtitle: 'Create a local Owner Authority request without claiming remote delivery.', icon: '♙', color: C.blue },
-  { action: 'panic_mode', title: 'Panic Mode', subtitle: 'Activate Entire Wallet protection. Wallet hiding remains unavailable.', icon: '◇', color: C.purple },
+  { action: 'emergency_lock', title: 'Emergency Lock', subtitle: 'Lock wallet now', icon: 'security', color: C.red },
+  { action: 'pause_spending', title: 'Pause Spending', subtitle: 'Pause Travel Pocket', icon: 'recovery', color: C.yellow },
+  { action: 'alert_authority', title: 'Alert Authority', subtitle: 'Create local request', icon: 'recovery', color: C.blue },
+  { action: 'panic_mode', title: 'Panic Mode', subtitle: 'Full wallet protection', icon: 'security', color: C.purple },
 ];
 
-const platforms: Array<{ id: NomadWatchPlatform; label: string; detail: string }> = [
-  { id: 'wear_os', label: 'Wear OS', detail: 'Android wearable profile draft' },
-  { id: 'watch_os', label: 'watchOS', detail: 'Apple wearable profile draft' },
-  { id: 'other', label: 'Other', detail: 'Generic wearable profile draft' },
+const platforms: Array<{ id: NomadWatchPlatform; label: string }> = [
+  { id: 'wear_os', label: 'Wear OS' },
+  { id: 'watch_os', label: 'watchOS' },
+  { id: 'other', label: 'Other' },
 ];
 
-function formatDate(value?: string) {
-  if (!value) return 'Unavailable';
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) return 'Time unavailable';
-  return new Date(parsed).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+function WatchLogo({ size = 54 }: { size?: number }) {
+  return (
+    <Svg accessibilityLabel="Nomad Watch logo" width={size} height={size * 1.2} viewBox="0 0 56 68" fill="none">
+      <Path d="M19 2h18l3 13H16L19 2Z" stroke={C.green} strokeWidth="3" />
+      <Rect x="10" y="13" width="36" height="42" rx="15" fill="#03120d" stroke={C.green} strokeWidth="3" />
+      <Path d="M16 53h24l-3 13H19l-3-13Z" stroke={C.green} strokeWidth="3" />
+      <Path d="m20 37 8-13v18l8-13" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
-function connectionInfo(status: string) {
-  if (status === 'verified_paired') return { color: C.green, tone: 'green' as const, label: 'VERIFIED PAIRED', title: 'Authenticated Watch Connected' };
-  if (status === 'local_pairing_draft') return { color: C.yellow, tone: 'yellow' as const, label: 'LOCAL DRAFT', title: 'Watch Pairing Not Verified' };
-  return { color: C.blue, tone: 'blue' as const, label: 'NO VERIFIED WATCH', title: 'Wearable Provider Required' };
+function WatchArtwork({ size = 196, color = C.green }: { size?: number; color?: string }) {
+  const marks = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * Math.PI) / 6;
+    const x1 = 70 + Math.sin(angle) * 42;
+    const y1 = 92 - Math.cos(angle) * 42;
+    const x2 = 70 + Math.sin(angle) * 47;
+    const y2 = 92 - Math.cos(angle) * 47;
+    return <Path key={index} d={`M${x1} ${y1}L${x2} ${y2}`} stroke={color} strokeWidth="1.4" opacity=".75" />;
+  });
+  return (
+    <Svg accessibilityLabel="Nomad Watch illustration" width={size} height={size * 1.38} viewBox="0 0 140 194" fill="none">
+      <Defs>
+        <LinearGradient id="strap" x1="38" y1="0" x2="102" y2="194"><Stop stopColor="#26292e" /><Stop offset=".46" stopColor="#050607" /><Stop offset="1" stopColor="#26292e" /></LinearGradient>
+        <LinearGradient id="case" x1="14" y1="41" x2="124" y2="148"><Stop stopColor="#62666d" /><Stop offset=".2" stopColor="#111317" /><Stop offset=".78" stopColor="#050607" /><Stop offset="1" stopColor="#4c5057" /></LinearGradient>
+      </Defs>
+      <Path d="M43 2h54l7 54H36L43 2Z" fill="url(#strap)" stroke="#3c4047" strokeWidth="2" />
+      <Path d="M36 137h68l-7 55H43l-7-55Z" fill="url(#strap)" stroke="#3c4047" strokeWidth="2" />
+      <Rect x="12" y="38" width="116" height="112" rx="48" fill="url(#case)" stroke="#747982" strokeWidth="2.5" />
+      <Rect x="126" y="65" width="8" height="24" rx="3" fill="#30343a" stroke="#646871" />
+      <Rect x="126" y="101" width="7" height="17" rx="3" fill="#30343a" stroke="#646871" />
+      <Circle cx="70" cy="92" r="52" fill="#020605" stroke="#171b1d" strokeWidth="5" />
+      <Circle cx="70" cy="92" r="48" stroke={color} strokeWidth="2" opacity=".8" />
+      {marks}
+      <SvgText x="70" y="79" fill={color} fontSize="31" fontWeight="800" textAnchor="middle">N</SvgText>
+      <SvgText x="70" y="107" fill="#fff" fontSize="22" fontWeight="700" textAnchor="middle">10:24</SvgText>
+      <SvgText x="70" y="120" fill="#d9e1e8" fontSize="8" textAnchor="middle">AM</SvgText>
+      <Path d="M51 31h38M49 155h42" stroke="#050607" strokeWidth="3" opacity=".55" />
+    </Svg>
+  );
 }
 
-function checkInfo(status: NomadWatchCheck['status']) {
-  if (status === 'pass') return { color: C.green, mark: '✓', label: 'PASS' };
-  if (status === 'warning') return { color: C.yellow, mark: '!', label: 'REVIEW' };
-  if (status === 'fail') return { color: C.red, mark: '×', label: 'FAIL' };
-  return { color: C.muted, mark: '—', label: 'UNAVAILABLE' };
+function StatusCircle({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={[styles.statusCircle, { borderColor: color }]}>
+      <NomadGlyph kind="security" color={color} size={34} />
+      <Text style={styles.statusCircleLabel}>{label}</Text>
+      <Text style={[styles.statusCircleValue, { color }]}>{value}</Text>
+    </View>
+  );
 }
 
-function receiptInfo(status: NomadWatchEmergencyReceipt['status']) {
-  if (status === 'completed') return { color: C.green, label: 'COMPLETED' };
-  if (status === 'partial') return { color: C.yellow, label: 'PARTIAL' };
-  return { color: C.red, label: 'FAILED' };
+function ActionButton({ label, kind, color, onPress }: { label: string; kind: 'watch' | 'recovery'; color: string; onPress(): void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.deviceAction, pressed && styles.pressed]}>
+      <NomadGlyph kind={kind} color={color} size={31} />
+      <Text style={styles.deviceActionText}>{label}</Text>
+    </Pressable>
+  );
 }
 
-function DetailRow({ label, value, color = '#fff', last }: { label: string; value: string; color?: string; last?: boolean }) {
-  return <View style={[styles.detailRow, !last && styles.rowBorder]}><Text style={styles.detailLabel}>{label}</Text><Text selectable style={[styles.detailValue, { color }]}>{value}</Text></View>;
+function InfoMetric({ kind, label, value, detail, color = C.green }: { kind: 'travel' | 'recovery' | 'security' | 'watch'; label: string; value: string; detail: string; color?: string }) {
+  return (
+    <View style={styles.infoMetric}>
+      <View style={[styles.infoMetricIcon, { backgroundColor: `${color}13` }]}><NomadGlyph kind={kind} color={color} size={34} /></View>
+      <View style={styles.infoMetricCopy}>
+        <Text style={styles.infoMetricLabel}>{label}</Text>
+        <Text numberOfLines={1} style={styles.infoMetricValue}>{value}</Text>
+        <Text numberOfLines={1} style={styles.infoMetricDetail}>{detail}</Text>
+      </View>
+    </View>
+  );
 }
 
-function CheckRow({ item, last }: { item: NomadWatchCheck; last?: boolean }) {
-  const info = checkInfo(item.status);
-  return <View style={[styles.checkRow, !last && styles.rowBorder]}><View style={[styles.checkMark, { borderColor: info.color, backgroundColor: `${info.color}12` }]}><Text style={[styles.checkMarkText, { color: info.color }]}>{info.mark}</Text></View><View style={styles.checkCopy}><Text style={styles.checkTitle}>{item.label}</Text><Text style={styles.checkDetail}>{item.detail}</Text><Text style={styles.checkProvider}>Provider: {item.provider}</Text></View><Text style={[styles.checkStatus, { color: info.color }]}>{info.label}</Text></View>;
+function SecurityMetric({ kind, label, value, color }: { kind: 'security' | 'watch' | 'recovery'; label: string; value: string; color: string }) {
+  return (
+    <View style={styles.securityMetric}>
+      <View style={[styles.securityIcon, { backgroundColor: `${color}12` }]}><NomadGlyph kind={kind} color={color} size={34} /></View>
+      <Text style={styles.securityMetricLabel}>{label}</Text>
+      <Text style={[styles.securityMetricValue, { color }]}>{value}</Text>
+    </View>
+  );
 }
 
-function PreferenceRow({ item, loading, onToggle, last }: { item: NomadWatchPreference; loading: boolean; onToggle(): void; last?: boolean }) {
-  return <Pressable disabled={loading} onPress={onToggle} style={({ pressed }) => [styles.preferenceRow, !last && styles.rowBorder, pressed && styles.pressed]}><View style={[styles.preferenceToggle, item.enabled && styles.preferenceToggleActive]}><View style={[styles.preferenceKnob, item.enabled && styles.preferenceKnobActive]} /></View><View style={styles.preferenceCopy}><Text style={styles.preferenceTitle}>{item.label}</Text><Text style={styles.preferenceDetail}>{item.detail}</Text></View><Text style={[styles.preferenceState, { color: item.enabled ? C.green : C.muted }]}>{item.enabled ? 'LOCAL ON' : 'LOCAL OFF'}</Text></Pressable>;
+function EmergencyTile({ item, onPress }: { item: EmergencyOption; onPress(): void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.emergencyTile, pressed && styles.pressed]}>
+      <View style={[styles.emergencyIcon, { backgroundColor: `${item.color}12` }]}><NomadGlyph kind={item.icon} color={item.color} size={35} /></View>
+      <Text style={[styles.emergencyTitle, { color: item.color }]}>{item.title}</Text>
+      <Text style={styles.emergencySubtitle}>{item.subtitle}</Text>
+    </Pressable>
+  );
 }
 
-function ActivityRow({ item, last }: { item: NomadWatchEvent; last?: boolean }) {
-  const color = item.severity === 'critical' ? C.red : item.severity === 'warning' ? C.yellow : C.blue;
-  return <View style={[styles.activityRow, !last && styles.rowBorder]}><RoundIcon symbol={item.type === 'pairing' ? '⌚' : item.type === 'emergency' ? '!' : item.type === 'preference' ? '≛' : 'i'} color={color} size={42} filled /><View style={styles.activityCopy}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activityDetail}>{item.detail}</Text><Text style={styles.activityTime}>{formatDate(item.timestamp)}</Text></View></View>;
+function CheckBox({ checked, text, onPress }: { checked: boolean; text: string; onPress(): void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.checkRow}>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{checked ? '✓' : ''}</Text></View>
+      <Text style={styles.checkText}>{text}</Text>
+    </Pressable>
+  );
 }
 
-function ReceiptRow({ item, last }: { item: NomadWatchEmergencyReceipt; last?: boolean }) {
-  const info = receiptInfo(item.status);
-  return <View style={[styles.receiptRow, !last && styles.rowBorder]}><RoundIcon symbol={item.action === 'alert_authority' ? '♙' : item.action === 'pause_spending' ? 'Ⅱ' : '❄'} color={info.color} size={44} filled /><View style={styles.receiptCopy}><Text style={styles.receiptTitle}>{item.actionLabel}</Text><Text style={styles.receiptDetail}>Phone-side action • watch delivered: no • central freeze: {item.centralFreezeStatus}</Text><Text style={styles.receiptDetail}>Wallet lock: {item.walletLockRequested ? (item.walletLockConfirmed ? 'confirmed' : 'not confirmed') : 'not requested'} • authority delivery: no</Text>{item.failureMessage ? <Text style={styles.receiptFailure}>{item.failureMessage}</Text> : null}<Text style={styles.receiptTime}>{formatDate(item.completedAt)}</Text></View><Text style={[styles.receiptStatus, { color: info.color }]}>{info.label}</Text></View>;
+function AppBottomNav() {
+  const navigation = useNavigation<any>();
+  const items: Array<{ label: string; route: string; kind: 'home' | 'wallet' | 'travel' | 'security' | 'watch' }> = [
+    { label: 'Home', route: 'Portfolio', kind: 'home' },
+    { label: 'Wallets', route: 'Wallets', kind: 'wallet' },
+    { label: 'Travel', route: 'TravelMode', kind: 'travel' },
+    { label: 'Security', route: 'SecurityCenter', kind: 'security' },
+    { label: 'Nomad Watch', route: 'NomadWatch', kind: 'watch' },
+  ];
+  return (
+    <View style={styles.bottomNav}>
+      {items.map((item) => {
+        const active = item.route === 'NomadWatch';
+        return (
+          <Pressable key={item.route} onPress={() => navigation.navigate(item.route)} style={[styles.bottomItem, active && styles.bottomItemActive]}>
+            <NomadGlyph kind={item.kind} color={active ? C.green : C.muted} size={28} />
+            <Text style={[styles.bottomLabel, active && { color: C.green }]}>{item.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function NomadWatchScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
-  const { watch, loading, error, refresh, createPairingDraft, cancelPairingDraft, setPreference, syncNow, findWatch, requestRemoteWipe, triggerEmergencyAction, exportPairingSummary } = useNomadWatch();
-  const [deviceLabel, setDeviceLabel] = useState('');
+  const {
+    watch,
+    loading,
+    error,
+    refresh,
+    createPairingDraft,
+    cancelPairingDraft,
+    syncNow,
+    findWatch,
+    triggerEmergencyAction,
+  } = useNomadWatch();
+  const [showPairing, setShowPairing] = useState(false);
+  const [deviceLabel, setDeviceLabel] = useState('Nomad Watch 1');
   const [platform, setPlatform] = useState<NomadWatchPlatform>('wear_os');
   const [confirmNoSecrets, setConfirmNoSecrets] = useState(false);
   const [confirmDraftOnly, setConfirmDraftOnly] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<NomadWatchEmergencyAction>('emergency_lock');
-  const [confirmAppSource, setConfirmAppSource] = useState(false);
-  const [confirmReleaseBoundary, setConfirmReleaseBoundary] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<NomadWatchEmergencyAction | undefined>();
+  const [confirmPhoneSide, setConfirmPhoneSide] = useState(false);
+  const [confirmRelease, setConfirmRelease] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [showAllChecks, setShowAllChecks] = useState(false);
-  const [showAllActivity, setShowAllActivity] = useState(false);
-  const [showAllReceipts, setShowAllReceipts] = useState(false);
 
-  const connection = connectionInfo(watch.pairingStatus);
   const currentDevice = watch.currentDevice;
-  const visibleChecks = watch.checks.slice(0, showAllChecks ? watch.checks.length : 8);
-  const visibleActivity = watch.activity.slice(0, showAllActivity ? 16 : 5);
-  const visibleReceipts = watch.emergencyReceipts.slice(0, showAllReceipts ? 12 : 4);
-  const selectedEmergency = emergencyOptions.find((item) => item.action === selectedAction) ?? emergencyOptions[0];
-  const unavailableChecks = watch.checks.filter((item) => item.status === 'unavailable').length;
-  const localPasses = watch.checks.filter((item) => item.status === 'pass').length;
-  const canCreateProfile = watch.canCreatePairingDraft && deviceLabel.trim().length >= 2 && confirmNoSecrets && confirmDraftOnly;
-  const canExecuteEmergency = watch.canTriggerAppEmergencyActions && confirmAppSource && confirmReleaseBoundary;
+  const verified = watch.pairingStatus === 'verified_paired' && watch.connected;
+  const localDraft = watch.pairingStatus === 'local_pairing_draft';
+  const connectionColor = verified ? C.green : localDraft ? C.yellow : C.blue;
+  const connectionLabel = verified ? 'Connected' : localDraft ? 'Local Draft' : 'No Verified Watch';
+  const selectedEmergency = emergencyOptions.find((item) => item.action === selectedAction);
+  const walletReady = watch.walletStatus === 'unlocked';
+  const phoneStatus = watch.centralFreezeStatus !== 'none' ? 'Protected' : walletReady ? 'Ready' : watch.walletStatus.replace('_', ' ');
+  const authorityPending = watch.authorityRequestStatus === 'pending';
+  const lastReceipt = watch.emergencyReceipts[0];
+
+  const unsupported = async (kind: 'find' | 'sync') => {
+    try {
+      if (kind === 'find') await findWatch();
+      else await syncNow();
+    } catch (nextError) {
+      setFeedback(nextError instanceof Error ? nextError.message : 'A verified watch provider is required.');
+    }
+  };
+
+  const beginPairing = () => {
+    if (watch.walletStatus === 'no_wallet') {
+      navigation.navigate('Lock');
+      return;
+    }
+    if (watch.walletStatus !== 'unlocked') {
+      navigation.navigate('UnlockWallet');
+      return;
+    }
+    if (watch.centralFreezeStatus !== 'none') {
+      navigation.navigate('EmergencyFreeze');
+      return;
+    }
+    setShowPairing(true);
+    setFeedback('');
+  };
 
   const createProfile = async () => {
     try {
-      setFeedback('Creating a local watch pairing draft…');
-      await createPairingDraft({ label: deviceLabel, platform, confirmNoWalletSecrets: confirmNoSecrets, confirmLocalDraftOnly: confirmDraftOnly });
-      setDeviceLabel(''); setConfirmNoSecrets(false); setConfirmDraftOnly(false);
-      setFeedback('Local pairing draft created. No watch, Bluetooth session or hardware identity was verified.');
-    } catch (nextError) { setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the local pairing draft.'); }
+      await createPairingDraft({
+        label: deviceLabel,
+        platform,
+        confirmNoWalletSecrets: confirmNoSecrets,
+        confirmLocalDraftOnly: confirmDraftOnly,
+      });
+      setShowPairing(false);
+      setConfirmNoSecrets(false);
+      setConfirmDraftOnly(false);
+      setFeedback('Local pairing profile created. No watch, Bluetooth session, hardware identity, battery, firmware, or sync receipt was verified.');
+    } catch (nextError) {
+      setFeedback(nextError instanceof Error ? nextError.message : 'Unable to create the local pairing profile.');
+    }
   };
 
-  const cancelProfile = async () => {
+  const removeDraft = async () => {
     if (!currentDevice) return;
-    try { await cancelPairingDraft(currentDevice.id); setFeedback('The local pairing draft was cancelled. No remote unpair command was sent.'); }
-    catch (nextError) { setFeedback(nextError instanceof Error ? nextError.message : 'Unable to cancel the local watch profile.'); }
-  };
-
-  const shareProfile = async () => {
-    if (!currentDevice) return;
-    try { const summary = await exportPairingSummary(currentDevice.id); await Share.share({ title: 'Nomad Watch Pairing Draft', message: summary }); setFeedback('A secret-free local pairing summary was prepared. It is not a pairing credential or connection receipt.'); }
-    catch (nextError) { setFeedback(nextError instanceof Error ? nextError.message : 'Unable to prepare the pairing summary.'); }
-  };
-
-  const unsupportedAction = async (kind: 'sync' | 'find' | 'wipe') => {
-    try { if (kind === 'sync') await syncNow(); if (kind === 'find') await findWatch(); if (kind === 'wipe') await requestRemoteWipe(); }
-    catch (nextError) { setFeedback(nextError instanceof Error ? nextError.message : 'The wearable command provider is unavailable.'); }
+    try {
+      await cancelPairingDraft(currentDevice.id);
+      setFeedback('The local watch draft was removed. No remote unpair command was sent.');
+    } catch (nextError) {
+      setFeedback(nextError instanceof Error ? nextError.message : 'Unable to remove the local watch draft.');
+    }
   };
 
   const runEmergencyAction = async () => {
+    if (!selectedEmergency) return;
     try {
-      setFeedback(`Executing ${selectedEmergency.title.toLowerCase()} from the Nomad app…`);
-      const next = await triggerEmergencyAction(selectedAction);
+      const next = await triggerEmergencyAction(selectedEmergency.action);
       const receipt = next.emergencyReceipts[0];
-      setConfirmAppSource(false); setConfirmReleaseBoundary(false);
-      setFeedback(receipt?.status === 'partial' ? receipt.failureMessage || 'The central action completed only partially. Review the emergency receipt.' : `${selectedEmergency.title} completed through phone-side providers. No command was delivered to a watch.`);
-    } catch (nextError) { setFeedback(nextError instanceof Error ? nextError.message : `Unable to complete ${selectedEmergency.title.toLowerCase()}.`); }
+      setSelectedAction(undefined);
+      setConfirmPhoneSide(false);
+      setConfirmRelease(false);
+      setFeedback(receipt?.status === 'partial'
+        ? receipt.failureMessage || 'The phone-side protection completed only partially.'
+        : `${selectedEmergency.title} completed through phone-side Nomad providers. No command was delivered to a watch.`);
+    } catch (nextError) {
+      setFeedback(nextError instanceof Error ? nextError.message : `Unable to complete ${selectedEmergency.title.toLowerCase()}.`);
+    }
   };
 
-  return <NomadPage maxWidth={980}>
-    <PageHeader title="Nomad Watch" subtitle="Travel, wallet and security evidence for a future authenticated wearable" icon="⌚" color={connection.color} right={<Text style={[styles.connectionBadge, { color: connection.color, borderColor: connection.color }]}>{connection.label}</Text>} />
-    {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
+  return (
+    <NomadPage maxWidth={940}>
+      <View style={[styles.header, compact && styles.headerCompact]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
+        <WatchLogo size={50} />
+        <View style={styles.headerCopy}><Text style={styles.headerTitle}>Nomad Watch</Text><Text style={styles.headerSubtitle}>Your travel. Your wallet. Your watch.</Text></View>
+        <View style={[styles.connectionPill, { borderColor: `${connectionColor}66` }]}><View style={[styles.connectionDot, { backgroundColor: connectionColor }]} /><Text style={[styles.connectionPillText, { color: connectionColor }]}>{connectionLabel}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open Nomad Watch settings" onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}><NomadGlyph kind="settings" color={C.green} size={32} /></Pressable>
+      </View>
 
-    <Panel tone={connection.tone} style={[styles.hero, compact && styles.heroCompact]}>
-      <View style={styles.watchArt}><View style={[styles.watchCase, { borderColor: connection.color }]}><View style={[styles.watchFace, { borderColor: connection.color }]}><Text style={[styles.watchN, { color: connection.color }]}>N</Text><Text style={styles.watchSync}>{watch.connected ? watch.lastSyncedLabel : 'NO RECEIPT'}</Text><Text style={styles.watchSyncLabel}>WATCH SYNC</Text></View></View></View>
-      <View style={styles.heroCopy}><Text style={[styles.heroEyebrow, { color: connection.color }]}>WEARABLE CONNECTION</Text><Text style={[styles.heroTitle, { color: connection.color }]}>{connection.title}</Text><Text style={styles.heroText}>{currentDevice ? `${currentDevice.label} is recorded as a ${currentDevice.platformLabel} local draft. Hardware identity, Bluetooth authentication and pairing consent remain unverified.` : 'No authenticated watch is registered. Page 26 can display phone-side wallet evidence and prepare a local profile, but it cannot claim a wearable is connected.'}</Text><View style={styles.heroTags}><Text style={[styles.heroTag, { color: C.red, borderColor: C.red }]}>CONNECTED: NO</Text><Text style={[styles.heroTag, { color: C.muted, borderColor: C.muted }]}>BATTERY: UNAVAILABLE</Text><Text style={[styles.heroTag, { color: C.muted, borderColor: C.muted }]}>FIRMWARE: UNVERIFIED</Text></View></View>
-      <View style={[styles.evidenceRing, { borderColor: connection.color }]}><Text style={[styles.evidenceValue, { color: connection.color }]}>{localPasses}</Text><Text style={styles.evidenceLabel}>LOCAL PASSES</Text><Text style={styles.evidenceSub}>{unavailableChecks} unavailable</Text></View>
-    </Panel>
+      {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => void refresh()}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
 
-    <View style={[styles.metricRow, compact && styles.metricRowCompact]}><Panel style={styles.metricCard}><Text style={styles.metricLabel}>PAIRING RECEIPT</Text><Text style={[styles.metricStatus, { color: C.red }]}>UNAVAILABLE</Text><Text style={styles.metricSub}>No signed wearable enrollment</Text></Panel><Panel style={styles.metricCard}><Text style={styles.metricLabel}>DEVICE TELEMETRY</Text><Text style={[styles.metricStatus, { color: C.muted }]}>NOT CONNECTED</Text><Text style={styles.metricSub}>Battery, firmware and sync unknown</Text></Panel><Panel style={styles.metricCard}><Text style={styles.metricLabel}>WALLET STATE</Text><Text style={[styles.metricStatus, { color: watch.walletStatus === 'unlocked' ? C.green : watch.walletStatus === 'no_wallet' ? C.red : C.yellow }]}>{watch.walletStatus.toUpperCase()}</Text><Text style={styles.metricSub}>Read from the Nomad phone wallet</Text></Panel></View>
+      <Panel style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={[styles.watchArtworkWrap, compact && styles.watchArtworkCompact]}><WatchArtwork size={compact ? 128 : 186} color={connectionColor} /></View>
+        <View style={styles.heroCopy}>
+          <Text numberOfLines={1} style={styles.deviceName}>{currentDevice?.label || 'No Verified Watch'}</Text>
+          <Text style={styles.deviceDetail}>Firmware <Text style={styles.unavailable}>Unavailable</Text></Text>
+          <Text style={styles.deviceDetail}>Battery <Text style={styles.unavailable}>Unavailable</Text></Text>
+          <Text style={styles.deviceDetail}>Last synced: <Text style={styles.unavailable}>Never</Text></Text>
+          <Text style={styles.providerNote}>{localDraft ? 'Local profile only—pairing and hardware identity remain unverified.' : 'Connect an authenticated wearable provider to enable watch telemetry.'}</Text>
+        </View>
+        <StatusCircle label="Phone Wallet" value={phoneStatus} color={watch.centralFreezeStatus !== 'none' ? C.yellow : walletReady ? C.green : C.blue} />
+        <View style={styles.deviceActions}>
+          <ActionButton label="Find Watch" kind="watch" color={C.green} onPress={() => void unsupported('find')} />
+          <ActionButton label="Sync Now" kind="recovery" color={C.green} onPress={() => void unsupported('sync')} />
+          <ActionButton label={currentDevice ? 'Remove Draft' : 'Pair Watch'} kind="watch" color={currentDevice ? C.red : C.green} onPress={() => currentDevice ? void removeDraft() : beginPairing()} />
+        </View>
+      </Panel>
 
-    <Panel style={styles.devicePanel}><View style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>WATCH DEVICE REGISTRY</Text><Text style={styles.sectionSub}>Local profile metadata cannot become verified pairing evidence</Text></View><Text style={[styles.sectionBadge, { color: connection.color, borderColor: connection.color }]}>{connection.label}</Text></View>
-      {currentDevice ? <><DetailRow label="Profile ID" value={currentDevice.id} /><DetailRow label="Pairing Request" value={currentDevice.requestId} /><DetailRow label="Device Label" value={currentDevice.label} /><DetailRow label="Platform" value={currentDevice.platformLabel} /><DetailRow label="Hardware Identity Verified" value="NO" color={C.red} /><DetailRow label="Authenticated Pairing Receipt" value="NO" color={C.red} /><DetailRow label="Bluetooth Transport" value="NOT CONNECTED" color={C.red} /><DetailRow label="Device Identifier Retained" value="NO" color={C.green} /><DetailRow label="Created" value={formatDate(currentDevice.createdAt)} last /><View style={[styles.actionRow, compact && styles.actionRowCompact]}><Pressable onPress={() => void shareProfile()} style={styles.actionButton}><Text style={styles.actionButtonText}>Share Secret-Free Summary</Text></Pressable><Pressable onPress={() => void unsupportedAction('find')} style={styles.actionButton}><Text style={styles.actionButtonText}>Find Watch • Unavailable</Text></Pressable><Pressable onPress={() => void unsupportedAction('sync')} style={styles.actionButton}><Text style={styles.actionButtonText}>Sync Watch • Unavailable</Text></Pressable><Pressable onPress={() => void unsupportedAction('wipe')} style={[styles.actionButton, { borderColor: C.red }]}><Text style={[styles.actionButtonText, { color: C.red }]}>Remote Wipe • Unavailable</Text></Pressable>{watch.canCancelPairingDraft ? <Pressable onPress={() => void cancelProfile()} style={[styles.actionButton, { borderColor: C.yellow }]}><Text style={[styles.actionButtonText, { color: C.yellow }]}>Cancel Local Draft</Text></Pressable> : null}</View></> : <><Text style={styles.inputLabel}>Watch label</Text><TextInput autoCapitalize="words" onChangeText={(value) => { setDeviceLabel(value); setFeedback(''); }} placeholder="Example: Matthew's travel watch" placeholderTextColor="#708094" style={styles.input} value={deviceLabel} /><Text style={styles.inputLabel}>Wearable platform</Text><View style={[styles.platformRow, compact && styles.platformRowCompact]}>{platforms.map((item) => <Pressable key={item.id} onPress={() => setPlatform(item.id)} style={[styles.platformButton, platform === item.id && styles.platformButtonActive]}><Text style={[styles.platformTitle, platform === item.id && styles.platformTitleActive]}>{item.label}</Text><Text style={styles.platformDetail}>{item.detail}</Text></Pressable>)}</View><Pressable onPress={() => setConfirmNoSecrets((value) => !value)} style={styles.attestationRow}><View style={[styles.checkbox, confirmNoSecrets && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmNoSecrets ? '✓' : ''}</Text></View><Text style={styles.attestationText}>I included no seed phrase, private key, wallet password or Time Set in this profile.</Text></Pressable><Pressable onPress={() => setConfirmDraftOnly((value) => !value)} style={styles.attestationRow}><View style={[styles.checkbox, confirmDraftOnly && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmDraftOnly ? '✓' : ''}</Text></View><Text style={styles.attestationText}>I understand this creates only a local draft—not a connected, authenticated or controllable watch.</Text></Pressable><PrimaryButton label={loading ? 'Checking Watch Registry…' : watch.walletStatus !== 'unlocked' ? 'Unlock Wallet to Create Draft' : watch.centralFreezeStatus !== 'none' ? 'Review Emergency Freeze' : 'Create Local Pairing Draft'} subtitle="No Bluetooth session, hardware identity or signed pairing receipt will be created" icon="⌚" tone="green" disabled={loading || (watch.walletStatus === 'unlocked' && watch.centralFreezeStatus === 'none' && !canCreateProfile)} onPress={() => { if (watch.walletStatus !== 'unlocked') { navigation.navigate(watch.walletStatus === 'no_wallet' ? 'Lock' : 'UnlockWallet'); return; } if (watch.centralFreezeStatus !== 'none') { navigation.navigate('EmergencyFreeze'); return; } void createProfile(); }} /></>}
-    </Panel>
+      {showPairing && !currentDevice ? (
+        <Panel style={styles.pairingPanel}>
+          <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>LOCAL PAIRING PROFILE</Text><Text style={styles.sectionHint}>Prepare a secret-free profile without claiming a connected watch.</Text></View><Pressable onPress={() => setShowPairing(false)}><Text style={styles.closeText}>Close</Text></Pressable></View>
+          <Text style={styles.fieldLabel}>Watch label</Text>
+          <TextInput value={deviceLabel} onChangeText={setDeviceLabel} placeholder="Nomad Watch 1" placeholderTextColor={C.muted2} style={styles.input} />
+          <View style={styles.platforms}>{platforms.map((item) => <Pressable key={item.id} onPress={() => setPlatform(item.id)} style={[styles.platform, platform === item.id && styles.platformActive]}><Text style={[styles.platformText, platform === item.id && { color: C.green }]}>{item.label}</Text></Pressable>)}</View>
+          <CheckBox checked={confirmNoSecrets} onPress={() => setConfirmNoSecrets((value) => !value)} text="This label contains no wallet password, seed phrase, private key, or Time Set." />
+          <CheckBox checked={confirmDraftOnly} onPress={() => setConfirmDraftOnly((value) => !value)} text="I understand this is a local draft—not an authenticated watch connection." />
+          <PrimaryButton label={loading ? 'Creating Profile…' : 'Create Local Pairing Profile'} subtitle="No Bluetooth session or signed pairing receipt will be created" icon="⌚" tone="green" disabled={loading || deviceLabel.trim().length < 2 || !confirmNoSecrets || !confirmDraftOnly} onPress={() => void createProfile()} />
+        </Panel>
+      ) : null}
 
-    <Panel style={styles.travelPanel}><View style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>TRAVEL & PROTECTED TIME</Text><Text style={styles.sectionSub}>Phone-side source data • watch synchronization unavailable</Text></View><Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.sectionLink}>Travel Pocket ›</Text></Pressable></View><View style={styles.travelGrid}>{[['◎', 'Current Region', watch.travelRegion, watch.travelSubregion], ['✈', 'Travel Mode', watch.travelModeLabel, watch.travelPocket.localCurrency || 'Currency unavailable'], ['◷', 'Protected Time', watch.timeSetLabel, `${watch.timeSetsComplete}/${watch.timeSetsTotal} Time Sets enrolled`], ['⌁', 'Device Timezone', watch.deviceTimezone, 'Phone timezone—not watch telemetry'], ['▤', 'Travel Selected', formatDate(watch.travelActivationAt), `Source: ${(watch.travelDataSource ?? 'unavailable').replace(/_/g, ' ')}`], ['◴', 'Travel Expiry', formatDate(watch.travelExpiryAt), 'Local Travel Pocket configuration']].map(([icon, label, value, detail]) => <View key={label} style={styles.travelMetric}><RoundIcon symbol={icon} color={C.green} size={45} filled /><View style={styles.travelMetricCopy}><Text style={styles.travelMetricLabel}>{label}</Text><Text style={styles.travelMetricValue}>{value}</Text><Text style={styles.travelMetricDetail}>{detail}</Text></View></View>)}</View></Panel>
+      <Pressable onPress={() => navigation.navigate('TravelMode')}>
+        <Panel style={styles.statusPanel}>
+          <View style={styles.panelHeading}><Text style={styles.sectionTitle}>TRAVEL STATUS</Text><Text style={styles.chevron}>›</Text></View>
+          <View style={styles.threeColumn}>
+            <InfoMetric kind="travel" label="Current Region" value={watch.travelRegion} detail={watch.travelSubregion} />
+            <InfoMetric kind="travel" label="Travel Mode" value={watch.travelModeLabel} detail="Phone-side status" />
+            <InfoMetric kind="recovery" label="Time Set" value={watch.timeSetConfigured ? watch.timeSetLabel : 'Not Set'} detail="Phone-side configuration" />
+          </View>
+        </Panel>
+      </Pressable>
 
-    <Panel style={styles.pocketPanel}><RoundIcon symbol="▰" color={C.purple} size={66} filled /><View style={styles.pocketCopy}><Text style={styles.sectionTitle}>TRAVEL POCKET OVERVIEW</Text><Text style={styles.pocketLabel}>Phone-side balance</Text><Text style={styles.pocketBalance}>{watch.travelPocketBalance}</Text><Text style={styles.pocketSub}>{watch.travelPocket.localCurrency || 'Currency unavailable'} • {(watch.travelDataSource ?? 'unavailable').replace(/_/g, ' ')}</Text></View><View style={styles.spendingCopy}><Text style={styles.pocketLabel}>Today's spending</Text><Text style={styles.todaySpending}>{watch.todaySpending}</Text><ProgressBar value={watch.travelSpentTodayPercent} color={C.purple} height={7} /><Text style={styles.pocketSub}>{watch.travelSpentTodayPercent}% of {watch.dailyLimit}</Text></View><Pressable onPress={() => navigation.navigate('TravelMode')}><Text style={styles.chevron}>›</Text></Pressable></Panel>
+      <Pressable onPress={() => navigation.navigate('SecurityCenter')}>
+        <Panel style={styles.statusPanel}>
+          <View style={styles.panelHeading}><Text style={styles.sectionTitle}>SECURITY STATUS</Text><Text style={styles.chevron}>›</Text></View>
+          <View style={styles.securityRow}>
+            <SecurityMetric kind="security" label="Device Integrity" value={watch.walletStatus === 'no_wallet' ? 'No Wallet' : 'Phone State'} color={watch.walletStatus === 'no_wallet' ? C.red : C.green} />
+            <SecurityMetric kind="watch" label="Connection" value={verified ? 'Verified' : 'Not Paired'} color={verified ? C.green : C.yellow} />
+            <SecurityMetric kind="recovery" label="Time Set Lock" value={watch.timeSetConfigured ? 'Configured' : 'Not Set'} color={watch.timeSetConfigured ? C.green : C.yellow} />
+            <SecurityMetric kind="watch" label="Watch Lock" value="Unavailable" color={C.muted} />
+          </View>
+        </Panel>
+      </Pressable>
 
-    <Panel style={styles.checkPanel}><Pressable onPress={() => setShowAllChecks((value) => !value)} style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>WATCH SECURITY EVIDENCE</Text><Text style={styles.sectionSub}>Fourteen independent checks • unavailable providers are never marked secure</Text></View><Text style={styles.sectionToggle}>{showAllChecks ? 'Show less −' : `Show all ${watch.checks.length} +`}</Text></Pressable>{visibleChecks.map((item, index) => <CheckRow key={item.id} item={item} last={index === visibleChecks.length - 1} />)}</Panel>
+      <Pressable onPress={() => navigation.navigate('TravelMode')}>
+        <Panel style={styles.pocketPanel}>
+          <View style={styles.panelHeading}><Text style={styles.sectionTitle}>TRAVEL POCKET OVERVIEW</Text><Text style={styles.chevron}>›</Text></View>
+          <View style={[styles.pocketContent, compact && styles.pocketContentCompact]}>
+            <View style={styles.pocketBalanceWrap}><View style={styles.pocketIcon}><NomadGlyph kind="wallet" color={C.purple} size={42} /></View><View><Text style={styles.pocketLabel}>Travel Pocket Balance</Text><Text style={styles.pocketBalance}>{watch.travelPocketBalance}</Text><Text style={styles.pocketSource}>{(watch.travelDataSource ?? 'unavailable').replace(/_/g, ' ')} • phone-side</Text></View></View>
+            <View style={styles.spendingWrap}><Text style={styles.pocketLabel}>Today’s Spending</Text><Text style={styles.spendingValue}>{watch.todaySpending}</Text><ProgressBar value={watch.travelSpentTodayPercent} color={C.purple} height={7} /><Text style={styles.pocketSource}>Daily limit: {watch.dailyLimit}</Text></View>
+          </View>
+        </Panel>
+      </Pressable>
 
-    <Panel style={styles.emergencyPanel}><View style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={[styles.sectionTitle, { color: C.red }]}>PHONE-SIDE EMERGENCY CONTROLS</Text><Text style={styles.sectionSub}>These controls use Nomad app providers; no watch command is transmitted</Text></View><Pressable onPress={() => navigation.navigate('EmergencyFreeze')}><Text style={[styles.sectionLink, { color: C.red }]}>Page 25 ›</Text></Pressable></View><View style={styles.emergencyGrid}>{emergencyOptions.map((item) => <Pressable key={item.action} onPress={() => { setSelectedAction(item.action); setFeedback(''); }} style={[styles.emergencyCard, selectedAction === item.action && { borderColor: item.color, backgroundColor: `${item.color}10` }]}><RoundIcon symbol={item.icon} color={item.color} size={51} filled /><Text style={[styles.emergencyTitle, { color: item.color }]}>{item.title}</Text><Text style={styles.emergencySub}>{item.subtitle}</Text><Text style={[styles.emergencySelected, { color: item.color }]}>{selectedAction === item.action ? 'SELECTED' : 'SELECT'}</Text></Pressable>)}</View><Panel tone="yellow" style={styles.emergencyReview}><Text style={[styles.reviewTitle, { color: selectedEmergency.color }]}>{selectedEmergency.title}</Text><Text style={styles.reviewText}>{selectedEmergency.subtitle}</Text><Pressable onPress={() => setConfirmAppSource((value) => !value)} style={styles.attestationRow}><View style={[styles.checkbox, confirmAppSource && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmAppSource ? '✓' : ''}</Text></View><Text style={styles.attestationText}>I understand this action originates from the Nomad app, not from a paired watch.</Text></Pressable><Pressable onPress={() => setConfirmReleaseBoundary((value) => !value)} style={styles.attestationRow}><View style={[styles.checkbox, confirmReleaseBoundary && styles.checkboxChecked]}><Text style={styles.checkboxMark}>{confirmReleaseBoundary ? '✓' : ''}</Text></View><Text style={styles.attestationText}>I understand an Emergency Freeze cannot be cleared directly and requires the Page 25 verified-release workflow.</Text></Pressable><PrimaryButton label={loading ? 'Processing Security Action…' : `Execute ${selectedEmergency.title}`} subtitle="A receipt will record central policy, wallet lock and authority-delivery evidence" icon={selectedEmergency.icon} tone="green" disabled={loading || !canExecuteEmergency} onPress={() => void runEmergencyAction()} /></Panel></Panel>
+      <Panel style={styles.emergencyPanel}>
+        <Text style={[styles.sectionTitle, { color: C.red }]}>EMERGENCY ACTIONS</Text>
+        <View style={styles.emergencyRow}>{emergencyOptions.map((item) => <EmergencyTile key={item.action} item={item} onPress={() => { setSelectedAction(item.action); setConfirmPhoneSide(false); setConfirmRelease(false); setFeedback(''); }} />)}</View>
+        {selectedEmergency ? (
+          <Panel tone="yellow" style={styles.emergencyConfirm}>
+            <View style={styles.sectionHeader}><View><Text style={[styles.confirmTitle, { color: selectedEmergency.color }]}>{selectedEmergency.title}</Text><Text style={styles.confirmSubtitle}>This action uses phone-side Nomad providers. No watch command or acknowledgement is available.</Text></View><Pressable onPress={() => setSelectedAction(undefined)}><Text style={styles.closeText}>Close</Text></Pressable></View>
+            <CheckBox checked={confirmPhoneSide} onPress={() => setConfirmPhoneSide((value) => !value)} text="I understand this action originates from the Nomad app, not a paired watch." />
+            <CheckBox checked={confirmRelease} onPress={() => setConfirmRelease((value) => !value)} text="I understand Emergency Freeze requires the verified release workflow." />
+            <PrimaryButton label={loading ? 'Processing…' : `Confirm ${selectedEmergency.title}`} subtitle="A phone-side security receipt will be recorded" icon="!" tone="green" disabled={loading || !watch.canTriggerAppEmergencyActions || !confirmPhoneSide || !confirmRelease} onPress={() => void runEmergencyAction()} />
+          </Panel>
+        ) : null}
+        {lastReceipt ? <Text style={styles.lastReceipt}>Latest receipt: {lastReceipt.actionLabel} • {lastReceipt.status} • watch command delivered: no</Text> : null}
+      </Panel>
 
-    {visibleReceipts.length ? <Panel style={styles.receiptPanel}><Pressable onPress={() => setShowAllReceipts((value) => !value)} style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>EMERGENCY ACTION RECEIPTS</Text><Text style={styles.sectionSub}>Phone-side outcomes with explicit watch-delivery and wallet-lock evidence</Text></View><Text style={styles.sectionToggle}>{showAllReceipts ? 'Show less −' : 'Show all +'}</Text></Pressable>{visibleReceipts.map((item, index) => <ReceiptRow key={item.id} item={item} last={index === visibleReceipts.length - 1} />)}</Panel> : null}
+      <Pressable onPress={() => navigation.navigate(authorityPending ? 'OwnerAuthorityApproval' : 'CreateOwnerAuthority')}>
+        <Panel style={styles.authorityPanel}>
+          <View style={styles.panelHeading}><Text style={styles.sectionTitle}>OWNER AUTHORITY ALERTS</Text><Text style={styles.viewAll}>View All</Text></View>
+          <View style={styles.authorityContent}><View style={styles.authorityIcon}><NomadGlyph kind="recovery" color={authorityPending ? C.yellow : C.green} size={42} /></View><View style={styles.authorityCopy}><Text style={styles.authorityTitle}>{authorityPending ? 'Pending local request' : 'No new alerts'}</Text><Text style={styles.authorityText}>{authorityPending ? 'Review the local Owner Authority approval request. Remote delivery remains unverified.' : 'All clear. You have no pending approvals or alerts.'}</Text></View><Text style={styles.chevron}>›</Text></View>
+        </Panel>
+      </Pressable>
 
-    <Pressable onPress={() => navigation.navigate(watch.authorityRequestStatus === 'pending' ? 'OwnerAuthorityApproval' : 'CreateOwnerAuthority')}><Panel tone={watch.authorityRequestStatus === 'pending' || watch.authorityRequestStatus === 'approved' ? 'yellow' : 'green'} style={styles.authorityPanel}><RoundIcon symbol="♙" color={watch.authorityRequestStatus === 'pending' || watch.authorityRequestStatus === 'approved' ? C.yellow : C.green} size={57} filled /><View style={styles.authorityCopy}><Text style={styles.authorityTitle}>OWNER AUTHORITY EVIDENCE</Text><Text style={styles.authorityValue}>{watch.ownerAuthorityAlertLabel}</Text><Text style={styles.authoritySub}>No watch-originated delivery, independent identity or signed receipt is verified.</Text></View><Text style={styles.chevron}>›</Text></Panel></Pressable>
-
-    <Panel style={styles.preferencePanel}><View style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>WATCH SETTINGS INTENT</Text><Text style={styles.sectionSub}>Preferences persist locally but cannot reach a wearable</Text></View><Pressable onPress={() => navigation.navigate('Settings')}><Text style={styles.sectionLink}>App Settings ›</Text></Pressable></View>{watch.preferences.map((item, index) => <PreferenceRow key={item.id} item={item} loading={loading} last={index === watch.preferences.length - 1} onToggle={() => void setPreference(item.id, !item.enabled).catch((nextError) => { setFeedback(nextError instanceof Error ? nextError.message : 'Unable to update the local watch preference.'); })} />)}<Panel tone="yellow" style={styles.firmwarePanel}><RoundIcon symbol="⚙" color={C.yellow} size={44} filled /><View style={styles.firmwareCopy}><Text style={styles.firmwareTitle}>Firmware Management Unavailable</Text><Text style={styles.firmwareText}>No wearable manufacturer API, signed firmware manifest, update channel or installed-version attestation is connected.</Text></View></Panel></Panel>
-
-    {visibleActivity.length ? <Panel style={styles.activityPanel}><Pressable onPress={() => setShowAllActivity((value) => !value)} style={styles.sectionHeading}><View style={styles.sectionCopy}><Text style={styles.sectionTitle}>NOMAD WATCH ACTIVITY</Text><Text style={styles.sectionSub}>Pairing drafts, preferences and phone-side emergency records</Text></View><Text style={styles.sectionToggle}>{showAllActivity ? 'Show less −' : 'Show all +'}</Text></Pressable>{visibleActivity.map((item, index) => <ActivityRow key={item.id} item={item} last={index === visibleActivity.length - 1} />)}</Panel> : null}
-
-    {feedback ? <Panel tone={/unable|unavailable|not verified|not connected|failed|partial|cannot|already/i.test(feedback) ? 'yellow' : 'green'} style={styles.feedbackPanel}><Text style={styles.feedbackIcon}>i</Text><Text style={styles.feedbackText}>{feedback}</Text></Panel> : null}
-    <View style={[styles.actionRow, compact && styles.actionRowCompact]}><Pressable onPress={() => void refresh().then(() => setFeedback('Phone-side Nomad data refreshed. No watch synchronization occurred.'))} style={styles.actionButton}><Text style={styles.actionButtonText}>Refresh Nomad Data</Text></Pressable><Pressable onPress={() => navigation.navigate('SecurityCenter')} style={styles.actionButton}><Text style={styles.actionButtonText}>Security Center</Text></Pressable><Pressable onPress={() => navigation.navigate('RecoveryCenter')} style={styles.actionButton}><Text style={styles.actionButtonText}>Recovery Center</Text></Pressable></View>
-    <Panel style={styles.boundaryPanel}><RoundIcon symbol="i" color={C.blue} size={44} /><Text style={styles.boundaryText}>Production Nomad Watch support requires a verified device registry, authenticated Bluetooth or wearable bridge, hardware identity, signed pairing and sync receipts, genuine battery and firmware telemetry, Find Watch transport, secure unpair and remote wipe, command acknowledgements, encrypted persistent records and independently verified Owner Authority delivery. None of those wearable providers are connected in this build.</Text></Panel>
-    <BottomNav active="Watch" items={[["⌂", "Home", "Portfolio"], ["▣", "Wallets", "Wallets"], ["✈", "Travel", "TravelMode"], ["◇", "Security", "SecurityCenter"], ["⌚", "Watch", "NomadWatch"]]} />
-  </NomadPage>;
+      {feedback ? <Panel tone={/unavailable|not verified|not connected|failed|partial|cannot|already|no command/i.test(feedback) ? 'yellow' : 'green'} style={styles.feedbackPanel}><Text style={styles.feedbackIcon}>i</Text><Text style={styles.feedbackText}>{feedback}</Text></Panel> : null}
+      <Text style={styles.providerBoundary}>Watch pairing, Bluetooth, hardware identity, battery, firmware, sync, Find Watch, remote wipe, and watch-command delivery remain unavailable until authenticated wearable providers are connected.</Text>
+      <AppBottomNav />
+    </NomadPage>
+  );
 }
 
 const styles = StyleSheet.create({
-  connectionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, fontSize: 8, fontWeight: '900' },
-  errorBanner: { minHeight: 60, marginBottom: 14, borderWidth: 1, borderColor: C.red, borderRadius: 11, backgroundColor: 'rgba(80,8,18,.42)', padding: 12, flexDirection: 'row', alignItems: 'center' }, errorText: { flex: 1, color: C.red, fontSize: 10, lineHeight: 16 }, retryButton: { borderWidth: 1, borderColor: C.red, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginLeft: 10 }, retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
-  hero: { minHeight: 235, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 20 }, heroCompact: { flexDirection: 'column', alignItems: 'stretch' }, watchArt: { width: 158, alignItems: 'center' }, watchCase: { width: 118, height: 190, borderRadius: 38, backgroundColor: '#101216', borderWidth: 2, alignItems: 'center', justifyContent: 'center' }, watchFace: { width: 101, height: 101, borderRadius: 51, borderWidth: 3, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }, watchN: { fontSize: 33, fontWeight: '900' }, watchSync: { color: '#fff', fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 5 }, watchSyncLabel: { color: C.muted, fontSize: 7, marginTop: 2 }, heroCopy: { flex: 1, minWidth: 0 }, heroEyebrow: { fontSize: 9, fontWeight: '900', letterSpacing: .8 }, heroTitle: { fontSize: 23, fontWeight: '900', marginTop: 5 }, heroText: { color: '#eef3f8', fontSize: 11, lineHeight: 18, marginTop: 10 }, heroTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 13 }, heroTag: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 7, fontWeight: '900' }, evidenceRing: { width: 128, height: 128, borderRadius: 64, borderWidth: 4, alignItems: 'center', justifyContent: 'center' }, evidenceValue: { fontSize: 35, fontWeight: '900' }, evidenceLabel: { color: '#fff', fontSize: 8, fontWeight: '900', marginTop: 3 }, evidenceSub: { color: C.muted, fontSize: 7, marginTop: 3 },
-  metricRow: { flexDirection: 'row', gap: 12, marginTop: 16 }, metricRowCompact: { flexDirection: 'column' }, metricCard: { flex: 1, minHeight: 104, padding: 15 }, metricLabel: { color: C.muted, fontSize: 8, fontWeight: '800' }, metricStatus: { fontSize: 15, fontWeight: '900', marginTop: 10 }, metricSub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 7 },
-  devicePanel: { marginTop: 16, padding: 17 }, travelPanel: { marginTop: 16, padding: 17 }, checkPanel: { marginTop: 16, padding: 17 }, emergencyPanel: { marginTop: 16, padding: 17 }, receiptPanel: { marginTop: 16, padding: 17 }, preferencePanel: { marginTop: 16, padding: 17 }, activityPanel: { marginTop: 16, padding: 17 }, sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, sectionCopy: { flex: 1, minWidth: 0 }, sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', letterSpacing: .3 }, sectionSub: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 }, sectionLink: { color: C.green, fontSize: 9, fontWeight: '900' }, sectionToggle: { color: C.blue, fontSize: 9, fontWeight: '900' }, sectionBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6, fontSize: 8, fontWeight: '900' },
-  detailRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }, detailLabel: { flex: 1, color: C.muted, fontSize: 9 }, detailValue: { flex: 1.2, color: '#fff', fontSize: 9, fontWeight: '800', textAlign: 'right' }, rowBorder: { borderBottomWidth: 1, borderBottomColor: C.borderSoft }, inputLabel: { color: '#fff', fontSize: 10, fontWeight: '800', marginTop: 17, marginBottom: 7 }, input: { minHeight: 52, borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: C.panel2, color: '#fff', fontSize: 12, paddingHorizontal: 13, outlineStyle: 'none' } as any,
-  platformRow: { flexDirection: 'row', gap: 10 }, platformRowCompact: { flexDirection: 'column' }, platformButton: { flex: 1, minHeight: 76, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 12 }, platformButtonActive: { borderColor: C.green, backgroundColor: 'rgba(32,239,112,.07)' }, platformTitle: { color: '#fff', fontSize: 11, fontWeight: '900' }, platformTitleActive: { color: C.green }, platformDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 5 }, attestationRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', marginTop: 10 }, checkbox: { width: 23, height: 23, borderRadius: 6, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 11 }, checkboxChecked: { borderColor: C.green, backgroundColor: 'rgba(32,239,112,.16)' }, checkboxMark: { color: C.green, fontSize: 13, fontWeight: '900' }, attestationText: { flex: 1, color: '#dde5ee', fontSize: 9, lineHeight: 15 },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 15 }, actionRowCompact: { flexDirection: 'column' }, actionButton: { flexGrow: 1, minHeight: 43, borderWidth: 1, borderColor: C.border, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }, actionButtonText: { color: '#fff', fontSize: 9, fontWeight: '800', textAlign: 'center' },
-  travelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 15 }, travelMetric: { flexGrow: 1, flexBasis: 260, minHeight: 82, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: C.borderSoft, borderRadius: 10, padding: 12 }, travelMetricCopy: { flex: 1, minWidth: 0, marginLeft: 11 }, travelMetricLabel: { color: C.muted, fontSize: 8 }, travelMetricValue: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 4 }, travelMetricDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
-  pocketPanel: { minHeight: 116, marginTop: 16, padding: 15, flexDirection: 'row', alignItems: 'center' }, pocketCopy: { flex: 1, minWidth: 0, marginLeft: 13 }, pocketLabel: { color: C.muted, fontSize: 9, marginTop: 7 }, pocketBalance: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 4 }, pocketSub: { color: C.muted, fontSize: 8, marginTop: 5 }, spendingCopy: { width: 190, borderLeftWidth: 1, borderLeftColor: C.borderSoft, paddingLeft: 17, marginLeft: 12 }, todaySpending: { color: '#fff', fontSize: 17, fontWeight: '900', marginVertical: 7 }, chevron: { color: '#c6b5bd', fontSize: 28, marginLeft: 8 },
-  checkRow: { minHeight: 88, flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }, checkMark: { width: 37, height: 37, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' }, checkMarkText: { fontSize: 16, fontWeight: '900' }, checkCopy: { flex: 1, minWidth: 0, marginLeft: 12 }, checkTitle: { color: '#fff', fontSize: 11, fontWeight: '800' }, checkDetail: { color: '#c9d3df', fontSize: 8, lineHeight: 14, marginTop: 4 }, checkProvider: { color: C.muted, fontSize: 7, marginTop: 4 }, checkStatus: { fontSize: 8, fontWeight: '900', marginLeft: 9, textAlign: 'right' },
-  emergencyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 15 }, emergencyCard: { flexGrow: 1, flexBasis: 205, minHeight: 145, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 13 }, emergencyTitle: { fontSize: 12, fontWeight: '900', marginTop: 9 }, emergencySub: { color: C.muted, fontSize: 8, lineHeight: 14, marginTop: 5 }, emergencySelected: { fontSize: 8, fontWeight: '900', marginTop: 10 }, emergencyReview: { marginTop: 14, padding: 15 }, reviewTitle: { fontSize: 14, fontWeight: '900' }, reviewText: { color: '#e8dfcf', fontSize: 9, lineHeight: 15, marginTop: 6 },
-  receiptRow: { minHeight: 112, flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }, receiptCopy: { flex: 1, minWidth: 0, marginLeft: 12 }, receiptTitle: { color: '#fff', fontSize: 11, fontWeight: '900' }, receiptDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 }, receiptFailure: { color: C.yellow, fontSize: 8, lineHeight: 13, marginTop: 4 }, receiptTime: { color: C.muted, fontSize: 7, marginTop: 5 }, receiptStatus: { fontSize: 8, fontWeight: '900', marginLeft: 8 },
-  authorityPanel: { minHeight: 100, marginTop: 16, padding: 15, flexDirection: 'row', alignItems: 'center' }, authorityCopy: { flex: 1, minWidth: 0, marginLeft: 13 }, authorityTitle: { color: '#fff', fontSize: 12, fontWeight: '900' }, authorityValue: { color: C.yellow, fontSize: 12, fontWeight: '800', marginTop: 5 }, authoritySub: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 },
-  preferenceRow: { minHeight: 84, flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }, preferenceToggle: { width: 43, height: 24, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel2, padding: 2 }, preferenceToggleActive: { borderColor: C.green, backgroundColor: 'rgba(32,239,112,.18)' }, preferenceKnob: { width: 18, height: 18, borderRadius: 9, backgroundColor: C.muted }, preferenceKnobActive: { marginLeft: 17, backgroundColor: C.green }, preferenceCopy: { flex: 1, minWidth: 0, marginLeft: 12 }, preferenceTitle: { color: '#fff', fontSize: 11, fontWeight: '800' }, preferenceDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 }, preferenceState: { fontSize: 8, fontWeight: '900', marginLeft: 8 }, firmwarePanel: { minHeight: 82, marginTop: 13, padding: 13, flexDirection: 'row', alignItems: 'center' }, firmwareCopy: { flex: 1, minWidth: 0, marginLeft: 12 }, firmwareTitle: { color: C.yellow, fontSize: 11, fontWeight: '900' }, firmwareText: { color: '#e6dcc8', fontSize: 8, lineHeight: 14, marginTop: 4 },
-  activityRow: { minHeight: 88, flexDirection: 'row', alignItems: 'center', paddingVertical: 11 }, activityCopy: { flex: 1, minWidth: 0, marginLeft: 12 }, activityTitle: { color: '#fff', fontSize: 11, fontWeight: '800' }, activityDetail: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 4 }, activityTime: { color: C.muted, fontSize: 7, marginTop: 5 }, feedbackPanel: { minHeight: 62, marginTop: 16, padding: 13, flexDirection: 'row', alignItems: 'center' }, feedbackIcon: { color: C.blue, fontSize: 18, fontWeight: '900', marginRight: 11 }, feedbackText: { flex: 1, color: '#e8eef5', fontSize: 9, lineHeight: 15 }, boundaryPanel: { minHeight: 92, marginTop: 16, padding: 14, flexDirection: 'row', alignItems: 'center' }, boundaryText: { flex: 1, color: '#cbd7e4', fontSize: 8, lineHeight: 14, marginLeft: 12 }, pressed: { opacity: .72 },
+  header: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 17 },
+  headerCompact: { gap: 8 },
+  backButton: { width: 35, height: 50, alignItems: 'center', justifyContent: 'center' },
+  backText: { color: '#fff', fontSize: 43, lineHeight: 46, fontWeight: '200' },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerTitle: { color: '#fff', fontSize: 24, lineHeight: 29, fontWeight: '800' },
+  headerSubtitle: { color: '#dde3ea', fontSize: 12, marginTop: 3 },
+  connectionPill: { minHeight: 34, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  connectionDot: { width: 9, height: 9, borderRadius: 5, marginRight: 7 },
+  connectionPillText: { fontSize: 10, fontWeight: '700' },
+  settingsButton: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center' },
+  errorBanner: { minHeight: 55, marginBottom: 14, borderWidth: 1, borderColor: C.red, borderRadius: 12, backgroundColor: 'rgba(90,10,16,.35)', padding: 12, flexDirection: 'row', alignItems: 'center' },
+  errorText: { flex: 1, color: C.red, fontSize: 10 },
+  retryText: { color: C.blue, fontSize: 10, fontWeight: '800' },
+  hero: { minHeight: 276, padding: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14 },
+  heroCompact: { padding: 12, gap: 9 },
+  watchArtworkWrap: { width: 200, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center' },
+  watchArtworkCompact: { width: 126 },
+  heroCopy: { flex: 1, minWidth: 120 },
+  deviceName: { color: '#fff', fontSize: 21, fontWeight: '800', marginBottom: 15 },
+  deviceDetail: { color: '#eef2f6', fontSize: 11, marginTop: 8 },
+  unavailable: { color: C.muted },
+  providerNote: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 12 },
+  statusCircle: { width: 136, height: 136, borderRadius: 68, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  statusCircleLabel: { color: '#dfe7ee', fontSize: 9, marginTop: 6 },
+  statusCircleValue: { fontSize: 12, fontWeight: '900', marginTop: 4, textTransform: 'capitalize' },
+  deviceActions: { flexBasis: '100%', flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  deviceAction: { flex: 1, maxWidth: 165, minHeight: 77, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  deviceActionText: { color: '#fff', fontSize: 10, fontWeight: '700', marginTop: 7, textAlign: 'center' },
+  pairingPanel: { marginTop: 14, padding: 17 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  sectionHint: { color: C.muted, fontSize: 8, marginTop: 4 },
+  closeText: { color: C.blue, fontSize: 9, fontWeight: '800' },
+  fieldLabel: { color: '#fff', fontSize: 9, fontWeight: '700', marginTop: 15, marginBottom: 6 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: C.panel2, color: '#fff', paddingHorizontal: 12, outlineStyle: 'none' } as any,
+  platforms: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  platform: { flex: 1, minHeight: 42, borderWidth: 1, borderColor: C.border, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  platformActive: { borderColor: C.green, backgroundColor: 'rgba(40,233,120,.07)' },
+  platformText: { color: C.muted, fontSize: 9, fontWeight: '800' },
+  checkRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', marginTop: 7 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  checkboxChecked: { borderColor: C.green, backgroundColor: 'rgba(40,233,120,.15)' },
+  checkboxMark: { color: C.green, fontSize: 12, fontWeight: '900' },
+  checkText: { flex: 1, color: '#e4eaf0', fontSize: 8, lineHeight: 13 },
+  statusPanel: { marginTop: 14, padding: 16 },
+  panelHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', letterSpacing: .2 },
+  chevron: { color: '#d4c9ce', fontSize: 31, fontWeight: '300' },
+  threeColumn: { flexDirection: 'row', marginTop: 15 },
+  infoMetric: { flex: 1, minWidth: 0, minHeight: 83, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderRightWidth: 1, borderRightColor: C.borderSoft },
+  infoMetricIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  infoMetricCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  infoMetricLabel: { color: '#d8e0e7', fontSize: 8 },
+  infoMetricValue: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 4 },
+  infoMetricDetail: { color: C.muted, fontSize: 7, marginTop: 4 },
+  securityRow: { flexDirection: 'row', marginTop: 13 },
+  securityMetric: { flex: 1, minWidth: 0, alignItems: 'center', borderRightWidth: 1, borderRightColor: C.borderSoft, paddingHorizontal: 5 },
+  securityIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  securityMetricLabel: { color: '#f1f4f7', fontSize: 8, textAlign: 'center', marginTop: 8 },
+  securityMetricValue: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 5 },
+  pocketPanel: { marginTop: 14, padding: 16 },
+  pocketContent: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  pocketContentCompact: { gap: 8 },
+  pocketBalanceWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  pocketIcon: { width: 65, height: 65, borderRadius: 33, backgroundColor: 'rgba(146,112,255,.13)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  pocketLabel: { color: '#dddfe5', fontSize: 9 },
+  pocketBalance: { color: '#fff', fontSize: 19, fontWeight: '800', marginTop: 5 },
+  pocketSource: { color: C.muted, fontSize: 7, marginTop: 5, textTransform: 'capitalize' },
+  spendingWrap: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: C.borderSoft, paddingLeft: 18 },
+  spendingValue: { color: '#fff', fontSize: 17, fontWeight: '800', marginVertical: 8 },
+  emergencyPanel: { marginTop: 14, padding: 16 },
+  emergencyRow: { flexDirection: 'row', gap: 10, marginTop: 13 },
+  emergencyTile: { flex: 1, minWidth: 0, minHeight: 126, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, alignItems: 'center', padding: 9 },
+  emergencyIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  emergencyTitle: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 8 },
+  emergencySubtitle: { color: '#e0e4e8', fontSize: 7, lineHeight: 11, textAlign: 'center', marginTop: 4 },
+  emergencyConfirm: { marginTop: 13, padding: 14 },
+  confirmTitle: { fontSize: 13, fontWeight: '900' },
+  confirmSubtitle: { color: '#e7dfcf', fontSize: 8, lineHeight: 13, marginTop: 5 },
+  lastReceipt: { color: C.muted, fontSize: 7, marginTop: 12 },
+  authorityPanel: { marginTop: 14, padding: 16 },
+  viewAll: { color: C.green, fontSize: 10, fontWeight: '800' },
+  authorityContent: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  authorityIcon: { width: 65, height: 65, borderRadius: 33, backgroundColor: 'rgba(40,233,120,.12)', alignItems: 'center', justifyContent: 'center' },
+  authorityCopy: { flex: 1, minWidth: 0, marginLeft: 13 },
+  authorityTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  authorityText: { color: '#e2e7eb', fontSize: 8, lineHeight: 13, marginTop: 4 },
+  feedbackPanel: { minHeight: 60, marginTop: 14, padding: 13, flexDirection: 'row', alignItems: 'center' },
+  feedbackIcon: { width: 27, height: 27, borderWidth: 2, borderColor: C.blue, color: C.blue, borderRadius: 14, textAlign: 'center', lineHeight: 23, fontSize: 14, fontWeight: '900', marginRight: 11 },
+  feedbackText: { flex: 1, color: '#edf2f6', fontSize: 8, lineHeight: 13 },
+  providerBoundary: { color: C.muted2, fontSize: 7, lineHeight: 12, textAlign: 'center', marginTop: 14, paddingHorizontal: 12 },
+  bottomNav: { minHeight: 92, marginTop: 14, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 15, backgroundColor: 'rgba(2,11,20,.96)', flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' },
+  bottomItem: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  bottomItemActive: { backgroundColor: 'rgba(40,233,120,.035)', borderBottomWidth: 3, borderBottomColor: C.green },
+  bottomLabel: { color: C.muted, fontSize: 9, textAlign: 'center' },
+  pressed: { opacity: .72 },
 });
