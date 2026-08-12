@@ -20,6 +20,12 @@ import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } fr
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const isWebPreview = Platform.OS === 'web';
+const routeTitles: Partial<Record<keyof RootStackParamList, string>> = {
+  Portfolio: 'Nomad Wallet',
+  VoltaireProtocols: 'Arkrilium Protocols',
+  BlockPagesSafety: 'Reqrium Safety',
+  BlockPagesURLScanner: 'Reqrium URL Scanner',
+};
 const webLinking = {
   prefixes: [],
   config: {
@@ -86,7 +92,7 @@ function AppNavigator() {
           key={route.name}
           name={route.name}
           component={route.component}
-          options={{ headerShown: false }}
+          options={{ headerShown: false, title: routeTitles[route.name] ?? route.name }}
         />
       ))}
     </Stack.Navigator>
