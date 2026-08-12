@@ -177,7 +177,7 @@ export type NomadTravelAdapter = {
 export type NomadRecoveryClockTime = {
   hour: number;
   minute: number;
-  second?: number;
+  second: number;
 };
 
 export type NomadRecoveryState = {

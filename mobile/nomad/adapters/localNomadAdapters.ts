@@ -69,7 +69,7 @@ async function buildTravelPocketState(): Promise<NomadTravelPocketState> {
 
 function formatClockTime(time: { hour: number; minute: number; second?: number } | null): string {
   if (!time) return '24 Hour Cycle';
-  const second = time.second ?? 0;
+  const second = time.second;
   return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(second).padStart(2, '0')} Time Set`;
 }
 
@@ -80,7 +80,7 @@ async function buildRecoveryState(): Promise<NomadRecoveryState> {
   const recoveryStatus: NomadRecoveryState['recoveryStatus'] = !hasWallet ? 'not_started' : isRecovery ? 'recovery_required' : status === 'locked' ? 'locked' : 'protected';
   return {
     walletStatus: status,
-    dailyUnlockTime: unlockTime ? { ...unlockTime, second: 0 } : null,
+    dailyUnlockTime: unlockTime ? { ...unlockTime } : null,
     recoveryStatus,
     recoverySetupDate: meta?.createdAt ? new Date(meta.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not configured',
     verificationStatus: hasWallet ? 'Verified' : 'Setup Required',
@@ -187,7 +187,7 @@ async function buildSettingsState(): Promise<NomadSettingsState> {
 }
 
 function freezeLabel(scope: NomadFreezeScope): string { switch (scope) { case 'entire_wallet': return 'Entire wallet freeze activated'; case 'travel_pocket': return 'Travel Pocket freeze activated'; case 'specific_assets': return 'Specific asset freeze selected'; case 'owner_authority_alert': return 'Owner Authority alert sent'; } }
-function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime { return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second ?? 0)) }; }
+function normalizeTime(time: NomadRecoveryClockTime): NomadRecoveryClockTime { return { hour: Math.max(0, Math.min(23, time.hour)), minute: Math.max(0, Math.min(59, time.minute)), second: Math.max(0, Math.min(59, time.second)) }; }
 
 async function buildSwapQuote(fromAsset: string, toAsset: string, amount: string): Promise<NomadSwapQuote> {
   const portfolio = await getPortfolio().catch(() => null);
@@ -205,14 +205,14 @@ async function buildProtocolsState(): Promise<NomadProtocolsState> {
   const security = await buildSecurityState();
   const activeProtocols = security.status === 'frozen' ? 5 : 6;
   return {
-    status: activeProtocols === 6 ? 'active' : 'degraded', activeProtocols, totalProtocols: 6, networkUptime: '99.99%', globalNodes: '1,248', countries: '32', message: activeProtocols === 6 ? 'The Voltaire Protocols are operating optimally.' : 'Security controls are active. Some protocol actions are restricted.',
+    status: activeProtocols === 6 ? 'active' : 'degraded', activeProtocols, totalProtocols: 6, networkUptime: '99.99%', globalNodes: '1,248', countries: '32', message: activeProtocols === 6 ? 'The Arkrilium Protocols are operating optimally.' : 'Security controls are active. Some protocol actions are restricted.',
     protocols: [
-      { title: 'Voltaire Security Layer', subtitle: 'Multi-layered security and threat protection', detail: `${security.status === 'frozen' ? 'PROTECTED' : 'ACTIVE'}  •  Score ${security.score}`, uptime: '99.99%', icon: '♢', color: green },
-      { title: 'Voltaire Interoperability Protocol (VIP)', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  42 Chains Connected', uptime: '99.98%', icon: '⌘', color: cyan },
-      { title: 'Voltaire Key Management Protocol (VKP)', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: purple },
-      { title: 'Voltaire Notary Protocol (VNP)', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  1,003 Notaries', uptime: '99.97%', icon: '▤', color: gold },
-      { title: 'Voltaire Data Transmission Protocol (VDTP)', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & Encrypted', uptime: '99.99%', icon: '⌁', color: cyan },
-      { title: 'Voltaire Governance Protocol (VGP)', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Proposals Live', uptime: '100%', icon: '♙', color: purple },
+      { title: 'Arkrilium Security Layer', subtitle: 'Multi-layered security and threat protection', detail: `${security.status === 'frozen' ? 'PROTECTED' : 'ACTIVE'}  •  Score ${security.score}`, uptime: '99.99%', icon: '♢', color: green },
+      { title: 'Arkrilium Interoperability Protocol (AIP)', subtitle: 'Cross-chain communication and asset mobility', detail: 'ACTIVE  •  42 Chains Connected', uptime: '99.98%', icon: '⌘', color: cyan },
+      { title: 'Arkrilium Key Management Protocol (AKP)', subtitle: 'Sovereign key control and recovery framework', detail: 'ACTIVE  •  You own your keys', uptime: '100%', icon: '⚿', color: purple },
+      { title: 'Arkrilium Verification Protocol (AVP)', subtitle: 'Decentralized verification and digital notary', detail: 'ACTIVE  •  1,003 Notaries', uptime: '99.97%', icon: '▤', color: gold },
+      { title: 'Arkrilium Data Transmission Protocol (ADTP)', subtitle: 'Encrypted data routing and secure messaging', detail: 'ACTIVE  •  Private & Encrypted', uptime: '99.99%', icon: '⌁', color: cyan },
+      { title: 'Arkrilium Governance Protocol (AGP)', subtitle: 'Community governance and protocol evolution', detail: 'ACTIVE  •  Proposals Live', uptime: '100%', icon: '♙', color: purple },
     ],
     health: [
       { label: 'Block Finality', value: '2.1 sec', note: 'Excellent', icon: '◷' }, { label: 'Transaction Success', value: '99.97%', note: 'Excellent', icon: '✓' }, { label: 'Security Events', value: security.freezeActivity.length ? String(security.freezeActivity.length) : '0', note: 'Last 7 Days', icon: '♢' }, { label: 'Alerts', value: security.freezeStatus === 'none' ? '0' : '1', note: security.freezeStatus === 'none' ? 'All Clear' : 'Review', icon: '♧' }, { label: 'Nodes Online', value: '1,248 / 1,300', note: '95.9%', icon: '◎' },

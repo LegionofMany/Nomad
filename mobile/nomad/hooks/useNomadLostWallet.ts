@@ -99,15 +99,31 @@ export function useNomadLostWallet() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const beginRecovery = useCallback(async (reason: NomadLostWalletReason) => {
+  const beginRecovery = useCallback(async (reason: NomadLostWalletReason, password: string) => {
     setLoading(true);
     setError(null);
     try {
-      const next = await nomadLostWalletAdapter.beginRecovery(reason);
+      const next = await nomadLostWalletAdapter.beginRecovery(reason, password);
       setLostWallet(next);
       return next;
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : 'Unable to start lost-wallet recovery.';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const enrollRecoverySequence = useCallback(async (password: string, times: NomadRecoveryClockTime[]) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const next = await nomadLostWalletAdapter.enrollRecoverySequence(password, times);
+      setLostWallet(next);
+      return next;
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : 'Unable to enroll the recovery Time Sets.';
       setError(message);
       throw new Error(message);
     } finally {
@@ -136,7 +152,7 @@ export function useNomadLostWallet() {
   }, [refresh]);
 
   return useMemo(
-    () => ({ lostWallet, loading, error, refresh, beginRecovery, verifySet }),
-    [lostWallet, loading, error, refresh, beginRecovery, verifySet],
+    () => ({ lostWallet, loading, error, refresh, enrollRecoverySequence, beginRecovery, verifySet }),
+    [lostWallet, loading, error, refresh, enrollRecoverySequence, beginRecovery, verifySet],
   );
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Defs, Line, LinearGradient, Stop } from 'react-native-svg';
 
@@ -45,6 +45,17 @@ const CLOCK_POSITIONS = Array.from({ length: 24 }, (_, index) => {
   };
 });
 const ENROLLMENT_CELLS = Array.from({ length: 24 }, (_, index) => index + 1);
+type TimeSetEntry = { hour: string; minute: string; second: string };
+
+function emptyTimeSets(): TimeSetEntry[] {
+  return ENROLLMENT_CELLS.map(() => ({ hour: '', minute: '', second: '' }));
+}
+
+function normalizeTimePart(value: string, max: number) {
+  const digits = value.replace(/[^0-9]/g, '').slice(0, 2);
+  if (!digits) return '';
+  return Number(digits) > max ? String(max) : digits;
+}
 
 const reasonOptions: Array<{
   value: NomadLostWalletReason;
@@ -202,7 +213,17 @@ function PrerequisiteRow({ item, last }: { item: NomadLostWalletPrerequisite; la
   );
 }
 
-function EnrollmentGrid({ enrolled }: { enrolled: number }) {
+function EnrollmentGrid({
+  enrolled,
+  values,
+  editable,
+  onChange,
+}: {
+  enrolled: number;
+  values: TimeSetEntry[];
+  editable: boolean;
+  onChange(index: number, field: keyof TimeSetEntry, value: string): void;
+}) {
   return (
     <View style={styles.timeGrid}>
       {ENROLLMENT_CELLS.map((number) => {
@@ -210,7 +231,26 @@ function EnrollmentGrid({ enrolled }: { enrolled: number }) {
         return (
           <View key={number} style={[styles.timeCell, active && styles.timeCellActive]}>
             <Text style={[styles.cellNumber, active && { color: C.green }]}>{number}</Text>
-            <Text style={[styles.cellStatus, active && { color: C.green }]}>{active ? 'ENROLLED' : '--:--:--'}</Text>
+            {editable ? (
+              <View style={styles.cellInputs}>
+                {(['hour', 'minute', 'second'] as const).map((field, fieldIndex) => (
+                  <React.Fragment key={field}>
+                    {fieldIndex > 0 ? <Text style={styles.cellColon}>:</Text> : null}
+                    <TextInput
+                      testID={`recovery-time-set-${number}-${field}`}
+                      accessibilityLabel={`Recovery Time Set ${number} ${field}`}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      value={values[number - 1][field]}
+                      onChangeText={(next) => onChange(number - 1, field, normalizeTimePart(next, field === 'hour' ? 23 : 59))}
+                      placeholder="00"
+                      placeholderTextColor="#607184"
+                      style={styles.cellInput}
+                    />
+                  </React.Fragment>
+                ))}
+              </View>
+            ) : <Text style={[styles.cellStatus, active && { color: C.green }]}>{active ? 'ENROLLED' : '--:--:--'}</Text>}
           </View>
         );
       })}
@@ -221,9 +261,11 @@ function EnrollmentGrid({ enrolled }: { enrolled: number }) {
 export default function RecoverLostWalletScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
-  const { lostWallet, loading, error, refresh, beginRecovery } = useNomadLostWallet();
+  const { lostWallet, loading, error, refresh, enrollRecoverySequence, beginRecovery } = useNomadLostWallet();
   const [reason, setReason] = useState<NomadLostWalletReason | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [password, setPassword] = useState('');
+  const [timeSets, setTimeSets] = useState<TimeSetEntry[]>(emptyTimeSets);
   const [feedback, setFeedback] = useState('');
 
   const status = statusInfo(lostWallet.status);
@@ -236,9 +278,50 @@ export default function RecoverLostWalletScreen() {
   const requiredPasses = requiredPrerequisites.filter((item) => item.status === 'pass').length;
   const recoveryStrength = Math.min(100, Math.max(0, lostWallet.recovery.recoveryScore));
   const needsSessionAction = lostWallet.status === 'ready' || lostWallet.status === 'verification_in_progress';
-  const canStart = needsSessionAction && Boolean(selectedReason) && acknowledged && !loading;
+  const needsEnrollment = lostWallet.enrolledTimeSets !== lostWallet.totalTimeSets;
+  const enrollmentComplete = timeSets.every((time) =>
+    /^\d{1,2}$/.test(time.hour)
+    && /^\d{1,2}$/.test(time.minute)
+    && /^\d{1,2}$/.test(time.second)
+    && Number(time.hour) <= 23
+    && Number(time.minute) <= 59
+    && Number(time.second) <= 59
+  );
+  const canStart = needsSessionAction && Boolean(selectedReason) && password.length > 0 && acknowledged && !loading;
+
+  const updateTimeSet = (index: number, field: keyof TimeSetEntry, value: string) => {
+    setTimeSets((current) => current.map((time, timeIndex) => timeIndex === index ? { ...time, [field]: value } : time));
+  };
+
+  const handleEnrollment = async () => {
+    if (!password) {
+      setFeedback('Enter the wallet password before enrolling Time Sets.');
+      return;
+    }
+    if (!enrollmentComplete) {
+      setFeedback('Enter all 24 Time Sets using valid hours, minutes, and seconds.');
+      return;
+    }
+    try {
+      setFeedback('Verifying the password and creating 24 ordered salted digests…');
+      await enrollRecoverySequence(password, timeSets.map((time) => ({
+        hour: Number(time.hour),
+        minute: Number(time.minute),
+        second: Number(time.second),
+      })));
+      setPassword('');
+      setTimeSets(emptyTimeSets());
+      setFeedback('24 Time Sets enrolled. Raw values were cleared. Re-enter the password to start ordered verification.');
+    } catch (nextError) {
+      setFeedback(nextError instanceof Error ? nextError.message : 'Unable to enroll the Time Sets.');
+    }
+  };
 
   const handlePrimary = async () => {
+    if (needsEnrollment) {
+      await handleEnrollment();
+      return;
+    }
     if (lostWallet.status === 'setup_required' || lostWallet.status === 'verification_locked') {
       navigation.navigate('RecoveryCenter');
       return;
@@ -255,11 +338,16 @@ export default function RecoverLostWalletScreen() {
       setFeedback('Confirm that you are using a private, trusted device.');
       return;
     }
+    if (!password) {
+      setFeedback('Enter the wallet password before starting recovery.');
+      return;
+    }
 
     try {
-      setFeedback('Creating a protected local verification session…');
-      await beginRecovery(selectedReason);
-      setFeedback('Protected session created. No password or raw Time Set value was stored.');
+      setFeedback('Verifying the wallet password and creating a protected local session…');
+      await beginRecovery(selectedReason, password);
+      setPassword('');
+      setFeedback('Password verified. No raw password or raw Time Set value was stored.');
       navigation.navigate('VerifyRecoverySequence');
     } catch (nextError) {
       setFeedback(nextError instanceof Error ? nextError.message : 'Unable to begin protected recovery verification.');
@@ -274,7 +362,7 @@ export default function RecoverLostWalletScreen() {
         ? 'View Verification Status'
         : lostWallet.status === 'verification_locked'
           ? 'Open Recovery Center'
-          : 'Review Recovery Setup';
+          : needsEnrollment ? 'Enroll 24 Time Sets' : 'Review Recovery Setup';
   const primarySubtitle = needsSessionAction
     ? 'Verify one Time Set at a time on the protected next page'
     : lostWallet.status === 'verified_waiting_provider'
@@ -304,10 +392,10 @@ export default function RecoverLostWalletScreen() {
         <View style={styles.heroCopy}>
           <Text style={styles.eyebrow}>STEP 1 OF 4</Text>
           <Text style={styles.heroTitle}>Enter Your 24 Time Sets</Text>
-          <Text style={styles.heroText}>Prepare the exact time positions in their original order. For safety, Page 16 never collects or displays the complete sequence.</Text>
+          <Text style={styles.heroText}>Enter 24 unique HH:MM:SS positions in their exact order. They remain only in this form until converted to salted digests.</Text>
           <View style={styles.privacyBox}>
             <Text style={styles.privacyIcon}>◇</Text>
-            <Text style={styles.privacyText}>Only you know your time sequence. Nomad stores salted digests and verifies one value at a time on Page 17.</Text>
+            <Text style={styles.privacyText}>Only you know your sequence. Nomad stores salted digests, clears the raw fields after enrollment, and verifies one value at a time on Page 17.</Text>
           </View>
           <View style={[styles.stateBox, { borderColor: status.color }]}>
             <Text style={[styles.stateTitle, { color: status.color }]}>{status.title}</Text>
@@ -321,13 +409,23 @@ export default function RecoverLostWalletScreen() {
         <Text style={styles.sectionTitle}>WALLET PASSWORD</Text>
         <View style={styles.passwordField}>
           <Text style={styles.passwordLock}>▣</Text>
-          <View style={styles.passwordCopy}>
-            <Text style={styles.passwordPlaceholder}>Password verification unavailable</Text>
-            <Text style={styles.passwordDetail}>The production password provider is not connected.</Text>
-          </View>
-          <Text style={styles.passwordEye}>◉</Text>
+          <TextInput
+            testID="recovery-wallet-password"
+            accessibilityLabel="Wallet password for recovery"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            editable={!loading}
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Enter your wallet password"
+            placeholderTextColor={C.muted}
+            style={styles.passwordInput}
+          />
+          <Text style={[styles.passwordState, { color: lostWallet.passwordProviderConnected ? C.green : C.red }]}>{lostWallet.passwordProviderConnected ? 'READY' : 'SETUP'}</Text>
         </View>
-        <Text style={styles.providerBoundary}>Nomad will not imitate password validation or store an unverified password in this frontend.</Text>
+        <Text style={styles.providerBoundary}>The salted verifier is checked locally before the 24 ordered HH:MM:SS Time Sets can be entered. The raw password is never stored.</Text>
       </Panel>
 
       <Panel style={styles.reasonPanel}>
@@ -357,13 +455,13 @@ export default function RecoverLostWalletScreen() {
 
       <Panel style={styles.sequencePanel}>
         <View style={styles.sectionHeading}>
-          <View style={styles.headingCopy}><Text style={styles.sectionTitle}>YOUR 24 TIME SETS</Text><Text style={styles.sectionSub}>Enrollment evidence only—raw times remain hidden</Text></View>
-          <Pressable testID="recovery-review-enrollment" accessibilityRole="button" accessibilityLabel="Review Time Set enrollment" onPress={() => navigation.navigate('RecoveryCenter')} style={({ pressed }) => [styles.clearAction, pressed && styles.pressed]}><Text style={styles.clearActionText}>Review Enrollment</Text></Pressable>
+          <View style={styles.headingCopy}><Text style={styles.sectionTitle}>YOUR 24 TIME SETS</Text><Text style={styles.sectionSub}>{needsEnrollment ? 'Enter each unique hour, minute, and second in exact order' : 'Enrollment evidence only—raw times are no longer available'}</Text></View>
+          <Pressable testID="recovery-clear-time-sets" accessibilityRole="button" accessibilityLabel={needsEnrollment ? 'Clear Time Set entries' : 'Review Time Set enrollment'} onPress={() => needsEnrollment ? setTimeSets(emptyTimeSets()) : navigation.navigate('RecoveryCenter')} style={({ pressed }) => [styles.clearAction, pressed && styles.pressed]}><Text style={styles.clearActionText}>{needsEnrollment ? 'Clear Entries' : 'Review Enrollment'}</Text></Pressable>
         </View>
-        <EnrollmentGrid enrolled={lostWallet.enrolledTimeSets} />
+        <EnrollmentGrid enrolled={lostWallet.enrolledTimeSets} values={timeSets} editable={needsEnrollment} onChange={updateTimeSet} />
         <View style={styles.sequenceSummary}>
-          <Text style={styles.sequenceHint}>◷  24 unique positions verified in their original order</Text>
-          <Text style={styles.sequenceCount}>{lostWallet.enrolledTimeSets} of {lostWallet.totalTimeSets} enrolled</Text>
+          <Text style={styles.sequenceHint}>◷  24 unique positions required in HH:MM:SS format</Text>
+          <Text style={styles.sequenceCount}>{needsEnrollment ? `${timeSets.filter((time) => time.hour && time.minute && time.second).length} of 24 entered` : `${lostWallet.enrolledTimeSets} of ${lostWallet.totalTimeSets} enrolled`}</Text>
         </View>
       </Panel>
 
@@ -371,9 +469,9 @@ export default function RecoverLostWalletScreen() {
         <Panel style={styles.infoPanel}>
           <Text style={styles.sectionTitle}>INSTRUCTIONS</Text>
           <Text style={styles.infoText}>1. Confirm that all 24 Time Set digests are enrolled.</Text>
-          <Text style={styles.infoText}>2. Select the reason for this protected recovery session.</Text>
-          <Text style={styles.infoText}>3. Continue to Page 17 and enter only the requested Time Set.</Text>
-          <Text style={styles.infoText}>4. Each value is cleared before the next position is requested.</Text>
+          <Text style={styles.infoText}>2. Verify the wallet password and select the recovery reason.</Text>
+          <Text style={styles.infoText}>3. Continue to Page 17 and enter the requested HH:MM:SS Time Set.</Text>
+          <Text style={styles.infoText}>4. Each value is cleared before the next ordered position.</Text>
         </Panel>
         <Panel style={styles.infoPanel}>
           <Text style={styles.sectionTitle}>RECOVERY TIPS</Text>
@@ -399,7 +497,7 @@ export default function RecoverLostWalletScreen() {
         </View>
         <View style={styles.strengthChecks}>
           <Text style={styles.strengthCheck}>{lostWallet.enrolledTimeSets === 24 ? '●' : '○'}  24 Enrolled Digests</Text>
-          <Text style={styles.strengthCheck}>{lostWallet.activeSession ? '●' : '○'}  Protected Session</Text>
+          <Text style={styles.strengthCheck}>{lostWallet.activeSession?.passwordVerifiedAt ? '●' : '○'}  Password Verified</Text>
           <Text style={styles.strengthCheck}>{lostWallet.status === 'verified_waiting_provider' ? '●' : '○'}  Correct Sequence</Text>
         </View>
         <View style={[styles.scoreRing, { borderColor: recoveryStrength >= 80 ? C.green : C.muted }]}><Text style={styles.scoreNumber}>{recoveryStrength}</Text><Text style={styles.scoreLabel}>SCORE</Text></View>
@@ -422,9 +520,9 @@ export default function RecoverLostWalletScreen() {
         testID="recovery-primary"
         accessibilityRole="button"
         accessibilityLabel={primaryLabel}
-        disabled={needsSessionAction ? !canStart : loading}
+        disabled={needsEnrollment ? !password || !enrollmentComplete || loading : needsSessionAction ? !canStart : loading}
         onPress={() => void handlePrimary()}
-        style={({ pressed }) => [styles.primaryButton, lostWallet.status === 'verification_locked' && styles.primaryButtonRed, needsSessionAction && !canStart && styles.primaryButtonDisabled, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.primaryButton, lostWallet.status === 'verification_locked' && styles.primaryButtonRed, (needsEnrollment ? !password || !enrollmentComplete || loading : needsSessionAction && !canStart) && styles.primaryButtonDisabled, pressed && styles.pressed]}
       >
         <Text style={styles.primaryIcon}>◇</Text>
         <View style={styles.primaryCopy}><Text style={styles.primaryTitle}>{loading ? 'Checking Recovery…' : primaryLabel}</Text><Text style={styles.primarySub}>{primarySubtitle}</Text></View>
@@ -477,6 +575,8 @@ const styles = StyleSheet.create({
   passwordPanel: { marginTop: 17, padding: 17 },
   passwordField: { minHeight: 62, borderWidth: 1, borderColor: '#405368', borderRadius: 9, marginTop: 12, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center' },
   passwordLock: { color: C.muted, fontSize: 22, marginRight: 11 },
+  passwordInput: { flex: 1, minWidth: 0, minHeight: 58, color: '#fff', fontSize: 11, outlineStyle: 'none' } as any,
+  passwordState: { fontSize: 8, fontWeight: '900', marginLeft: 10 },
   passwordCopy: { flex: 1, minWidth: 0 },
   passwordPlaceholder: { color: '#dce4ef', fontSize: 11 },
   passwordDetail: { color: C.yellow, fontSize: 8, lineHeight: 12, marginTop: 3 },
@@ -500,6 +600,9 @@ const styles = StyleSheet.create({
   timeCell: { width: '15%', minWidth: 74, flexGrow: 1, minHeight: 60, borderWidth: 1, borderColor: '#314252', borderRadius: 8, padding: 9 },
   timeCellActive: { borderColor: C.green, backgroundColor: 'rgba(0,255,100,.06)' },
   cellNumber: { color: '#d4d8e1', fontSize: 10, fontWeight: '700' },
+  cellInputs: { flexDirection: 'row', alignItems: 'center', marginTop: 7 },
+  cellInput: { flex: 1, minWidth: 18, height: 33, borderWidth: 1, borderColor: C.green, borderRadius: 5, backgroundColor: C.panel2, color: '#fff', fontSize: 11, fontWeight: '800', textAlign: 'center', paddingHorizontal: 1, outlineStyle: 'none' } as any,
+  cellColon: { color: '#fff', fontSize: 11, marginHorizontal: 2 },
   cellStatus: { color: C.muted, fontSize: 7.5, fontWeight: '900', marginTop: 10 },
   sequenceSummary: { minHeight: 45, marginTop: 12, borderTopWidth: 1, borderTopColor: C.borderSoft, paddingTop: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   sequenceHint: { flex: 1, color: C.muted, fontSize: 8 },

@@ -10,6 +10,7 @@ import type { ClockTime } from '../../types';
 const fallbackState: NomadClockAccessState = {
   status: 'not_configured',
   walletStatus: 'no_wallet',
+  passwordConfigured: false,
   configuredTime: null,
   configuredTimeLabel: 'Not configured',
   currentTimeLabel: '--:--:--',
@@ -53,10 +54,10 @@ export function useNomadClockAccess() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const configure = useCallback(async (time: ClockTime) => {
+  const configure = useCallback(async (time: ClockTime, password: string) => {
     setLoading(true);
     try {
-      const next = await nomadClockAccessAdapter.configureDailyAccessTime(time);
+      const next = await nomadClockAccessAdapter.configureDailyAccessTime(time, password);
       setClock(next);
       setError(null);
       return next;
@@ -69,10 +70,10 @@ export function useNomadClockAccess() {
     }
   }, []);
 
-  const verify = useCallback(async (time: ClockTime): Promise<NomadClockAccessResult> => {
+  const verify = useCallback(async (time: ClockTime, password: string): Promise<NomadClockAccessResult> => {
     setLoading(true);
     try {
-      const result = await nomadClockAccessAdapter.verifyAccess(time);
+      const result = await nomadClockAccessAdapter.verifyAccess(time, password);
       await refresh();
       return result;
     } catch (nextError) {

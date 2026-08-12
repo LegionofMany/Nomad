@@ -33,7 +33,7 @@ type Asset = {
 
 type EcosystemItem = {
   label: string;
-  kind: 'nomad' | 'autodefi' | 'blockpages' | 'payroll' | 'guardian' | 'lottery' | 'retirement';
+  kind: 'nomad' | 'arkreum' | 'reqrium' | 'syaxio' | 'guardian' | 'lottery' | 'retirement';
   color: string;
   route: RouteName;
 };
@@ -61,8 +61,21 @@ function PlaneIcon({ size = 24, color = C.green }: { size?: number; color?: stri
   return <Svg accessibilityLabel="Travel" width={size} height={size} viewBox="0 0 32 32" fill="none"><Path d="m4 18 10-3 6-10 3 1-2 10 6 4-1 3-7-2-4 7-2-1 1-8-9 2-1-3Z" fill={color} stroke={color} strokeLinejoin="round" /></Svg>;
 }
 
-function VoltaireMark({ size = 30 }: { size?: number }) {
-  return <Svg accessibilityLabel="Voltaire Protocols" width={size} height={size} viewBox="0 0 48 48" fill="none"><Path d="M23 14C18 6 10 5 5 7c2 7 6 13 14 15-8 1-13 6-15 12 7 3 14 1 20-5M25 14c5-8 13-9 18-7-2 7-6 13-14 15 8 1 13 6 15 12-7 3-14 1-20-5" fill="#47208e" stroke={C.purple} strokeWidth="2" strokeLinejoin="round" /><Path d="M24 13v22" stroke={C.purple} strokeWidth="3" strokeLinecap="round" /></Svg>;
+function ArkriliumMark({ size = 30 }: { size?: number }) {
+  return (
+    <Svg accessibilityLabel="Arkrilium Protocols" width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <Defs>
+        <LinearGradient id="arkriliumMarkGradient" x1="9" y1="40" x2="39" y2="8">
+          <Stop stopColor="#178cff" />
+          <Stop offset="0.55" stopColor="#7a4cff" />
+          <Stop offset="1" stopColor="#20e7ff" />
+        </LinearGradient>
+      </Defs>
+      <Path d="M24 4 43 15v18L24 44 5 33V15Z" fill="#08152d" stroke="url(#arkriliumMarkGradient)" strokeWidth="2.4" />
+      <Path d="m12 35 12-24 12 24M17 27h14" stroke="url(#arkriliumMarkGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="24" cy="11" r="2.3" fill="#fff" />
+    </Svg>
+  );
 }
 
 type SecurityKind = 'storage' | 'authority' | 'device' | 'recovery';
@@ -81,7 +94,48 @@ function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; 
   const stroke = { stroke: color, strokeWidth: 2.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   let artwork: React.ReactNode;
   if (kind === 'nomad') artwork = <><Path d="M24 7 39 13v11c0 11-6 18-15 23-9-5-15-12-15-23V13Z" fill="#07224c" {...stroke} /><Path d="M14 27h6l4-7 5 12 4-7h4" {...stroke} /></>;
-  else if (kind === 'autodefi') artwork = <><Circle cx="17" cy="18" r="8" {...stroke} /><Circle cx="31" cy="18" r="8" {...stroke} /><Circle cx="24" cy="31" r="8" {...stroke} /></>;
+  else if (kind === 'arkreum') artwork = <>
+    <Defs>
+      <LinearGradient id="arkreumIconGradient" x1="8" y1="42" x2="40" y2="7">
+        <Stop stopColor="#20b8ff" />
+        <Stop offset="0.52" stopColor="#e4efff" />
+        <Stop offset="1" stopColor="#8d4dff" />
+      </LinearGradient>
+    </Defs>
+    <Circle cx="24" cy="24" r="19" fill="#07142c" stroke="#4b35a8" strokeWidth="1.4" />
+    <Path d="m10 37 14-28 14 28M16 29h16" stroke="url(#arkreumIconGradient)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="24" cy="9" r="2.2" fill="#35c7ff" />
+    <Circle cx="10" cy="37" r="1.6" fill="#8754ff" />
+    <Circle cx="38" cy="37" r="1.6" fill="#8754ff" />
+  </>;
+  else if (kind === 'reqrium') artwork = <>
+    <Defs>
+      <LinearGradient id="reqriumIconGradient" x1="7" y1="18" x2="42" y2="31">
+        <Stop stopColor="#15b9ff" />
+        <Stop offset="0.62" stopColor="#8749ff" />
+        <Stop offset="1" stopColor="#ffbd35" />
+      </LinearGradient>
+    </Defs>
+    <Path d="M4 24c6-8 13-12 20-12s14 4 20 12c-6 8-13 12-20 12S10 32 4 24Z" fill="#08142f" stroke="url(#reqriumIconGradient)" strokeWidth="2" />
+    <Circle cx="24" cy="24" r="10" stroke="#168cff" strokeWidth="1.5" opacity="0.75" />
+    <Path d="M18 33V15h8.5a6 6 0 0 1 0 12H18m8 0 7 7" stroke="url(#reqriumIconGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="37.5" cy="10.5" r="2" fill="#ffbd35" />
+  </>;
+  else if (kind === 'syaxio') artwork = <>
+    <Defs>
+      <LinearGradient id="syaxioIconGradient" x1="9" y1="8" x2="39" y2="40">
+        <Stop stopColor="#21e8ef" />
+        <Stop offset="0.55" stopColor="#36a5ff" />
+        <Stop offset="1" stopColor="#bc48ff" />
+      </LinearGradient>
+    </Defs>
+    <Path d="M24 5 39 12v12c0 10-6 17-15 21C15 41 9 34 9 24V12Z" fill="#06172c" stroke="url(#syaxioIconGradient)" strokeWidth="1.8" />
+    <Ellipse cx="24" cy="24" rx="20" ry="8" stroke="#20d9ed" strokeWidth="1.2" transform="rotate(-28 24 24)" opacity="0.75" />
+    <Ellipse cx="24" cy="24" rx="20" ry="8" stroke="#8d4dff" strokeWidth="1.2" transform="rotate(28 24 24)" opacity="0.75" />
+    <Path d="M31 15H20a5 5 0 0 0 0 10h8a5 5 0 0 1 0 10H17" stroke="url(#syaxioIconGradient)" strokeWidth="4" strokeLinecap="round" />
+    <Circle cx="35" cy="11" r="1.8" fill="#b94cff" />
+    <Circle cx="10" cy="30" r="1.8" fill="#21e8ef" />
+  </>;
   else if (kind === 'guardian') artwork = <><Path d="M24 6 39 12v12c0 10-6 17-15 22C15 41 9 34 9 24V12Z" fill="#063b24" {...stroke} /><Circle cx="24" cy="21" r="4" {...stroke} /><Path d="M17 33c1-5 4-7 7-7s6 2 7 7" {...stroke} /></>;
   else if (kind === 'lottery') artwork = <><Circle cx="24" cy="24" r="15" fill="#35157b" {...stroke} /><Circle cx="24" cy="24" r="6" {...stroke} /><Path d="M24 5v7M24 36v7" {...stroke} /></>;
   else if (kind === 'retirement') artwork = <><Circle cx="24" cy="24" r="14" {...stroke} /><Circle cx="24" cy="24" r="5" {...stroke} /><Path d="M24 5v5M24 38v5M5 24h5M38 24h5M11 11l4 4M37 11l-4 4M11 37l4-4M37 37l-4-4" {...stroke} /></>;
@@ -89,8 +143,6 @@ function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; 
 
   return (
     <View style={[styles.ecoIcon, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
-      {kind === 'blockpages' ? <Text style={[styles.logoNumber, { color, fontSize: size * 0.32 }]}>411</Text> : null}
-      {kind === 'payroll' ? <Text style={[styles.logoDollar, { color, fontSize: size * 0.52 }]}>$</Text> : null}
       {artwork ? <Svg width={size * 0.75} height={size * 0.75} viewBox="0 0 48 48" fill="none">{artwork}</Svg> : null}
     </View>
   );
@@ -150,9 +202,9 @@ const assetVisuals: Record<string, Pick<Asset, 'mark' | 'tint' | 'textColor'>> =
 
 const ecosystem: EcosystemItem[] = [
   { label: 'Nomad', kind: 'nomad', color: C.blue, route: 'Portfolio' },
-  { label: 'AutoDeFi', kind: 'autodefi', color: C.blue, route: 'VoltaireProtocols' },
-  { label: 'BlockPages411', kind: 'blockpages', color: C.purple, route: 'BlockPagesSafety' },
-  { label: 'Sovereign\nPayroll', kind: 'payroll', color: C.green, route: 'VoltaireProtocols' },
+  { label: 'Arkreum', kind: 'arkreum', color: '#4d83ff', route: 'VoltaireProtocols' },
+  { label: 'Reqrium', kind: 'reqrium', color: '#8c4dff', route: 'BlockPagesSafety' },
+  { label: 'Syaxio', kind: 'syaxio', color: '#23dce8', route: 'VoltaireProtocols' },
   { label: 'Guardian\nTrader', kind: 'guardian', color: C.green, route: 'VoltaireProtocols' },
   { label: 'Quantum\nLottery', kind: 'lottery', color: C.purple, route: 'VoltaireProtocols' },
   { label: 'Decentralized\nRetirement', kind: 'retirement', color: C.orange, route: 'VoltaireProtocols' },
@@ -248,7 +300,7 @@ export default function PortfolioScreen() {
           <NomadBrandMark size={compact ? 38 : 68} />
           <View style={styles.brandCopy}>
             <Text style={[styles.brandTitle, compact && styles.brandTitleCompact]}>NOMAD</Text>
-            <Text style={[styles.brandSub, compact && styles.brandSubCompact]}>Built on <Text style={styles.blue}>Voltaire Protocols</Text></Text>
+            <Text style={[styles.brandSub, compact && styles.brandSubCompact]}>Built on <Text style={styles.blue}>Arkrilium Protocols</Text></Text>
           </View>
         </View>
 
@@ -376,10 +428,10 @@ export default function PortfolioScreen() {
       </Panel>
 
       <Panel style={[styles.ecosystemCard, compact && styles.sectionCardCompact]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Explore Voltaire Ecosystem" onPress={() => navigation.navigate('VoltaireProtocols')} style={[styles.cardHeader, compact && styles.cardHeaderCompact]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Explore Arkrilium Ecosystem" onPress={() => navigation.navigate('VoltaireProtocols')} style={[styles.cardHeader, compact && styles.cardHeaderCompact]}>
           <View style={styles.titleRow}>
-            <VoltaireMark size={compact ? 21 : 30} />
-            <Text style={[styles.ecoTitle, compact && styles.ecoTitleCompact]}>Voltaire Ecosystem</Text>
+            <ArkriliumMark size={compact ? 21 : 30} />
+            <Text style={[styles.ecoTitle, compact && styles.ecoTitleCompact]}>Arkrilium Ecosystem</Text>
           </View>
           <Text style={[styles.exploreText, compact && styles.exploreTextCompact]}>Explore All  ›</Text>
         </Pressable>
@@ -522,8 +574,6 @@ const styles = StyleSheet.create({
   ecoItem: { width: 88, alignItems: 'center' },
   ecoItemCompact: { width: 52 },
   ecoIcon: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, backgroundColor: '#061526', alignItems: 'center', justifyContent: 'center', shadowColor: '#168cff', shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } },
-  logoNumber: { fontWeight: '900' },
-  logoDollar: { fontWeight: '900' },
   ecoLabel: { color: '#fff', fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 8 },
   ecoLabelCompact: { fontSize: 7, lineHeight: 9, marginTop: 4 },
   previewNote: { color: C.muted2, textAlign: 'center', fontSize: 9, marginTop: 10 },

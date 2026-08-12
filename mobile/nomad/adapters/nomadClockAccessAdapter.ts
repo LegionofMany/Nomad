@@ -3,6 +3,7 @@ import {
   getDailyUnlockTime,
   getWalletMeta,
   getWalletStatus,
+  hasWalletPassword,
   setDailyUnlockTime,
   unlockWithClock,
 } from '../../services/walletService';
@@ -12,6 +13,7 @@ import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
 export type NomadClockAccessStatus =
   | 'no_wallet'
   | 'not_configured'
+  | 'password_setup_required'
   | 'waiting'
   | 'window_open'
   | 'unlocked'
@@ -29,6 +31,7 @@ export type NomadClockAccessEvent = {
 export type NomadClockAccessState = {
   status: NomadClockAccessStatus;
   walletStatus: WalletStatus;
+  passwordConfigured: boolean;
   configuredTime: ClockTime | null;
   configuredTimeLabel: string;
   currentTimeLabel: string;
@@ -56,8 +59,8 @@ export type NomadClockAccessResult = UnlockWithClockResult | {
 
 export type NomadClockAccessAdapter = {
   getClockAccessState(): Promise<NomadClockAccessState>;
-  configureDailyAccessTime(time: ClockTime): Promise<NomadClockAccessState>;
-  verifyAccess(time: ClockTime): Promise<NomadClockAccessResult>;
+  configureDailyAccessTime(time: ClockTime, password: string): Promise<NomadClockAccessState>;
+  verifyAccess(time: ClockTime, password: string): Promise<NomadClockAccessResult>;
 };
 
 type StoredClockAccess = {
@@ -80,14 +83,16 @@ function identifier(prefix: string) {
 function normalizeTime(time: ClockTime): ClockTime {
   const hour = Number(time.hour);
   const minute = Number(time.minute);
+  const second = Number(time.second);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) throw new Error('Hour must be between 00 and 23.');
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) throw new Error('Minute must be between 00 and 59.');
-  return { hour, minute };
+  if (!Number.isInteger(second) || second < 0 || second > 59) throw new Error('Second must be between 00 and 59.');
+  return { hour, minute, second };
 }
 
 function formatClock(time: ClockTime | null) {
   if (!time) return 'Not configured';
-  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
+  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}:${String(time.second).padStart(2, '0')}`;
 }
 
 function formatCountdown(totalSeconds: number) {
@@ -108,7 +113,7 @@ function getTimeZoneLabel() {
 
 function windowFor(time: ClockTime, now: Date) {
   const todayStart = new Date(now);
-  todayStart.setHours(time.hour, time.minute, 0, 0);
+  todayStart.setHours(time.hour, time.minute, time.second, 0);
   const todayEnd = new Date(todayStart.getTime() + ACCESS_WINDOW_MINUTES * 60 * 1000);
 
   if (now.getTime() < todayStart.getTime()) {
@@ -161,16 +166,18 @@ async function addEvent(event: Omit<NomadClockAccessEvent, 'id' | 'timestamp'>) 
 }
 
 async function buildState(now = new Date()): Promise<NomadClockAccessState> {
-  const [walletStatus, configuredTime, walletMeta, stored] = await Promise.all([
+  const [walletStatus, configuredTime, walletMeta, passwordConfigured, stored] = await Promise.all([
     getWalletStatus(),
     getDailyUnlockTime(),
     getWalletMeta(),
+    hasWalletPassword(),
     loadStoredState(),
   ]);
 
   const currentTimeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const base = {
     walletStatus,
+    passwordConfigured,
     configuredTime,
     configuredTimeLabel: formatClock(configuredTime),
     currentTimeLabel,
@@ -206,6 +213,18 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
     };
   }
 
+  if (!passwordConfigured) {
+    return {
+      ...base,
+      status: 'password_setup_required',
+      accessWindowLabel: 'Password setup required',
+      countdownSeconds: 0,
+      countdownLabel: 'LOCKED',
+      cycleProgressPercent: 0,
+      cycleElapsedHours: 0,
+    };
+  }
+
   if (!configuredTime) {
     return {
       ...base,
@@ -226,6 +245,7 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
   const endTime: ClockTime = {
     hour: window.activeEnd.getHours(),
     minute: window.activeEnd.getMinutes(),
+    second: window.activeEnd.getSeconds(),
   };
   const status: NomadClockAccessStatus = walletStatus === 'unlocked'
     ? 'unlocked'
@@ -247,13 +267,13 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
   };
 }
 
-async function configureDailyAccessTime(time: ClockTime) {
+async function configureDailyAccessTime(time: ClockTime, password: string) {
   const normalized = normalizeTime(time);
   const walletStatus = await getWalletStatus();
   if (walletStatus === 'locked' || walletStatus === 'recovery') {
     throw new Error('Unlock the wallet or complete verified recovery before changing the daily access time.');
   }
-  await setDailyUnlockTime(normalized);
+  await setDailyUnlockTime(normalized, password);
   await addEvent({
     type: 'configured',
     title: 'Daily access time configured',
@@ -263,12 +283,15 @@ async function configureDailyAccessTime(time: ClockTime) {
   return buildState();
 }
 
-async function verifyAccess(time: ClockTime): Promise<NomadClockAccessResult> {
+async function verifyAccess(time: ClockTime, password: string): Promise<NomadClockAccessResult> {
   const normalized = normalizeTime(time);
   const state = await buildState();
 
   if (state.status === 'not_configured') {
     return { ok: false, reason: 'not_configured' };
+  }
+  if (state.status === 'password_setup_required') {
+    return { ok: false, reason: 'password_not_configured' };
   }
   if (state.status === 'waiting') {
     await addEvent({
@@ -285,11 +308,11 @@ async function verifyAccess(time: ClockTime): Promise<NomadClockAccessResult> {
   }
   if (state.status === 'unlocked') return { ok: true };
 
-  const result = await unlockWithClock(normalized);
+  const result = await unlockWithClock(normalized, password);
   await addEvent(result.ok ? {
     type: 'unlock_success',
-    title: 'Clock access verified',
-    detail: 'The configured time matched inside the daily access window. Wallet session state was opened by the wallet service.',
+    title: 'Password and Time Key verified',
+    detail: 'The wallet password and full HH:MM:SS Time Key matched inside the daily access window.',
     severity: 'info',
   } : {
     type: 'unlock_failure',

@@ -328,7 +328,7 @@ export default function SwapScreen() {
       setFeedback('The quote expired. Refresh it before creating a draft.');
       return;
     }
-    setFeedback('Creating a wallet-controlled Voltaire swap draft…');
+    setFeedback('Creating a wallet-controlled Arkrilium swap draft…');
     try {
       const result = await createDraft({ ...quote, slippageTolerance: slippage });
       if (result.status === 'failed') {
@@ -375,7 +375,7 @@ export default function SwapScreen() {
         <View style={[styles.promoIcon, compact && styles.promoIconCompact]}><SwapIcon kind="swap" size={compact ? 56 : 72} /></View>
         <View style={styles.promoCopy}>
           <Text style={[styles.promoTitle, compact && styles.promoTitleCompact]}>Best Rates. Secure. Low Fees.</Text>
-          <Text style={[styles.promoSub, compact && styles.promoSubCompact]}>Powered by <Text style={styles.promoLink}>Voltaire Liquidity Protocol</Text></Text>
+          <Text style={[styles.promoSub, compact && styles.promoSubCompact]}>Powered by <Text style={styles.promoLink}>Arkrilium Liquidity Protocol</Text></Text>
           <Text style={[styles.sourceLabel, compact && styles.sourceLabelCompact]}>{quoteSource}{quoteSecondsRemaining !== null ? ` • ${quoteExpired ? 'EXPIRED' : `${quoteSecondsRemaining}s`}` : ''}</Text>
         </View>
       </Panel>
@@ -478,7 +478,7 @@ export default function SwapScreen() {
 
       {detailPanel === 'network' ? (
         <Panel style={styles.infoPanel}>
-          <Text style={styles.infoTitle}>Voltaire Network Route</Text>
+          <Text style={styles.infoTitle}>Arkrilium Network Route</Text>
           <Text style={styles.infoCopy}>The adapter selects the destination network for {toAsset}. A production liquidity provider must replace the local quote source before this is considered a live market route.</Text>
         </Panel>
       ) : null}
@@ -541,7 +541,7 @@ export default function SwapScreen() {
 
       <View style={[styles.trustRow, compact && styles.trustRowCompact]}>
         <SwapIcon kind="shield" color={C.green} size={compact ? 18 : 22} />
-        <Text style={[styles.trustText, compact && styles.trustTextCompact]}>Protected by <Text style={styles.trustLink}>Voltaire Protocols</Text> | Local Quote • Non-Custodial • Wallet Approval Required</Text>
+        <Text style={[styles.trustText, compact && styles.trustTextCompact]}>Protected by <Text style={styles.trustLink}>Arkrilium Protocols</Text> | Local Quote • Non-Custodial • Wallet Approval Required</Text>
       </View>
 
       <BottomNav

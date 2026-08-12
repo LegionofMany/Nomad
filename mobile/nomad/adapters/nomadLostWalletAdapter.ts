@@ -1,4 +1,5 @@
 import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { hasWalletPassword, verifyWalletPassword } from '../../services/walletService';
 
 import {
   nomadRecoveryAdapter,
@@ -22,7 +23,7 @@ export type NomadLostWalletStatus =
   | 'verified_waiting_provider';
 
 export type NomadLostWalletPrerequisite = {
-  id: 'wallet_identity' | 'time_sets' | 'cryptography' | 'attempt_policy' | 'restoration_provider';
+  id: 'wallet_identity' | 'wallet_password' | 'time_sets' | 'cryptography' | 'attempt_policy' | 'restoration_provider';
   label: string;
   status: 'pass' | 'warning' | 'fail';
   detail: string;
@@ -35,6 +36,7 @@ export type NomadLostWalletSession = {
   status: 'local_verification_session';
   createdAt: string;
   updatedAt: string;
+  passwordVerifiedAt: string;
   containsSecrets: false;
   remoteDeliveryConfirmed: false;
 };
@@ -64,7 +66,7 @@ export type NomadLostWalletState = {
   lockoutRemainingSeconds: number;
   ownerAuthorityStatus: NomadExtendedRecoveryState['ownerAuthorityStatus'];
   recoveryProviderConnected: false;
-  passwordProviderConnected: false;
+  passwordProviderConnected: boolean;
   remoteRecoveryPackageAvailable: false;
   verificationProvider: 'nomad_recovery_adapter';
   digestAlgorithm: 'SHA-256';
@@ -82,7 +84,8 @@ export type NomadLostWalletVerificationResult = {
 
 export type NomadLostWalletAdapter = {
   getLostWalletState(): Promise<NomadLostWalletState>;
-  beginRecovery(reason: NomadLostWalletReason): Promise<NomadLostWalletState>;
+  enrollRecoverySequence(password: string, times: NomadRecoveryClockTime[]): Promise<NomadLostWalletState>;
+  beginRecovery(reason: NomadLostWalletReason, password: string): Promise<NomadLostWalletState>;
   verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime): Promise<NomadLostWalletVerificationResult>;
 };
 
@@ -147,6 +150,7 @@ function lockoutRemainingSeconds(lockedUntil?: string) {
 function buildPrerequisites(
   recovery: NomadExtendedRecoveryState,
   sequence: NomadExtendedRecoverySequenceState,
+  passwordConfigured: boolean,
 ): NomadLostWalletPrerequisite[] {
   const hasWalletIdentity = recovery.walletStatus !== 'no_wallet';
   const hasAllTimeSets = recovery.enrolledTimeSets === recovery.timeSetsTotal;
@@ -162,6 +166,15 @@ function buildPrerequisites(
         ? 'A wallet identity is present on this Nomad installation.'
         : 'No wallet identity is available on this installation. A synchronized recovery package is not connected.',
       route: hasWalletIdentity ? undefined : 'Lock',
+    },
+    {
+      id: 'wallet_password',
+      label: 'Wallet password',
+      status: passwordConfigured ? 'pass' : 'fail',
+      detail: passwordConfigured
+        ? 'A salted password verifier is available. The raw password is never stored.'
+        : 'No wallet password credential is configured. Recovery cannot begin.',
+      route: passwordConfigured ? undefined : 'Lock',
     },
     {
       id: 'time_sets',
@@ -201,13 +214,14 @@ function buildPrerequisites(
 }
 
 async function buildState(): Promise<NomadLostWalletState> {
-  const [recovery, sequence, stored] = await Promise.all([
+  const [recovery, sequence, passwordConfigured, stored] = await Promise.all([
     nomadRecoveryAdapter.getExtendedRecoveryState(),
     nomadRecoveryAdapter.getExtendedRecoverySequenceState(),
+    hasWalletPassword(),
     loadStoredState(),
   ]);
 
-  const prerequisites = buildPrerequisites(recovery, sequence);
+  const prerequisites = buildPrerequisites(recovery, sequence, passwordConfigured);
   const requiredChecksPass = prerequisites
     .filter((item) => item.id !== 'restoration_provider')
     .every((item) => item.status === 'pass');
@@ -234,8 +248,8 @@ async function buildState(): Promise<NomadLostWalletState> {
     activeSession: stored.session,
     activity: stored.events,
     canBeginVerification: status === 'ready',
-    canContinueVerification: status === 'verification_in_progress' && Boolean(stored.session),
-    sessionRequired: status === 'verification_in_progress' && !stored.session,
+    canContinueVerification: status === 'verification_in_progress' && Boolean(stored.session?.passwordVerifiedAt),
+    sessionRequired: status === 'verification_in_progress' && !stored.session?.passwordVerifiedAt,
     enrolledTimeSets: recovery.enrolledTimeSets,
     totalTimeSets: recovery.timeSetsTotal,
     attemptsRemaining: sequence.attemptsRemaining,
@@ -243,7 +257,7 @@ async function buildState(): Promise<NomadLostWalletState> {
     lockoutRemainingSeconds: remainingLockSeconds,
     ownerAuthorityStatus: recovery.ownerAuthorityStatus,
     recoveryProviderConnected: false,
-    passwordProviderConnected: false,
+    passwordProviderConnected: passwordConfigured,
     remoteRecoveryPackageAvailable: false,
     verificationProvider: 'nomad_recovery_adapter',
     digestAlgorithm: 'SHA-256',
@@ -253,7 +267,7 @@ async function buildState(): Promise<NomadLostWalletState> {
   };
 }
 
-async function beginRecovery(reason: NomadLostWalletReason) {
+async function beginRecovery(reason: NomadLostWalletReason, password: string) {
   const allowed = new Set<NomadLostWalletReason>([
     'lost_device',
     'replaced_device',
@@ -262,6 +276,7 @@ async function beginRecovery(reason: NomadLostWalletReason) {
     'recovery_test',
   ]);
   if (!allowed.has(reason)) throw new Error('Choose a valid wallet-recovery reason.');
+  if (!password) throw new Error('Enter the wallet password to begin recovery.');
 
   const before = await buildState();
   if (before.status === 'verification_locked') {
@@ -277,16 +292,29 @@ async function beginRecovery(reason: NomadLostWalletReason) {
     throw new Error(failed?.detail ?? 'Recovery prerequisites are incomplete.');
   }
 
+  const passwordVerified = await verifyWalletPassword(password);
+  if (!passwordVerified) {
+    let failedState = await loadStoredState();
+    failedState = appendEvent(failedState, {
+      title: 'Recovery password rejected',
+      detail: 'Password verification failed. No Time Set verification session was opened and no password was stored.',
+      severity: 'warning',
+    });
+    await saveStoredState(failedState);
+    throw new Error('The wallet password is incorrect. Recovery was not started.');
+  }
+
   let stored = await loadStoredState();
   const timestamp = nowIso();
   const session: NomadLostWalletSession = stored.session && before.status === 'verification_in_progress'
-    ? { ...stored.session, reason, updatedAt: timestamp }
+    ? { ...stored.session, reason, updatedAt: timestamp, passwordVerifiedAt: timestamp }
     : {
         id: identifier('lost-wallet-session'),
         reason,
         status: 'local_verification_session',
         createdAt: timestamp,
         updatedAt: timestamp,
+        passwordVerifiedAt: timestamp,
         containsSecrets: false,
         remoteDeliveryConfirmed: false,
       };
@@ -299,8 +327,32 @@ async function beginRecovery(reason: NomadLostWalletReason) {
     title: before.status === 'verification_in_progress'
       ? 'Recovery verification session resumed'
       : 'Recovery verification session created',
-    detail: `${reason.replace(/_/g, ' ')} • local metadata only • no password or Time Set values stored`,
+    detail: `${reason.replace(/_/g, ' ')} • password verified locally • no password or Time Set values stored`,
     severity: 'warning',
+  });
+  await saveStoredState(stored);
+  return buildState();
+}
+
+async function enrollRecoverySequence(password: string, times: NomadRecoveryClockTime[]) {
+  if (!password) throw new Error('Enter the wallet password before enrolling Time Sets.');
+  const before = await buildState();
+  const failed = before.prerequisites.find((item) =>
+    (item.id === 'wallet_identity' || item.id === 'wallet_password' || item.id === 'cryptography')
+    && item.status === 'fail'
+  );
+  if (failed) throw new Error(failed.detail);
+
+  if (!(await verifyWalletPassword(password))) {
+    throw new Error('The wallet password is incorrect. Time Sets were not enrolled.');
+  }
+
+  await nomadRecoveryAdapter.enrollRecoverySequence(times);
+  let stored = await loadStoredState();
+  stored = appendEvent({ ...stored, session: undefined }, {
+    title: 'Recovery Time Sets enrolled',
+    detail: '24 unique HH:MM:SS values were converted to salted digests in exact order. Raw values and the password were not retained.',
+    severity: 'info',
   });
   await saveStoredState(stored);
   return buildState();
@@ -313,10 +365,10 @@ async function verifyRecoverySet(
   const before = await buildState();
   const attemptedSet = Number(setNumber);
 
-  if (!before.activeSession) {
+  if (!before.activeSession?.passwordVerifiedAt) {
     return {
       ok: false,
-      message: 'Start or resume a protected recovery session from Recover Lost Wallet before entering Time Sets.',
+      message: 'Verify the wallet password on Recover Lost Wallet before entering Time Sets.',
       state: before,
       attemptedSet,
     };
@@ -405,6 +457,7 @@ async function verifyRecoverySet(
 
 export const nomadLostWalletAdapter: NomadLostWalletAdapter = {
   getLostWalletState: buildState,
+  enrollRecoverySequence,
   beginRecovery,
   verifyRecoverySet,
 };

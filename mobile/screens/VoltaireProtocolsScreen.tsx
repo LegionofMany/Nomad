@@ -43,32 +43,32 @@ type ResourceId = 'docs' | 'developer' | 'contracts' | 'audits' | 'community';
 
 const protocolPresentation: Record<ArkriliumProtocolId, { title: string; subtitle: string; artwork: ProtocolArtworkKind }> = {
   security_layer: {
-    title: 'Voltaire Security Layer',
+    title: 'Arkrilium Security Layer',
     subtitle: 'Multi-layered wallet security and recovery protection',
     artwork: 'shield',
   },
   interoperability: {
-    title: 'Voltaire Interoperability Protocol (VIP)',
+    title: 'Arkrilium Interoperability Protocol (AIP)',
     subtitle: 'Swap, travel and cross-service routing boundaries',
     artwork: 'interoperability',
   },
   key_management: {
-    title: 'Voltaire Key Management Protocol (VKP)',
+    title: 'Arkrilium Key Management Protocol (AKP)',
     subtitle: 'Sovereign key control and recovery evidence',
     artwork: 'key',
   },
   notary_verification: {
-    title: 'Voltaire Notary Protocol (VNP)',
+    title: 'Arkrilium Verification Protocol (AVP)',
     subtitle: 'Reqrium verification and digital safety evidence',
     artwork: 'notary',
   },
   data_transmission: {
-    title: 'Voltaire Data Transmission Protocol (VDTP)',
+    title: 'Arkrilium Data Transmission Protocol (ADTP)',
     subtitle: 'Encrypted messaging and delivery-provider boundary',
     artwork: 'transmission',
   },
   governance: {
-    title: 'Voltaire Governance Protocol (VGP)',
+    title: 'Arkrilium Governance Protocol (AGP)',
     subtitle: 'Protocol proposals, voting and upgrade controls',
     artwork: 'governance',
   },
@@ -84,7 +84,7 @@ const healthArtwork: Record<string, ProtocolArtworkKind> = {
 
 const resources: Array<{ id: ResourceId; title: string; subtitle: string; artwork: ProtocolArtworkKind }> = [
   { id: 'docs', title: 'Protocol Docs', subtitle: 'Learn & Explore', artwork: 'docs' },
-  { id: 'developer', title: 'Developer Hub', subtitle: 'Build on Voltaire', artwork: 'developer' },
+  { id: 'developer', title: 'Developer Hub', subtitle: 'Build on Arkrilium', artwork: 'developer' },
   { id: 'contracts', title: 'Smart Contracts', subtitle: 'Registry & Evidence', artwork: 'contract' },
   { id: 'audits', title: 'Audit Reports', subtitle: 'Transparency', artwork: 'audit' },
   { id: 'community', title: 'Community Forum', subtitle: 'Join the Discussion', artwork: 'forum' },
@@ -104,7 +104,7 @@ const resourceDetails: Record<ResourceId, { title: string; body: string; route?:
   },
   contracts: {
     title: 'Smart Contract Registry',
-    body: 'No verified Voltaire contract registry or deployment manifest is connected. Nomad will not label contracts as audited without signed evidence.',
+    body: 'No verified Arkrilium contract registry or deployment manifest is connected. Nomad will not label contracts as audited without signed evidence.',
   },
   audits: {
     title: 'Audit Reports',
@@ -126,7 +126,7 @@ const orbitDots: Array<[number, number]> = [
 
 function VoltaireBadge({ size = 52, color = C.green }: { size?: number; color?: string }) {
   return (
-    <Svg accessibilityLabel="Voltaire Protocols badge" width={size} height={size} viewBox="0 0 56 64" fill="none">
+    <Svg accessibilityLabel="Arkrilium Protocols badge" width={size} height={size} viewBox="0 0 56 64" fill="none">
       <Defs><LinearGradient id="voltaireBadge" x1="8" y1="5" x2="48" y2="58"><Stop stopColor={color} stopOpacity={0.22} /><Stop offset="1" stopColor={color} stopOpacity={0.04} /></LinearGradient></Defs>
       <Path d="M28 3 51 15v34L28 61 5 49V15Z" fill="url(#voltaireBadge)" stroke={color} strokeWidth="2.6" />
       <Path d="M28 8 46 18v28L28 56 10 46V18Z" stroke={color} strokeOpacity={0.5} />
@@ -243,13 +243,13 @@ function ProtocolHeader({ compact, systemLabel, systemColor }: { compact: boolea
         <Pressable testID="protocols-back" accessibilityRole="button" accessibilityLabel="Back to Nomad Home" onPress={() => navigation.navigate('Portfolio')} style={({ pressed }) => [styles.backButton, compact && styles.backButtonCompact, pressed && styles.pressed]}><Text style={[styles.backText, compact && styles.backTextCompact]}>‹</Text></Pressable>
         <VoltaireBadge size={compact ? 43 : 55} />
         <View style={styles.headerCopy}>
-          <View style={styles.titleLine}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>Voltaire Protocols</Text><Text style={[styles.hubBadge, compact && styles.hubBadgeCompact]}>HUB</Text></View>
+          <View style={styles.titleLine}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>Arkrilium Protocols</Text><Text style={[styles.hubBadge, compact && styles.hubBadgeCompact]}>HUB</Text></View>
           <Text numberOfLines={2} style={[styles.headerSubtitle, compact && styles.headerSubtitleCompact]}>The protocols powering Nomad’s freedom layer.</Text>
         </View>
       </View>
       <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
         <SystemStatusPill compact={compact} label={systemLabel} color={systemColor} />
-        <Pressable testID="protocols-help" accessibilityRole="button" accessibilityLabel="Open Voltaire Protocols help" onPress={() => navigation.navigate('Settings')} style={({ pressed }) => [styles.helpButton, compact && styles.helpButtonCompact, pressed && styles.pressed]}><Text style={[styles.helpText, compact && styles.helpTextCompact]}>?</Text></Pressable>
+        <Pressable testID="protocols-help" accessibilityRole="button" accessibilityLabel="Open Arkrilium Protocols help" onPress={() => navigation.navigate('Settings')} style={({ pressed }) => [styles.helpButton, compact && styles.helpButtonCompact, pressed && styles.pressed]}><Text style={[styles.helpText, compact && styles.helpTextCompact]}>?</Text></Pressable>
       </View>
     </View>
   );
@@ -368,7 +368,7 @@ export default function VoltaireProtocolsScreen() {
   const handleCheck = async () => {
     try {
       setChecking(true);
-      setFeedback('Checking registered Voltaire service boundaries…');
+      setFeedback('Checking registered Arkrilium service boundaries…');
       const next = await runCheck();
       if (next) setFeedback(`Protocol check complete • ${next.check.available + next.check.limited}/${next.totalProtocols} layers have local functionality.`);
     } catch (nextError) {
@@ -397,7 +397,7 @@ export default function VoltaireProtocolsScreen() {
     <NomadPage maxWidth={960}>
       <ProtocolHeader compact={compact} systemLabel={systemLabel} systemColor={systemColor} />
 
-      {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable accessibilityRole="button" accessibilityLabel="Retry Voltaire Protocols" onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
+      {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable accessibilityRole="button" accessibilityLabel="Retry Arkrilium Protocols" onPress={() => void refresh()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
 
       <Panel tone={heroTone} style={styles.hero}>
         <View style={[styles.heroTop, compact && styles.heroTopCompact]}>
@@ -405,7 +405,7 @@ export default function VoltaireProtocolsScreen() {
             <Text style={[styles.eyebrow, compact && styles.eyebrowCompact, { color: heroColor }]}>PROTOCOL STATUS</Text>
             <Text style={[styles.allProtocols, compact && styles.allProtocolsCompact]}>ALL PROTOCOLS</Text>
             <View style={styles.heroStateRow}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.heroState, compact && styles.heroStateCompact, { color: heroColor }]}>{heroState}</Text><StatusMark color={heroColor} symbol={heroSymbol} size={compact ? 29 : 38} /></View>
-            <Text style={[styles.heroDescription, compact && styles.heroDescriptionCompact]}>{heroState === 'ACTIVE' ? 'Connected. Evidence-backed. Interoperable.' : heroState === 'LIMITED' ? 'Local protocol evidence is available; production providers remain incomplete.' : 'No Voltaire protocol provider is currently available.'}</Text>
+            <Text style={[styles.heroDescription, compact && styles.heroDescriptionCompact]}>{heroState === 'ACTIVE' ? 'Connected. Evidence-backed. Interoperable.' : heroState === 'LIMITED' ? 'Local protocol evidence is available; production providers remain incomplete.' : 'No Arkrilium protocol provider is currently available.'}</Text>
           </View>
           <ProtocolHeroGraphic compact={compact} color={heroColor} />
         </View>
@@ -420,14 +420,14 @@ export default function VoltaireProtocolsScreen() {
         <View style={styles.sectionHeader}><View><Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>VOLTAIRE PROTOCOLS</Text><Text style={styles.sectionSubtitle}>Tap a protocol to inspect provider evidence</Text></View><Text style={styles.evidencePill}>● LOCAL EVIDENCE</Text></View>
         <View style={styles.protocolList}>{protocols.protocols.length ? protocols.protocols.map((item, index) => <ProtocolRow key={item.id} item={item} compact={compact} expanded={expandedProtocol === item.id} last={index === protocols.protocols.length - 1} onToggle={() => setExpandedProtocol((current) => current === item.id ? null : item.id)} />) : <Text style={styles.emptyText}>No protocol evidence is available.</Text>}</View>
         <Pressable testID="protocols-architecture" accessibilityRole="button" accessibilityLabel="View Protocol Architecture" onPress={() => setShowArchitecture((current) => !current)} style={({ pressed }) => [styles.architectureButton, pressed && styles.pressed]}><ProtocolArtwork kind="architecture" color={C.green} size={25} /><Text style={styles.architectureButtonText}>View Protocol Architecture</Text><Text style={styles.chevron}>{showArchitecture ? '⌃' : '›'}</Text></Pressable>
-        {showArchitecture ? <View style={styles.architecturePanel}><Text style={styles.architectureTitle}>NOMAD SERVICE ARCHITECTURE</Text><View style={[styles.architectureFlow, compact && styles.architectureFlowCompact]}><View style={styles.architectureNode}><Text style={styles.architectureNodeTitle}>Nomad UI</Text><Text style={styles.architectureNodeText}>Owner actions and evidence review</Text></View><Text style={styles.architectureArrow}>›</Text><View style={styles.architectureNode}><Text style={styles.architectureNodeTitle}>Voltaire Adapters</Text><Text style={styles.architectureNodeText}>Wallet, security, recovery and travel</Text></View><Text style={styles.architectureArrow}>›</Text><View style={[styles.architectureNode, styles.architectureNodeUnavailable]}><Text style={styles.architectureNodeTitle}>Production Providers</Text><Text style={styles.architectureNodeText}>Telemetry, nodes, messaging and governance not connected</Text></View></View></View> : null}
+        {showArchitecture ? <View style={styles.architecturePanel}><Text style={styles.architectureTitle}>NOMAD SERVICE ARCHITECTURE</Text><View style={[styles.architectureFlow, compact && styles.architectureFlowCompact]}><View style={styles.architectureNode}><Text style={styles.architectureNodeTitle}>Nomad UI</Text><Text style={styles.architectureNodeText}>Owner actions and evidence review</Text></View><Text style={styles.architectureArrow}>›</Text><View style={styles.architectureNode}><Text style={styles.architectureNodeTitle}>Arkrilium Adapters</Text><Text style={styles.architectureNodeText}>Wallet, security, recovery and travel</Text></View><Text style={styles.architectureArrow}>›</Text><View style={[styles.architectureNode, styles.architectureNodeUnavailable]}><Text style={styles.architectureNodeTitle}>Production Providers</Text><Text style={styles.architectureNodeText}>Telemetry, nodes, messaging and governance not connected</Text></View></View></View> : null}
       </Panel>
 
       <Panel style={[styles.sectionPanel, compact && styles.sectionPanelCompact]}>
-        <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>NETWORK HEALTH</Text><Pressable testID="protocols-run-check" accessibilityRole="button" accessibilityLabel="Run Voltaire Protocol Check" disabled={checking || loading} onPress={() => void handleCheck()} style={({ pressed }) => [styles.checkButton, (checking || loading) && styles.disabled, pressed && styles.pressed]}><Text style={styles.checkButtonText}>{checking ? 'Checking…' : 'Run Check'}</Text></Pressable></View>
+        <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}>NETWORK HEALTH</Text><Pressable testID="protocols-run-check" accessibilityRole="button" accessibilityLabel="Run Arkrilium Protocol Check" disabled={checking || loading} onPress={() => void handleCheck()} style={({ pressed }) => [styles.checkButton, (checking || loading) && styles.disabled, pressed && styles.pressed]}><Text style={styles.checkButtonText}>{checking ? 'Checking…' : 'Run Check'}</Text></Pressable></View>
         <Text style={styles.snapshot}>Local snapshot • {formatCheckedAt(protocols.checkedAt)}</Text>
         <View style={styles.healthGrid}>{protocols.health.map((item) => <HealthCard key={item.label} item={item} compact={compact} />)}</View>
-        <View style={[styles.healthMessage, { borderColor: `${heroColor}66` }]}><View style={styles.healthMessageIcon}><ProtocolArtwork kind="shield" color={heroColor} size={compact ? 30 : 38} /></View><View style={styles.healthMessageCopy}><Text style={[styles.healthMessageTitle, { color: heroColor }]}>{protocols.message.replace(/Arkrilium/gi, 'Voltaire')}</Text><Text style={styles.healthMessageText}>Local adapter status does not prove chain uptime, node availability, transaction finality or external delivery.</Text></View><Pressable testID="protocols-learn-more" accessibilityRole="button" accessibilityLabel="Learn more about Voltaire protocol architecture" onPress={() => setShowArchitecture(true)} style={({ pressed }) => pressed && styles.pressed}><Text style={styles.learnMore}>Learn More  ›</Text></Pressable></View>
+        <View style={[styles.healthMessage, { borderColor: `${heroColor}66` }]}><View style={styles.healthMessageIcon}><ProtocolArtwork kind="shield" color={heroColor} size={compact ? 30 : 38} /></View><View style={styles.healthMessageCopy}><Text style={[styles.healthMessageTitle, { color: heroColor }]}>{protocols.message}</Text><Text style={styles.healthMessageText}>Local adapter status does not prove chain uptime, node availability, transaction finality or external delivery.</Text></View><Pressable testID="protocols-learn-more" accessibilityRole="button" accessibilityLabel="Learn more about Arkrilium protocol architecture" onPress={() => setShowArchitecture(true)} style={({ pressed }) => pressed && styles.pressed}><Text style={styles.learnMore}>Learn More  ›</Text></Pressable></View>
         {feedback ? <Text accessibilityLiveRegion="polite" style={[styles.feedback, /unable|error|failed/i.test(feedback) && { color: C.red }]}>{feedback}</Text> : null}
       </Panel>
 

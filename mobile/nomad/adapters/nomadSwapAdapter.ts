@@ -263,7 +263,7 @@ async function createDraft(quote: NomadSwapQuote): Promise<NomadSignedTransactio
     amount: quote.fromAmount,
     networkFee: quote.networkFee,
     chainId: networkByAsset[quote.toAsset]?.toLowerCase().replace(/\s+/g, '-') ?? `voltaire-${quote.toAsset.toLowerCase()}`,
-    memo: `Voltaire local swap ${quote.quoteId ?? 'unquoted'} • Receive ${quote.toAmount} ${quote.toAsset} • Minimum ${formatAssetAmount(minimumReceived, quote.toAsset)} ${quote.toAsset} • Slippage ${quote.slippageTolerance}`,
+    memo: `Arkrilium local swap ${quote.quoteId ?? 'unquoted'} • Receive ${quote.toAmount} ${quote.toAsset} • Minimum ${formatAssetAmount(minimumReceived, quote.toAsset)} ${quote.toAsset} • Slippage ${quote.slippageTolerance}`,
     intent: 'swap',
     requiresUserApproval: true,
     createdBy: 'nomad_overlay',

@@ -40,6 +40,7 @@ function statusInfo(status: NomadClockAccessStatus) {
     case 'window_open': return { color: C.green, title: 'Access Window is Open', tone: 'green' as const };
     case 'waiting': return { color: C.green, title: 'Wallet is Time Locked', tone: 'green' as const };
     case 'not_configured': return { color: C.purple, title: 'Time Set Required', tone: 'yellow' as const };
+    case 'password_setup_required': return { color: C.yellow, title: 'Password Setup Required', tone: 'yellow' as const };
     case 'recovery_required': return { color: C.red, title: 'Recovery is Required', tone: 'red' as const };
     case 'no_wallet': return { color: C.yellow, title: 'Wallet Setup Required', tone: 'yellow' as const };
   }
@@ -180,9 +181,9 @@ export default function TimeClockAccessScreen() {
         : 'TIME CLOCK STATUS';
 
   const clockIntro = clock.status === 'waiting'
-    ? 'Your wallet is protected by the owner-configured Nomad Time Set. The configured time must still be verified when the daily access window opens.'
+    ? 'Your wallet is protected by its password and owner-configured Nomad Time Key. Both must be verified when the daily access window opens.'
     : clock.status === 'window_open'
-      ? `The ${clock.windowMinutes}-minute local access window is open. Verify the configured Time Set to unlock the wallet.`
+      ? `The ${clock.windowMinutes}-minute local access window is open. Verify the password and full HH:MM:SS Time Key to unlock the wallet.`
       : clock.status === 'unlocked'
         ? 'The wallet service reports an active unlocked session on this device.'
         : clock.status === 'recovery_required'
@@ -209,6 +210,7 @@ export default function TimeClockAccessScreen() {
     if (clock.status === 'unlocked') return navigation.navigate('Portfolio');
     if (clock.status === 'window_open') return navigation.navigate('ClockUnlock');
     if (clock.status === 'not_configured') return navigation.navigate('RecoveryCenter');
+    if (clock.status === 'password_setup_required') return navigation.navigate('ClockUnlock');
     void handleEarlyAccess();
   };
 
@@ -220,6 +222,8 @@ export default function TimeClockAccessScreen() {
         ? 'Request Early Access'
         : clock.status === 'recovery_required'
           ? 'Open Recovery Center'
+          : clock.status === 'password_setup_required'
+            ? 'Review Password Setup'
           : clock.status === 'no_wallet'
             ? 'Create or Recover Wallet'
             : 'Review Recovery Setup';
@@ -302,7 +306,7 @@ export default function TimeClockAccessScreen() {
               {clock.status === 'waiting'
                 ? 'Request early access through your Owner Authority. Nomad records the request locally; remote delivery is not yet connected.'
                 : clock.status === 'window_open'
-                  ? 'Continue to verify the exact owner-configured daily Time Set.'
+                  ? 'Continue to verify the wallet password and exact owner-configured HH:MM:SS Time Key.'
                   : clock.status === 'unlocked'
                     ? 'The current wallet session is already open.'
                     : 'Use the protected setup or recovery route required by the current wallet state.'}

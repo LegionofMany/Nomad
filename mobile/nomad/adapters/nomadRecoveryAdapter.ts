@@ -202,7 +202,7 @@ function encodeAscii(value: string) {
 function normalizeTime(time: NomadRecoveryClockTime) {
   const hour = Number(time.hour);
   const minute = Number(time.minute);
-  const second = Number(time.second ?? 0);
+  const second = Number(time.second);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) throw new Error('Recovery hour must be between 00 and 23.');
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) throw new Error('Recovery minute must be between 00 and 59.');
   if (!Number.isInteger(second) || second < 0 || second > 59) throw new Error('Recovery second must be between 00 and 59.');
@@ -258,7 +258,7 @@ function timeRemaining(unlockTime: NomadRecoveryClockTime | null) {
   if (!unlockTime) return 'Clock not configured';
   const now = new Date();
   const next = new Date(now);
-  next.setHours(unlockTime.hour, unlockTime.minute, unlockTime.second ?? 0, 0);
+  next.setHours(unlockTime.hour, unlockTime.minute, unlockTime.second, 0);
   if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
   const seconds = Math.max(0, Math.floor((next.getTime() - now.getTime()) / 1000));
   const hours = Math.floor(seconds / 3600);
@@ -372,7 +372,7 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
       subtitle: 'Salted time-sequence verification',
       status: sequenceReady ? 'ready' : enrolledTimeSets > 0 ? 'warning' : 'not_configured',
       detail: sequenceReady ? 'All 24 Time Set digests are enrolled.' : `${enrolledTimeSets}/${TIME_SET_TOTAL} Time Sets are enrolled.`,
-      route: sequenceReady ? 'VerifyRecoverySequence' : 'RecoverLostWallet',
+      route: 'RecoverLostWallet',
     },
     {
       id: 'daily_clock',
@@ -408,7 +408,7 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
 
   return {
     walletStatus,
-    dailyUnlockTime: dailyUnlockTime ? { ...dailyUnlockTime, second: 0 } : null,
+    dailyUnlockTime: dailyUnlockTime ? { ...dailyUnlockTime } : null,
     recoveryStatus,
     recoverySetupDate: formatDate(setupAt),
     verificationStatus: sequenceReady ? '24 Time Sets enrolled' : `${enrolledTimeSets}/${TIME_SET_TOTAL} Time Sets enrolled`,
@@ -421,7 +421,7 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
     nextRecommendedCheck: nextCheckDate(stored.nextCheckAt),
     timeRemainingLabel: timeRemaining(dailyUnlockTime),
     cycleLabel: dailyUnlockTime
-      ? `${String(dailyUnlockTime.hour).padStart(2, '0')}:${String(dailyUnlockTime.minute).padStart(2, '0')} Daily Time`
+      ? `${String(dailyUnlockTime.hour).padStart(2, '0')}:${String(dailyUnlockTime.minute).padStart(2, '0')}:${String(dailyUnlockTime.second).padStart(2, '0')} Daily Time`
       : 'Daily Time not configured',
     cycleStartedLabel: formatDate(setupAt, 'Awaiting recovery setup'),
     purpose: walletStatus === 'recovery' ? 'Recovery Required' : 'Wallet Access',

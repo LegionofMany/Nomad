@@ -23,7 +23,7 @@ function angleToTime(angle: number): ClockTime {
     Math.round((normalized / 360) * 720 / SNAP_MINUTES) * SNAP_MINUTES;
   const hour = Math.floor(totalMinutes / 60) % 12 || 12;
   const minute = totalMinutes % 60;
-  return { hour, minute };
+  return { hour, minute, second: 0 };
 }
 
 export const ClockDial: React.FC<{

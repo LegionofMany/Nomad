@@ -4,7 +4,7 @@
  * 24-position time-based recovery system.
  *
  * Overview:
- * - Accepts an array of 24 user-defined time positions (hour/minute).
+ * - Accepts an array of 24 user-defined time positions (hour/minute/second).
  * - Each position deterministically produces a recovery token derived with
  *   HMAC-SHA256 using a `masterSecret` (caller-managed secret) as key.
  * - Tokens MUST be hashed (SHA-256) before storage; only hashed tokens are
@@ -29,6 +29,7 @@ import { createHmac, createHash } from "crypto";
 export interface TimePosition {
   hour: number; // 0-23
   minute: number; // 0-59
+  second: number; // 0-59
   label?: string; // optional user label
 }
 
@@ -53,11 +54,11 @@ export function validatePositions(positions: TimePosition[]): void {
   }
   for (let i = 0; i < 24; i++) {
     const p = positions[i];
-    if (!p || typeof p.hour !== "number" || typeof p.minute !== "number") {
+    if (!p || typeof p.hour !== "number" || typeof p.minute !== "number" || typeof p.second !== "number") {
       throw new Error(`position ${i} is invalid`);
     }
-    if (p.hour < 0 || p.hour > 23 || p.minute < 0 || p.minute > 59) {
-      throw new Error(`position ${i} has out-of-range hour/minute`);
+    if (p.hour < 0 || p.hour > 23 || p.minute < 0 || p.minute > 59 || p.second < 0 || p.second > 59) {
+      throw new Error(`position ${i} has out-of-range hour/minute/second`);
     }
   }
 }
@@ -71,11 +72,11 @@ export function validatePositions(positions: TimePosition[]): void {
 export function deriveRecoveryToken(masterSecret: string, positionIndex: number, pos: TimePosition, date = new Date(), localSalt?: string): string {
   if (!masterSecret || typeof masterSecret !== "string") throw new Error("masterSecret must be a non-empty string");
   if (positionIndex < 0 || positionIndex > 23) throw new Error("positionIndex must be 0-23");
-  if (pos.hour < 0 || pos.hour > 23 || pos.minute < 0 || pos.minute > 59) throw new Error("invalid TimePosition");
+  if (pos.hour < 0 || pos.hour > 23 || pos.minute < 0 || pos.minute > 59 || pos.second < 0 || pos.second > 59) throw new Error("invalid TimePosition");
 
   // Use local date to keep recovery slot stable per user's day
   const d = dateToYMDLocal(date);
-  const time = `${pad2(pos.hour)}:${pad2(pos.minute)}`;
+  const time = `${pad2(pos.hour)}:${pad2(pos.minute)}:${pad2(pos.second)}`;
   const payload = `${d}|${positionIndex}|${time}${localSalt ? `|${localSalt}` : ""}`;
 
   // HMAC-SHA256(masterSecret, payload) -> hex token
@@ -148,4 +149,3 @@ export function verifyByDerivation(masterSecret: string, positions: TimePosition
 export default {
   TimePosition: undefined,
 };
-

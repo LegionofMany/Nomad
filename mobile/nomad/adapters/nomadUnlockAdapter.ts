@@ -1,6 +1,7 @@
 import { LockoutManager } from '../../../src/security/lockout';
 import type { LockoutState } from '../../../src/security/lockout';
 import { secureGetItem } from '../../services/nativeStubs';
+import { hasWalletPassword } from '../../services/walletService';
 import type { ClockTime } from '../../types';
 
 import {
@@ -12,6 +13,7 @@ import {
 export type NomadUnlockVerificationStatus =
   | 'no_wallet'
   | 'not_configured'
+  | 'password_setup_required'
   | 'waiting'
   | 'ready'
   | 'temporarily_locked'
@@ -21,6 +23,7 @@ export type NomadUnlockVerificationStatus =
 export type NomadUnlockState = {
   status: NomadUnlockVerificationStatus;
   clock: NomadClockAccessState;
+  passwordConfigured: boolean;
   recentFailures: number;
   remainingLockSeconds: number;
   attemptsRemaining: number;
@@ -39,7 +42,7 @@ export type NomadUnlockAttempt = {
 
 export type NomadUnlockAdapter = {
   getUnlockState(): Promise<NomadUnlockState>;
-  verifyUnlock(time: ClockTime): Promise<NomadUnlockAttempt>;
+  verifyUnlock(time: ClockTime, password: string): Promise<NomadUnlockAttempt>;
 };
 
 type StoredLockoutState = {
@@ -83,10 +86,12 @@ async function getLockoutDiagnostics() {
 
 function statusFrom(
   clock: NomadClockAccessState,
+  passwordConfigured: boolean,
   diagnostics: Awaited<ReturnType<typeof getLockoutDiagnostics>>,
 ): NomadUnlockVerificationStatus {
   if (clock.status === 'no_wallet') return 'no_wallet';
   if (clock.status === 'recovery_required' || diagnostics.permanentlyLocked) return 'recovery_required';
+  if (!passwordConfigured || clock.status === 'password_setup_required') return 'password_setup_required';
   if (clock.status === 'not_configured') return 'not_configured';
   if (clock.status === 'unlocked') return 'unlocked';
   if (diagnostics.remainingLockSeconds > 0) return 'temporarily_locked';
@@ -95,11 +100,12 @@ function statusFrom(
 }
 
 async function buildState(): Promise<NomadUnlockState> {
-  const [clock, diagnostics] = await Promise.all([
+  const [clock, diagnostics, passwordConfigured] = await Promise.all([
     nomadClockAccessAdapter.getClockAccessState(),
     getLockoutDiagnostics(),
+    hasWalletPassword(),
   ]);
-  const status = statusFrom(clock, diagnostics);
+  const status = statusFrom(clock, passwordConfigured, diagnostics);
   const attemptsRemaining = diagnostics.permanentlyLocked
     ? 0
     : Math.max(0, MAXIMUM_FAILURES - diagnostics.recentFailures);
@@ -107,6 +113,7 @@ async function buildState(): Promise<NomadUnlockState> {
   return {
     status,
     clock,
+    passwordConfigured,
     recentFailures: diagnostics.recentFailures,
     remainingLockSeconds: Number.isFinite(diagnostics.remainingLockSeconds)
       ? Math.max(0, diagnostics.remainingLockSeconds)
@@ -121,7 +128,7 @@ async function buildState(): Promise<NomadUnlockState> {
   };
 }
 
-async function verifyUnlock(time: ClockTime): Promise<NomadUnlockAttempt> {
+async function verifyUnlock(time: ClockTime, password: string): Promise<NomadUnlockAttempt> {
   const before = await buildState();
 
   if (before.status === 'temporarily_locked') {
@@ -161,6 +168,13 @@ async function verifyUnlock(time: ClockTime): Promise<NomadUnlockAttempt> {
     };
   }
 
+  if (before.status === 'password_setup_required') {
+    return {
+      result: { ok: false, reason: 'password_not_configured' },
+      state: before,
+    };
+  }
+
   if (before.status === 'no_wallet') {
     return {
       result: { ok: false, reason: 'no_wallet' },
@@ -172,7 +186,7 @@ async function verifyUnlock(time: ClockTime): Promise<NomadUnlockAttempt> {
     return { result: { ok: true }, state: before };
   }
 
-  const result = await nomadClockAccessAdapter.verifyAccess(time);
+  const result = await nomadClockAccessAdapter.verifyAccess(time, password);
   return { result, state: await buildState() };
 }
 

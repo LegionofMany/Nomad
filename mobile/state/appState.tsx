@@ -20,7 +20,7 @@ export type AppState = {
   walletMeta: { evmAddress: string; createdAt: string } | null;
 
   unlockTime: ClockTime | null;
-  setUnlockTime: (t: ClockTime) => Promise<void>;
+  setUnlockTime: (t: ClockTime, password: string) => Promise<void>;
 
   portfolio: Portfolio | null;
 
@@ -31,9 +31,9 @@ export type AppState = {
   enableTravelMode: (regionInput: string) => Promise<{ preferredStablecoin: string }>;
   disableTravelMode: () => Promise<void>;
 
-  createWallet: () => Promise<{ mnemonic: string; evmAddress: string }>;
-  restoreWallet: (mnemonic: string) => Promise<{ evmAddress: string }>;
-  unlockWithClock: (time: ClockTime) => Promise<NomadClockAccessResult>;
+  createWallet: (password: string, initialUnlockTime: ClockTime) => Promise<{ mnemonic: string; evmAddress: string }>;
+  restoreWallet: (mnemonic: string, password: string, initialUnlockTime: ClockTime) => Promise<{ evmAddress: string }>;
+  unlockWithClock: (time: ClockTime, password: string) => Promise<NomadClockAccessResult>;
   lockWallet: () => Promise<void>;
   refresh: () => Promise<void>;
 
@@ -113,8 +113,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       walletMeta,
 
       unlockTime,
-      setUnlockTime: async (t) => {
-        await nomadClockAccessAdapter.configureDailyAccessTime(t);
+      setUnlockTime: async (t, password) => {
+        await nomadClockAccessAdapter.configureDailyAccessTime(t, password);
         await refresh();
       },
 
@@ -134,18 +134,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         await refresh();
       },
 
-      createWallet: async () => {
-        const res = await walletService.createWallet();
+      createWallet: async (password, initialUnlockTime) => {
+        const res = await walletService.createWallet(password, initialUnlockTime);
         await refresh();
         return res;
       },
-      restoreWallet: async (mnemonic) => {
-        const res = await walletService.restoreWallet(mnemonic);
+      restoreWallet: async (mnemonic, password, initialUnlockTime) => {
+        const res = await walletService.restoreWallet(mnemonic, password, initialUnlockTime);
         await refresh();
         return res;
       },
-      unlockWithClock: async (time) => {
-        const res = await nomadClockAccessAdapter.verifyAccess(time);
+      unlockWithClock: async (time, password) => {
+        const res = await nomadClockAccessAdapter.verifyAccess(time, password);
         await refresh();
         return res;
       },

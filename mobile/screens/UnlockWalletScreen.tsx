@@ -44,6 +44,7 @@ function statusInfo(status: NomadUnlockVerificationStatus) {
     case 'waiting': return { color: C.green, title: 'Waiting for Access Window', timer: null, tone: 'green' as const };
     case 'recovery_required': return { color: C.red, title: 'Recovery Required', timer: 'LOCKED', tone: 'red' as const };
     case 'not_configured': return { color: C.purple, title: 'Time Set Required', timer: 'SETUP', tone: 'yellow' as const };
+    case 'password_setup_required': return { color: C.yellow, title: 'Password Setup Required', timer: 'LOCKED', tone: 'yellow' as const };
     case 'no_wallet': return { color: C.yellow, title: 'Wallet Setup Required', timer: 'SETUP', tone: 'yellow' as const };
   }
 }
@@ -207,17 +208,22 @@ export default function UnlockWalletScreen() {
   const { unlock, loading, error, refresh, verify } = useNomadUnlock();
   const [hour, setHour] = useState('');
   const [minute, setMinute] = useState('');
+  const [second, setSecond] = useState('');
+  const [password, setPassword] = useState('');
   const [feedback, setFeedback] = useState('');
   const [attempted, setAttempted] = useState(false);
 
   const status = statusInfo(unlock.status);
   const validTime = TIME_VALUE_PATTERN.test(hour)
     && TIME_VALUE_PATTERN.test(minute)
+    && TIME_VALUE_PATTERN.test(second)
     && Number(hour) >= 0
     && Number(hour) <= 23
     && Number(minute) >= 0
-    && Number(minute) <= 59;
-  const inputComplete = hour.length > 0 && minute.length > 0 && validTime;
+    && Number(minute) <= 59
+    && Number(second) >= 0
+    && Number(second) <= 59;
+  const inputComplete = hour.length > 0 && minute.length > 0 && second.length > 0 && password.length > 0 && validTime;
   const isUnlocked = unlock.status === 'unlocked';
   const canSubmit = unlock.canVerify && inputComplete && !loading && !isUnlocked;
 
@@ -249,18 +255,24 @@ export default function UnlockWalletScreen() {
   const clearEntry = () => {
     setHour('');
     setMinute('');
+    setSecond('');
+    setPassword('');
   };
 
   const handleVerify = async () => {
     if (!validTime) {
-      setFeedback('Enter a valid 24-hour time between 00:00 and 23:59.');
+      setFeedback('Enter a valid 24-hour HH:MM:SS Time Key.');
+      return;
+    }
+    if (!password) {
+      setFeedback('Enter the wallet password.');
       return;
     }
 
     try {
       setAttempted(true);
-      setFeedback('Verifying the daily access window and owner-controlled Time Set…');
-      const attempt = await verify({ hour: Number(hour), minute: Number(minute) });
+      setFeedback('Verifying the wallet password, daily access window and full Time Key…');
+      const attempt = await verify({ hour: Number(hour), minute: Number(minute), second: Number(second) }, password);
       const result = attempt.result;
 
       if (result.ok && attempt.state.status === 'unlocked') {
@@ -287,7 +299,13 @@ export default function UnlockWalletScreen() {
             : `Attempts are temporarily paused for ${result.remainingLockSeconds ?? attempt.state.remainingLockSeconds} seconds.`);
           break;
         case 'bad_time':
-          setFeedback(`The entered Time Set did not match. ${attempt.state.attemptsRemaining} attempt${attempt.state.attemptsRemaining === 1 ? '' : 's'} remain before recovery is required.`);
+          setFeedback(`The entered HH:MM:SS Time Key did not match. ${attempt.state.attemptsRemaining} attempt${attempt.state.attemptsRemaining === 1 ? '' : 's'} remain before recovery is required.`);
+          break;
+        case 'bad_password':
+          setFeedback(`The wallet password is incorrect. ${attempt.state.attemptsRemaining} attempt${attempt.state.attemptsRemaining === 1 ? '' : 's'} remain before recovery is required.`);
+          break;
+        case 'password_not_configured':
+          setFeedback('This legacy preview wallet has no password credential. Reset it and create a password-protected wallet.');
           break;
         case 'decrypt_failed':
           setFeedback(`Wallet verification failed. ${attempt.state.attemptsRemaining} attempt${attempt.state.attemptsRemaining === 1 ? '' : 's'} remain before recovery is required.`);
@@ -309,7 +327,7 @@ export default function UnlockWalletScreen() {
     ? 'Portfolio'
     : unlock.status === 'no_wallet'
       ? 'Lock'
-      : unlock.status === 'recovery_required' || unlock.status === 'not_configured'
+      : unlock.status === 'recovery_required' || unlock.status === 'not_configured' || unlock.status === 'password_setup_required'
         ? 'RecoveryCenter'
         : 'TimeClockAccess';
 
@@ -319,6 +337,8 @@ export default function UnlockWalletScreen() {
       ? 'Wallet Setup'
       : unlock.status === 'recovery_required'
         ? 'Start Recovery'
+        : unlock.status === 'password_setup_required'
+          ? 'Reset Legacy Wallet'
         : unlock.status === 'not_configured'
           ? 'Review Setup'
           : 'View Time Clock';
@@ -338,7 +358,7 @@ export default function UnlockWalletScreen() {
   const mainSubtitle = isUnlocked
     ? 'Access granted. The wallet service confirmed this local session.'
     : unlock.status === 'ready'
-      ? 'Enter the exact owner-configured time to begin wallet verification.'
+      ? 'Enter the wallet password and exact owner-configured HH:MM:SS Time Key.'
       : unlock.status === 'waiting'
         ? 'Verification remains disabled until the daily access window opens.'
         : unlock.status === 'temporarily_locked'
@@ -405,24 +425,40 @@ export default function UnlockWalletScreen() {
         <Panel tone="green" style={styles.verificationPanel}>
           <View style={styles.verificationHeading}>
             <View style={styles.verificationCopy}>
-              <Text style={styles.verificationEyebrow}>OWNER TIME SET</Text>
-              <Text style={styles.verificationTitle}>Enter 24-hour verification time</Text>
-              <Text style={styles.verificationSub}>Checked only by the local wallet service. The configured value is never displayed or prefilled.</Text>
+              <Text style={styles.verificationEyebrow}>PASSWORD + TIME KEY</Text>
+              <Text style={styles.verificationTitle}>Enter protected wallet credentials</Text>
+              <Text style={styles.verificationSub}>Both values are checked locally. The password and configured HH:MM:SS key are never displayed or stored in raw form.</Text>
             </View>
             <View style={[styles.attemptPill, { borderColor: unlock.attemptsRemaining <= 2 ? C.red : C.green }]}>
               <Text style={[styles.attemptValue, { color: unlock.attemptsRemaining <= 2 ? C.red : C.green }]}>{unlock.attemptsRemaining}</Text>
               <Text style={styles.attemptLabel}>ATTEMPTS LEFT</Text>
             </View>
           </View>
+          <TextInput
+            testID="unlock-password"
+            accessibilityLabel="Wallet password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            editable={!loading}
+            secureTextEntry
+            onChangeText={setPassword}
+            placeholder="Wallet password"
+            placeholderTextColor="#61728a"
+            style={styles.passwordInput}
+            value={password}
+          />
           <View style={styles.timeEntryRow}>
             <TimeField label="HOUR" value={hour} max={23} disabled={loading} onChange={setHour} />
             <Text style={styles.colon}>:</Text>
             <TimeField label="MINUTE" value={minute} max={59} disabled={loading} onChange={setMinute} />
+            <Text style={styles.colon}>:</Text>
+            <TimeField label="SECOND" value={second} max={59} disabled={loading} onChange={setSecond} />
           </View>
           <Pressable
             testID="unlock-verify"
             accessibilityRole="button"
-            accessibilityLabel="Verify Time Set and unlock wallet"
+            accessibilityLabel="Verify wallet password and Time Key"
             disabled={!canSubmit}
             onPress={() => void handleVerify()}
             style={({ pressed }) => [styles.verifyButton, { backgroundColor: canSubmit ? C.green : '#183047' }, pressed && canSubmit && styles.pressed]}
@@ -444,7 +480,7 @@ export default function UnlockWalletScreen() {
         <View style={styles.progressHeading}><Text style={styles.progressTitle}>VERIFICATION PROGRESS</Text><Text style={[styles.progressValue, { color: status.color }]}>{progress}%</Text></View>
         <View style={[styles.progressRail, { backgroundColor: `${status.color}70` }]} />
         <View style={styles.steps}>
-          {['Window Open', 'Time Entered', 'Wallet Verified', 'Access Granted'].map((label, index) => {
+          {['Window Open', 'Credentials Entered', 'Wallet Verified', 'Access Granted'].map((label, index) => {
             const done = completedSteps[index];
             return (
               <View key={label} style={styles.step}>
@@ -486,7 +522,7 @@ export default function UnlockWalletScreen() {
 
       <Panel tone="green" style={styles.footerPanel}>
         <RoundIcon symbol="◇" color={C.green} size={46} />
-        <View style={styles.footerCopy}><Text style={styles.footerTitle}>Your wallet is protected by Nomad Time Sets.</Text><Text style={styles.footerText}>You’re in control. Your time. Your freedom. Nomad never displays the configured value or bypasses wallet-service confirmation.</Text></View>
+        <View style={styles.footerCopy}><Text style={styles.footerTitle}>Your wallet is protected by password + Nomad Time Sets.</Text><Text style={styles.footerText}>Nomad never stores the raw password or raw Time Key and never bypasses wallet-service confirmation.</Text></View>
         <Pressable testID="unlock-learn-more" accessibilityRole="button" accessibilityLabel="Learn more about Nomad Time Sets" onPress={() => navigation.navigate('RecoveryCenter')} style={({ pressed }) => [styles.learnButton, pressed && styles.pressed]}><Text style={styles.learnText}>Learn More</Text><Text style={styles.chevron}>›</Text></Pressable>
       </Panel>
 
@@ -539,11 +575,12 @@ const styles = StyleSheet.create({
   attemptValue: { fontSize: 18, fontWeight: '900' },
   attemptLabel: { color: C.muted, fontSize: 6, marginTop: 2 },
   timeEntryRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 18 },
+  passwordInput: { minHeight: 52, marginTop: 17, borderWidth: 1, borderColor: C.green, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', paddingHorizontal: 14, fontSize: 13, outlineStyle: 'none' } as any,
   timeField: { flex: 1 },
   timeLabel: { color: C.muted, fontSize: 8, textAlign: 'center', marginBottom: 6 },
   timeInput: { minHeight: 72, borderWidth: 1, borderColor: C.green, borderRadius: 11, backgroundColor: C.panel2, color: '#fff', fontSize: 31, fontWeight: '900', textAlign: 'center', outlineStyle: 'none' } as any,
   timeInputDisabled: { borderColor: C.border, color: C.muted, opacity: 0.65 },
-  colon: { color: '#fff', fontSize: 34, marginHorizontal: 13, marginBottom: 14 },
+  colon: { color: '#fff', fontSize: 30, marginHorizontal: 7, marginBottom: 14 },
   verifyButton: { minHeight: 57, marginTop: 16, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   verifyButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   feedback: { color: C.muted, fontSize: 9, lineHeight: 15, textAlign: 'center', marginTop: 12 },

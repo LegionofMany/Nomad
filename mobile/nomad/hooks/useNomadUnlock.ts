@@ -12,6 +12,7 @@ const fallbackState: NomadUnlockState = {
   clock: {
     status: 'not_configured',
     walletStatus: 'no_wallet',
+    passwordConfigured: false,
     configuredTime: null,
     configuredTimeLabel: 'Protected',
     currentTimeLabel: '--:--:--',
@@ -27,6 +28,7 @@ const fallbackState: NomadUnlockState = {
     persistence: 'in_memory_stub',
     events: [],
   },
+  passwordConfigured: false,
   recentFailures: 0,
   remainingLockSeconds: 0,
   attemptsRemaining: 8,
@@ -65,11 +67,11 @@ export function useNomadUnlock() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const verify = useCallback(async (time: ClockTime): Promise<NomadUnlockAttempt> => {
+  const verify = useCallback(async (time: ClockTime, password: string): Promise<NomadUnlockAttempt> => {
     setLoading(true);
     setError(null);
     try {
-      const attempt = await nomadUnlockAdapter.verifyUnlock(time);
+      const attempt = await nomadUnlockAdapter.verifyUnlock(time, password);
       setUnlock(attempt.state);
       return attempt;
     } catch (nextError) {
