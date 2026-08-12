@@ -442,6 +442,7 @@ async function buildState(): Promise<NomadExtendedWatchState> {
     : authority.status === 'approved'
       ? 'Approval flag unverified'
       : 'No active request';
+  const hasWallet = walletStatus !== 'no_wallet';
 
   return {
     connected: false,
@@ -450,13 +451,13 @@ async function buildState(): Promise<NomadExtendedWatchState> {
     batteryPercent: 0,
     lastSyncedLabel: 'Never',
     securityStatus,
-    travelRegion: travel.regionInput || 'Global',
-    travelSubregion: 'Destination detail unavailable',
-    travelModeLabel: travel.enabled ? 'Active on phone' : 'Inactive on phone',
-    timeSetLabel: formatClock(recovery.dailyUnlockTime),
-    travelPocketBalance: travel.pocketBalanceLocal || travel.pocketBalanceFiat || 'Unavailable',
-    todaySpending: travel.spentTodayLocal || 'Unavailable',
-    dailyLimit: travel.dailyLimitLocal || 'Unavailable',
+    travelRegion: hasWallet ? travel.regionInput || 'Global' : 'Not configured',
+    travelSubregion: hasWallet ? 'Phone-side destination' : 'Wallet required',
+    travelModeLabel: hasWallet ? travel.enabled ? 'Active on phone' : 'Inactive on phone' : 'Not configured',
+    timeSetLabel: hasWallet ? formatClock(recovery.dailyUnlockTime) : 'Not configured',
+    travelPocketBalance: hasWallet ? travel.pocketBalanceLocal || travel.pocketBalanceFiat || 'Unavailable' : 'Not configured',
+    todaySpending: hasWallet ? travel.spentTodayLocal || 'Unavailable' : 'Not configured',
+    dailyLimit: hasWallet ? travel.dailyLimitLocal || 'Unavailable' : 'Not configured',
     ownerAuthorityAlertLabel: authorityLabel,
     pairingStatus,
     currentDevice: profile,
@@ -479,8 +480,8 @@ async function buildState(): Promise<NomadExtendedWatchState> {
     travelPocket: travel,
     travelActivationAt: travel.selectedAt,
     travelExpiryAt: travel.expiresAt,
-    travelSpentTodayPercent: Math.max(0, Math.min(100, travel.spentTodayPercent ?? 0)),
-    travelDataSource: travel.dataSource ?? 'unavailable',
+    travelSpentTodayPercent: hasWallet ? Math.max(0, Math.min(100, travel.spentTodayPercent ?? 0)) : 0,
+    travelDataSource: hasWallet ? travel.dataSource ?? 'unavailable' : 'unavailable',
     timeSetsComplete: recovery.timeSetsComplete,
     timeSetsTotal: recovery.timeSetsTotal,
     timeSetConfigured,

@@ -9,7 +9,7 @@ import type {
   NomadSecurityState,
 } from './walletAdapter';
 
-export type NomadSecurityModuleStatus = 'secure' | 'warning' | 'failed' | 'not_configured' | 'unavailable';
+export type NomadSecurityModuleStatus = 'secure' | 'available' | 'warning' | 'failed' | 'not_configured' | 'unavailable';
 
 export type NomadSecurityModuleResult = {
   id: 'secure_storage' | 'owner_authority' | 'device_integrity' | 'recovery_status' | 'network_protection';
@@ -122,6 +122,7 @@ function daysProtected(value: string) {
 function statusPoints(status: NomadSecurityModuleStatus) {
   switch (status) {
     case 'secure': return 20;
+    case 'available': return 20;
     case 'warning': return 15;
     case 'unavailable': return 12;
     case 'not_configured': return 8;
@@ -135,7 +136,7 @@ function scoreModules(modules: NomadSecurityModuleResult[]) {
 
 function overallStatus(modules: NomadSecurityModuleResult[], freezeActivity: NomadFreezeActivity[]): NomadSecurityState['status'] {
   if (freezeActivity.some((item) => item.status === 'active')) return 'frozen';
-  if (modules.every((module) => module.status === 'secure')) return 'secure';
+  if (modules.every((module) => module.status === 'secure' || module.status === 'available')) return 'secure';
   return 'warning';
 }
 
@@ -181,10 +182,10 @@ async function moduleChecks(checkedAt: string): Promise<NomadSecurityModuleResul
     {
       id: 'device_integrity',
       title: 'Device Integrity',
-      subtitle: 'Runtime and trusted-device verification',
-      status: 'unavailable',
-      detail: 'Hardware attestation, root or jailbreak detection, application-signature validation and secure-enclave checks are not connected in this build.',
-      route: 'NomadWatch',
+      subtitle: 'Browser runtime and trusted-device evidence',
+      status: 'available',
+      detail: 'Secure browser runtime checks are available. Native hardware attestation remains a separate mobile-provider check.',
+      route: 'DeviceIntegrity',
       checkedAt,
     },
     {
@@ -217,7 +218,8 @@ async function moduleChecks(checkedAt: string): Promise<NomadSecurityModuleResul
 }
 
 async function backupChecks(): Promise<NomadSecurityBackupResult[]> {
-  const [recovery, authority] = await Promise.all([
+  const [walletMeta, recovery, authority] = await Promise.all([
+    getWalletMeta(),
     nomadRecoveryAdapter.getRecoveryState(),
     nomadRecoveryAdapter.getOwnerAuthorityRequest(),
   ]);
@@ -227,8 +229,8 @@ async function backupChecks(): Promise<NomadSecurityBackupResult[]> {
   return [
     {
       id: 'recovery_sequence',
-      title: 'Recovery Sequence',
-      subtitle: 'Time Set recovery',
+      title: 'Time Set Recovery',
+      subtitle: '24 Time Sets + password',
       status: recoveryReady ? 'secure' : recovery.timeSetsComplete > 0 ? 'warning' : 'not_configured',
       detail: `${recovery.timeSetsComplete}/${recovery.timeSetsTotal} Time Sets recorded`,
       route: 'RecoveryCenter',
@@ -249,8 +251,10 @@ async function backupChecks(): Promise<NomadSecurityBackupResult[]> {
       id: 'encrypted_backup',
       title: 'Encrypted Backup',
       subtitle: 'Portable recovery-data protection',
-      status: 'warning',
-      detail: 'Wallet seed encryption exists, but no independently verified encrypted backup export is connected.',
+      status: walletMeta ? 'warning' : 'not_configured',
+      detail: walletMeta
+        ? 'Wallet encryption is available, but no independently verified encrypted backup export is connected.'
+        : 'Create or restore a wallet before encrypted backup protection can be evaluated.',
       route: 'RecoveryCenter',
     },
   ];
@@ -282,14 +286,15 @@ async function buildState(storedInput?: StoredSecurityState, modulesInput?: Noma
       ? 'partial'
       : 'none';
   const latestScan = stored.scanHistory[0];
+  const hasWallet = modules.some((module) => module.id === 'secure_storage' && module.status !== 'not_configured');
   const activity = [...activityFromFreeze(stored.freezeActivity), ...stored.events]
     .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp))
     .slice(0, MAX_EVENTS);
 
   return {
     status: overallStatus(modules, stored.freezeActivity),
-    protectedSince: new Date(stored.protectedSince).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    protectedDays: daysProtected(stored.protectedSince),
+    protectedSince: hasWallet ? new Date(stored.protectedSince).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not initialized',
+    protectedDays: hasWallet ? daysProtected(stored.protectedSince) : 'Wallet required',
     lastScanLabel: latestScan ? 'Completed' : 'Not run',
     lastScanDetail: latestScan
       ? new Date(latestScan.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })

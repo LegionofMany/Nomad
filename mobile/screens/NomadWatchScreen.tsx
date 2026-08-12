@@ -10,6 +10,7 @@ import {
 } from '../nomad';
 import {
   C,
+  BottomNav,
   NomadGlyph,
   NomadPage,
   Panel,
@@ -81,9 +82,9 @@ function WatchArtwork({ size = 196, color = C.green }: { size?: number; color?: 
   );
 }
 
-function StatusCircle({ label, value, color }: { label: string; value: string; color: string }) {
+function StatusCircle({ label, value, color, compact }: { label: string; value: string; color: string; compact: boolean }) {
   return (
-    <View style={[styles.statusCircle, { borderColor: color }]}>
+    <View style={[styles.statusCircle, compact && styles.statusCircleCompact, { borderColor: color }]}>
       <NomadGlyph kind="security" color={color} size={34} />
       <Text style={styles.statusCircleLabel}>{label}</Text>
       <Text style={[styles.statusCircleValue, { color }]}>{value}</Text>
@@ -91,18 +92,18 @@ function StatusCircle({ label, value, color }: { label: string; value: string; c
   );
 }
 
-function ActionButton({ label, kind, color, onPress }: { label: string; kind: 'watch' | 'recovery'; color: string; onPress(): void }) {
+function ActionButton({ label, kind, color, onPress, disabled = false }: { label: string; kind: 'watch' | 'recovery'; color: string; onPress(): void; disabled?: boolean }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.deviceAction, pressed && styles.pressed]}>
-      <NomadGlyph kind={kind} color={color} size={31} />
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.deviceAction, disabled && styles.disabledAction, pressed && styles.pressed]}>
+      <NomadGlyph kind={kind} color={disabled ? C.muted2 : color} size={31} />
       <Text style={styles.deviceActionText}>{label}</Text>
     </Pressable>
   );
 }
 
-function InfoMetric({ kind, label, value, detail, color = C.green }: { kind: 'travel' | 'recovery' | 'security' | 'watch'; label: string; value: string; detail: string; color?: string }) {
+function InfoMetric({ kind, label, value, detail, color = C.green, compact }: { kind: 'travel' | 'recovery' | 'security' | 'watch'; label: string; value: string; detail: string; color?: string; compact: boolean }) {
   return (
-    <View style={styles.infoMetric}>
+    <View style={[styles.infoMetric, compact && styles.infoMetricCompact]}>
       <View style={[styles.infoMetricIcon, { backgroundColor: `${color}13` }]}><NomadGlyph kind={kind} color={color} size={34} /></View>
       <View style={styles.infoMetricCopy}>
         <Text style={styles.infoMetricLabel}>{label}</Text>
@@ -113,9 +114,9 @@ function InfoMetric({ kind, label, value, detail, color = C.green }: { kind: 'tr
   );
 }
 
-function SecurityMetric({ kind, label, value, color }: { kind: 'security' | 'watch' | 'recovery'; label: string; value: string; color: string }) {
+function SecurityMetric({ kind, label, value, color, compact }: { kind: 'security' | 'watch' | 'recovery'; label: string; value: string; color: string; compact: boolean }) {
   return (
-    <View style={styles.securityMetric}>
+    <View style={[styles.securityMetric, compact && styles.securityMetricCompact]}>
       <View style={[styles.securityIcon, { backgroundColor: `${color}12` }]}><NomadGlyph kind={kind} color={color} size={34} /></View>
       <Text style={styles.securityMetricLabel}>{label}</Text>
       <Text style={[styles.securityMetricValue, { color }]}>{value}</Text>
@@ -123,9 +124,9 @@ function SecurityMetric({ kind, label, value, color }: { kind: 'security' | 'wat
   );
 }
 
-function EmergencyTile({ item, onPress }: { item: EmergencyOption; onPress(): void }) {
+function EmergencyTile({ item, onPress, compact }: { item: EmergencyOption; onPress(): void; compact: boolean }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.emergencyTile, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.emergencyTile, compact && styles.emergencyTileCompact, pressed && styles.pressed]}>
       <View style={[styles.emergencyIcon, { backgroundColor: `${item.color}12` }]}><NomadGlyph kind={item.icon} color={item.color} size={35} /></View>
       <Text style={[styles.emergencyTitle, { color: item.color }]}>{item.title}</Text>
       <Text style={styles.emergencySubtitle}>{item.subtitle}</Text>
@@ -143,27 +144,7 @@ function CheckBox({ checked, text, onPress }: { checked: boolean; text: string; 
 }
 
 function AppBottomNav() {
-  const navigation = useNavigation<any>();
-  const items: Array<{ label: string; route: string; kind: 'home' | 'wallet' | 'travel' | 'security' | 'watch' }> = [
-    { label: 'Home', route: 'Portfolio', kind: 'home' },
-    { label: 'Wallets', route: 'Wallets', kind: 'wallet' },
-    { label: 'Travel', route: 'TravelMode', kind: 'travel' },
-    { label: 'Security', route: 'SecurityCenter', kind: 'security' },
-    { label: 'Nomad Watch', route: 'NomadWatch', kind: 'watch' },
-  ];
-  return (
-    <View style={styles.bottomNav}>
-      {items.map((item) => {
-        const active = item.route === 'NomadWatch';
-        return (
-          <Pressable key={item.route} onPress={() => navigation.navigate(item.route)} style={[styles.bottomItem, active && styles.bottomItemActive]}>
-            <NomadGlyph kind={item.kind} color={active ? C.green : C.muted} size={28} />
-            <Text style={[styles.bottomLabel, active && { color: C.green }]}>{item.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+  return <BottomNav active="Nomad Watch" fifth={['', 'Nomad Watch', 'NomadWatch']} />;
 }
 
 export default function NomadWatchScreen() {
@@ -273,28 +254,32 @@ export default function NomadWatchScreen() {
   return (
     <NomadPage maxWidth={940}>
       <View style={[styles.header, compact && styles.headerCompact]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
-        <WatchLogo size={50} />
-        <View style={styles.headerCopy}><Text style={styles.headerTitle}>Nomad Watch</Text><Text style={styles.headerSubtitle}>Your travel. Your wallet. Your watch.</Text></View>
-        <View style={[styles.connectionPill, { borderColor: `${connectionColor}66` }]}><View style={[styles.connectionDot, { backgroundColor: connectionColor }]} /><Text style={[styles.connectionPillText, { color: connectionColor }]}>{connectionLabel}</Text></View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open Nomad Watch settings" onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}><NomadGlyph kind="settings" color={C.green} size={32} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={[styles.backButton, compact && styles.backButtonCompact]}><Text style={[styles.backText, compact && styles.backTextCompact]}>‹</Text></Pressable>
+        <WatchLogo size={compact ? 38 : 50} />
+        <View style={styles.headerCopy}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>Nomad Watch</Text>
+          <Text numberOfLines={2} style={[styles.headerSubtitle, compact && styles.headerSubtitleCompact]}>Your travel. Your wallet. Your watch.</Text>
+          {compact ? <View style={[styles.connectionPill, styles.connectionPillCompact, { borderColor: `${connectionColor}66` }]}><View style={[styles.connectionDot, styles.connectionDotCompact, { backgroundColor: connectionColor }]} /><Text numberOfLines={1} style={[styles.connectionPillText, styles.connectionPillTextCompact, { color: connectionColor }]}>{connectionLabel}</Text></View> : null}
+        </View>
+        {!compact ? <View style={[styles.connectionPill, { borderColor: `${connectionColor}66` }]}><View style={[styles.connectionDot, { backgroundColor: connectionColor }]} /><Text style={[styles.connectionPillText, { color: connectionColor }]}>{connectionLabel}</Text></View> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="Open Nomad Watch settings" onPress={() => navigation.navigate('Settings')} style={[styles.settingsButton, compact && styles.settingsButtonCompact]}><NomadGlyph kind="settings" color={C.green} size={compact ? 25 : 32} /></Pressable>
       </View>
 
       {error ? <View style={styles.errorBanner}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => void refresh()}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
 
       <Panel style={[styles.hero, compact && styles.heroCompact]}>
         <View style={[styles.watchArtworkWrap, compact && styles.watchArtworkCompact]}><WatchArtwork size={compact ? 128 : 186} color={connectionColor} /></View>
-        <View style={styles.heroCopy}>
+        <View style={[styles.heroCopy, compact && styles.heroCopyCompact]}>
           <Text numberOfLines={1} style={styles.deviceName}>{currentDevice?.label || 'No Verified Watch'}</Text>
           <Text style={styles.deviceDetail}>Firmware <Text style={styles.unavailable}>Unavailable</Text></Text>
           <Text style={styles.deviceDetail}>Battery <Text style={styles.unavailable}>Unavailable</Text></Text>
           <Text style={styles.deviceDetail}>Last synced: <Text style={styles.unavailable}>Never</Text></Text>
           <Text style={styles.providerNote}>{localDraft ? 'Local profile only—pairing and hardware identity remain unverified.' : 'Connect an authenticated wearable provider to enable watch telemetry.'}</Text>
         </View>
-        <StatusCircle label="Phone Wallet" value={phoneStatus} color={watch.centralFreezeStatus !== 'none' ? C.yellow : walletReady ? C.green : C.blue} />
+        <StatusCircle compact={compact} label="Phone Wallet" value={phoneStatus} color={watch.centralFreezeStatus !== 'none' ? C.yellow : walletReady ? C.green : C.blue} />
         <View style={styles.deviceActions}>
-          <ActionButton label="Find Watch" kind="watch" color={C.green} onPress={() => void unsupported('find')} />
-          <ActionButton label="Sync Now" kind="recovery" color={C.green} onPress={() => void unsupported('sync')} />
+          <ActionButton label="Find Watch" kind="watch" color={C.green} disabled={!verified} onPress={() => void unsupported('find')} />
+          <ActionButton label="Sync Now" kind="recovery" color={C.green} disabled={!verified} onPress={() => void unsupported('sync')} />
           <ActionButton label={currentDevice ? 'Remove Draft' : 'Pair Watch'} kind="watch" color={currentDevice ? C.red : C.green} onPress={() => currentDevice ? void removeDraft() : beginPairing()} />
         </View>
       </Panel>
@@ -314,10 +299,10 @@ export default function NomadWatchScreen() {
       <Pressable onPress={() => navigation.navigate('TravelMode')}>
         <Panel style={styles.statusPanel}>
           <View style={styles.panelHeading}><Text style={styles.sectionTitle}>TRAVEL STATUS</Text><Text style={styles.chevron}>›</Text></View>
-          <View style={styles.threeColumn}>
-            <InfoMetric kind="travel" label="Current Region" value={watch.travelRegion} detail={watch.travelSubregion} />
-            <InfoMetric kind="travel" label="Travel Mode" value={watch.travelModeLabel} detail="Phone-side status" />
-            <InfoMetric kind="recovery" label="Time Set" value={watch.timeSetConfigured ? watch.timeSetLabel : 'Not Set'} detail="Phone-side configuration" />
+          <View style={[styles.threeColumn, compact && styles.threeColumnCompact]}>
+            <InfoMetric compact={compact} kind="travel" label="Current Region" value={watch.travelRegion} detail={watch.travelSubregion} />
+            <InfoMetric compact={compact} kind="travel" label="Travel Mode" value={watch.travelModeLabel} detail="Phone-side status" />
+            <InfoMetric compact={compact} kind="recovery" label="Time Set" value={watch.timeSetConfigured ? watch.timeSetLabel : 'Not Set'} detail="Phone-side configuration" />
           </View>
         </Panel>
       </Pressable>
@@ -325,11 +310,11 @@ export default function NomadWatchScreen() {
       <Pressable onPress={() => navigation.navigate('SecurityCenter')}>
         <Panel style={styles.statusPanel}>
           <View style={styles.panelHeading}><Text style={styles.sectionTitle}>SECURITY STATUS</Text><Text style={styles.chevron}>›</Text></View>
-          <View style={styles.securityRow}>
-            <SecurityMetric kind="security" label="Device Integrity" value={watch.walletStatus === 'no_wallet' ? 'No Wallet' : 'Phone State'} color={watch.walletStatus === 'no_wallet' ? C.red : C.green} />
-            <SecurityMetric kind="watch" label="Connection" value={verified ? 'Verified' : 'Not Paired'} color={verified ? C.green : C.yellow} />
-            <SecurityMetric kind="recovery" label="Time Set Lock" value={watch.timeSetConfigured ? 'Configured' : 'Not Set'} color={watch.timeSetConfigured ? C.green : C.yellow} />
-            <SecurityMetric kind="watch" label="Watch Lock" value="Unavailable" color={C.muted} />
+          <View style={[styles.securityRow, compact && styles.securityRowCompact]}>
+            <SecurityMetric compact={compact} kind="security" label="Device Integrity" value="Available" color={C.green} />
+            <SecurityMetric compact={compact} kind="watch" label="Connection" value={verified ? 'Verified' : 'Not Paired'} color={verified ? C.green : C.yellow} />
+            <SecurityMetric compact={compact} kind="recovery" label="Time Set Lock" value={watch.timeSetConfigured ? 'Configured' : 'Not Set'} color={watch.timeSetConfigured ? C.green : C.yellow} />
+            <SecurityMetric compact={compact} kind="watch" label="Watch Lock" value="Unavailable" color={C.muted} />
           </View>
         </Panel>
       </Pressable>
@@ -339,14 +324,14 @@ export default function NomadWatchScreen() {
           <View style={styles.panelHeading}><Text style={styles.sectionTitle}>TRAVEL POCKET OVERVIEW</Text><Text style={styles.chevron}>›</Text></View>
           <View style={[styles.pocketContent, compact && styles.pocketContentCompact]}>
             <View style={styles.pocketBalanceWrap}><View style={styles.pocketIcon}><NomadGlyph kind="wallet" color={C.purple} size={42} /></View><View><Text style={styles.pocketLabel}>Travel Pocket Balance</Text><Text style={styles.pocketBalance}>{watch.travelPocketBalance}</Text><Text style={styles.pocketSource}>{(watch.travelDataSource ?? 'unavailable').replace(/_/g, ' ')} • phone-side</Text></View></View>
-            <View style={styles.spendingWrap}><Text style={styles.pocketLabel}>Today’s Spending</Text><Text style={styles.spendingValue}>{watch.todaySpending}</Text><ProgressBar value={watch.travelSpentTodayPercent} color={C.purple} height={7} /><Text style={styles.pocketSource}>Daily limit: {watch.dailyLimit}</Text></View>
+            <View style={[styles.spendingWrap, compact && styles.spendingWrapCompact]}><Text style={styles.pocketLabel}>Today’s Spending</Text><Text style={styles.spendingValue}>{watch.todaySpending}</Text><ProgressBar value={watch.travelSpentTodayPercent} color={C.purple} height={7} /><Text style={styles.pocketSource}>Daily limit: {watch.dailyLimit}</Text></View>
           </View>
         </Panel>
       </Pressable>
 
       <Panel style={styles.emergencyPanel}>
         <Text style={[styles.sectionTitle, { color: C.red }]}>EMERGENCY ACTIONS</Text>
-        <View style={styles.emergencyRow}>{emergencyOptions.map((item) => <EmergencyTile key={item.action} item={item} onPress={() => { setSelectedAction(item.action); setConfirmPhoneSide(false); setConfirmRelease(false); setFeedback(''); }} />)}</View>
+        <View style={[styles.emergencyRow, compact && styles.emergencyRowCompact]}>{emergencyOptions.map((item) => <EmergencyTile compact={compact} key={item.action} item={item} onPress={() => { setSelectedAction(item.action); setConfirmPhoneSide(false); setConfirmRelease(false); setFeedback(''); }} />)}</View>
         {selectedEmergency ? (
           <Panel tone="yellow" style={styles.emergencyConfirm}>
             <View style={styles.sectionHeader}><View><Text style={[styles.confirmTitle, { color: selectedEmergency.color }]}>{selectedEmergency.title}</Text><Text style={styles.confirmSubtitle}>This action uses phone-side Nomad providers. No watch command or acknowledgement is available.</Text></View><Pressable onPress={() => setSelectedAction(undefined)}><Text style={styles.closeText}>Close</Text></Pressable></View>
@@ -374,33 +359,44 @@ export default function NomadWatchScreen() {
 
 const styles = StyleSheet.create({
   header: { minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 17 },
-  headerCompact: { gap: 8 },
+  headerCompact: { minHeight: 74, gap: 6, marginBottom: 10 },
   backButton: { width: 35, height: 50, alignItems: 'center', justifyContent: 'center' },
+  backButtonCompact: { width: 27, height: 42 },
   backText: { color: '#fff', fontSize: 43, lineHeight: 46, fontWeight: '200' },
+  backTextCompact: { fontSize: 35, lineHeight: 38 },
   headerCopy: { flex: 1, minWidth: 0 },
   headerTitle: { color: '#fff', fontSize: 24, lineHeight: 29, fontWeight: '800' },
+  headerTitleCompact: { fontSize: 18, lineHeight: 22 },
   headerSubtitle: { color: '#dde3ea', fontSize: 12, marginTop: 3 },
+  headerSubtitleCompact: { fontSize: 8, lineHeight: 11, marginTop: 1 },
   connectionPill: { minHeight: 34, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  connectionPillCompact: { alignSelf: 'flex-start', minHeight: 23, marginTop: 4, paddingHorizontal: 7 },
   connectionDot: { width: 9, height: 9, borderRadius: 5, marginRight: 7 },
+  connectionDotCompact: { width: 6, height: 6, borderRadius: 3, marginRight: 4 },
   connectionPillText: { fontSize: 10, fontWeight: '700' },
+  connectionPillTextCompact: { fontSize: 7 },
   settingsButton: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center' },
+  settingsButtonCompact: { width: 32, height: 38 },
   errorBanner: { minHeight: 55, marginBottom: 14, borderWidth: 1, borderColor: C.red, borderRadius: 12, backgroundColor: 'rgba(90,10,16,.35)', padding: 12, flexDirection: 'row', alignItems: 'center' },
   errorText: { flex: 1, color: C.red, fontSize: 10 },
   retryText: { color: C.blue, fontSize: 10, fontWeight: '800' },
   hero: { minHeight: 276, padding: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14 },
-  heroCompact: { padding: 12, gap: 9 },
+  heroCompact: { minHeight: 0, padding: 12, gap: 10, flexDirection: 'column', flexWrap: 'nowrap', alignItems: 'stretch' },
   watchArtworkWrap: { width: 200, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center' },
-  watchArtworkCompact: { width: 126 },
+  watchArtworkCompact: { width: '100%', height: 166 },
   heroCopy: { flex: 1, minWidth: 120 },
+  heroCopyCompact: { width: '100%', minWidth: 0, paddingHorizontal: 3 },
   deviceName: { color: '#fff', fontSize: 21, fontWeight: '800', marginBottom: 15 },
   deviceDetail: { color: '#eef2f6', fontSize: 11, marginTop: 8 },
   unavailable: { color: C.muted },
   providerNote: { color: C.muted, fontSize: 8, lineHeight: 13, marginTop: 12 },
   statusCircle: { width: 136, height: 136, borderRadius: 68, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  statusCircleCompact: { alignSelf: 'center', width: 112, height: 112, borderRadius: 56, borderWidth: 2 },
   statusCircleLabel: { color: '#dfe7ee', fontSize: 9, marginTop: 6 },
   statusCircleValue: { fontSize: 12, fontWeight: '900', marginTop: 4, textTransform: 'capitalize' },
   deviceActions: { flexBasis: '100%', flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
   deviceAction: { flex: 1, maxWidth: 165, minHeight: 77, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  disabledAction: { opacity: .42 },
   deviceActionText: { color: '#fff', fontSize: 10, fontWeight: '700', marginTop: 7, textAlign: 'center' },
   pairingPanel: { marginTop: 14, padding: 17 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
@@ -422,30 +418,37 @@ const styles = StyleSheet.create({
   sectionTitle: { color: C.green, fontSize: 14, fontWeight: '900', letterSpacing: .2 },
   chevron: { color: '#d4c9ce', fontSize: 31, fontWeight: '300' },
   threeColumn: { flexDirection: 'row', marginTop: 15 },
+  threeColumnCompact: { flexDirection: 'column', marginTop: 10 },
   infoMetric: { flex: 1, minWidth: 0, minHeight: 83, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderRightWidth: 1, borderRightColor: C.borderSoft },
+  infoMetricCompact: { width: '100%', minHeight: 74, borderRightWidth: 0, borderBottomWidth: 1, borderBottomColor: C.borderSoft, paddingHorizontal: 4, paddingVertical: 9 },
   infoMetricIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   infoMetricCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
   infoMetricLabel: { color: '#d8e0e7', fontSize: 8 },
   infoMetricValue: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 4 },
   infoMetricDetail: { color: C.muted, fontSize: 7, marginTop: 4 },
   securityRow: { flexDirection: 'row', marginTop: 13 },
+  securityRowCompact: { flexWrap: 'wrap' },
   securityMetric: { flex: 1, minWidth: 0, alignItems: 'center', borderRightWidth: 1, borderRightColor: C.borderSoft, paddingHorizontal: 5 },
+  securityMetricCompact: { flexBasis: '50%', minHeight: 116, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: C.borderSoft },
   securityIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   securityMetricLabel: { color: '#f1f4f7', fontSize: 8, textAlign: 'center', marginTop: 8 },
   securityMetricValue: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 5 },
   pocketPanel: { marginTop: 14, padding: 16 },
   pocketContent: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  pocketContentCompact: { gap: 8 },
+  pocketContentCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 13 },
   pocketBalanceWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   pocketIcon: { width: 65, height: 65, borderRadius: 33, backgroundColor: 'rgba(146,112,255,.13)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   pocketLabel: { color: '#dddfe5', fontSize: 9 },
   pocketBalance: { color: '#fff', fontSize: 19, fontWeight: '800', marginTop: 5 },
   pocketSource: { color: C.muted, fontSize: 7, marginTop: 5, textTransform: 'capitalize' },
   spendingWrap: { flex: 1, minWidth: 0, borderLeftWidth: 1, borderLeftColor: C.borderSoft, paddingLeft: 18 },
+  spendingWrapCompact: { borderLeftWidth: 0, borderTopWidth: 1, borderTopColor: C.borderSoft, paddingLeft: 0, paddingTop: 12 },
   spendingValue: { color: '#fff', fontSize: 17, fontWeight: '800', marginVertical: 8 },
   emergencyPanel: { marginTop: 14, padding: 16 },
   emergencyRow: { flexDirection: 'row', gap: 10, marginTop: 13 },
+  emergencyRowCompact: { flexWrap: 'wrap' },
   emergencyTile: { flex: 1, minWidth: 0, minHeight: 126, borderWidth: 1, borderColor: C.borderSoft, borderRadius: 12, alignItems: 'center', padding: 9 },
+  emergencyTileCompact: { flexBasis: '47%', minWidth: 130 },
   emergencyIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   emergencyTitle: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 8 },
   emergencySubtitle: { color: '#e0e4e8', fontSize: 7, lineHeight: 11, textAlign: 'center', marginTop: 4 },

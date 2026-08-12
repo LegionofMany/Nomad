@@ -11,6 +11,7 @@ import TravelModeScreen from '../../screens/TravelModeScreen';
 import TopUpTravelPocketScreen from '../../screens/TopUpTravelPocketScreen';
 import ApprovePOSTransactionScreen from '../../screens/ApprovePOSTransactionScreen';
 import SecurityCenterScreen from '../../screens/SecurityCenterScreen';
+import DeviceIntegrityScreen from '../../screens/DeviceIntegrityScreen';
 import EmergencyFreezeScreen from '../../screens/EmergencyFreezeScreen';
 import RecoveryCenterScreen from '../../screens/RecoveryCenterScreen';
 import TimeClockAccessScreen from '../../screens/TimeClockAccessScreen';
@@ -41,6 +42,7 @@ export type NomadOverlayRouteName =
   | 'TopUpTravelPocket'
   | 'ApprovePOSTransaction'
   | 'SecurityCenter'
+  | 'DeviceIntegrity'
   | 'EmergencyFreeze'
   | 'RecoveryCenter'
   | 'TimeClockAccess'
@@ -91,6 +93,7 @@ export const nomadOverlayRoutes: NomadOverlayRoute[] = [
   { name: 'TopUpTravelPocket', component: TopUpTravelPocketScreen, area: 'travel' },
   { name: 'ApprovePOSTransaction', component: ApprovePOSTransactionScreen, area: 'travel' },
   { name: 'SecurityCenter', component: SecurityCenterScreen, area: 'security' },
+  { name: 'DeviceIntegrity', component: DeviceIntegrityScreen, area: 'security' },
   { name: 'EmergencyFreeze', component: EmergencyFreezeScreen, area: 'security' },
   { name: 'RecoveryCenter', component: RecoveryCenterScreen, area: 'recovery' },
   { name: 'TimeClockAccess', component: TimeClockAccessScreen, area: 'recovery' },

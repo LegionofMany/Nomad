@@ -25,6 +25,7 @@ const routeTitles: Partial<Record<keyof RootStackParamList, string>> = {
   VoltaireProtocols: 'Arkrilium Protocols',
   BlockPagesSafety: 'Reqrium Safety',
   BlockPagesURLScanner: 'Reqrium URL Scanner',
+  DeviceIntegrity: 'Device Integrity',
 };
 const webLinking = {
   prefixes: [],
@@ -39,6 +40,7 @@ const webLinking = {
       TopUpTravelPocket: 'travel/top-up',
       ApprovePOSTransaction: 'travel/approve',
       SecurityCenter: 'security',
+      DeviceIntegrity: 'security/device-integrity',
       EmergencyFreeze: 'security/emergency-freeze',
       RecoveryCenter: 'recovery',
       TimeClockAccess: 'recovery/time-clock',

@@ -30,10 +30,10 @@ const fallbackModules: NomadSecurityModuleResult[] = [
   {
     id: 'device_integrity',
     title: 'Device Integrity',
-    subtitle: 'Runtime and trusted-device verification',
-    status: 'unavailable',
-    detail: 'Waiting for the connected security adapter.',
-    route: 'NomadWatch',
+    subtitle: 'Browser runtime and trusted-device evidence',
+    status: 'available',
+    detail: 'Loading the current device evidence.',
+    route: 'DeviceIntegrity',
     checkedAt: new Date(0).toISOString(),
   },
   {

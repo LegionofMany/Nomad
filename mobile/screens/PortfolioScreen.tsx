@@ -18,6 +18,7 @@ type RouteName =
   | 'Settings'
   | 'RecoveryCenter'
   | 'CreateOwnerAuthority'
+  | 'DeviceIntegrity'
   | 'NomadWatch'
   | 'VoltaireProtocols'
   | 'BlockPagesSafety';
@@ -290,7 +291,8 @@ export default function PortfolioScreen() {
     : 'Not set';
   const ownerAuthorityValue = ownerAuthorityRequest.status === 'pending' ? 'Pending' : recovery.signerQuorum > 0 ? 'Active' : 'Set Up';
   const recoveryValue = recovery.recoveryStatus === 'protected' ? 'Ready' : recovery.recoveryStatus === 'locked' ? 'Locked' : 'Review';
-  const deviceValue = security.status === 'warning' ? 'Review' : 'Verified';
+  const deviceModule = security.modules.find((module) => module.id === 'device_integrity');
+  const deviceValue = deviceModule?.status === 'available' ? 'Available' : deviceModule?.status === 'secure' ? 'Secure' : 'Review';
 
   return (
     <NomadPage maxWidth={1040}>
@@ -422,7 +424,7 @@ export default function PortfolioScreen() {
         <View style={[styles.securityGrid, compact && styles.securityGridCompact]}>
           <SecurityItem kind="storage" label="Secure Storage" value={security.status === 'warning' ? 'Review' : 'Secure'} route="Settings" />
           <SecurityItem kind="authority" label="Owner Authority" value={ownerAuthorityValue} route="CreateOwnerAuthority" />
-          <SecurityItem kind="device" label="Device Integrity" value={deviceValue} route="NomadWatch" />
+          <SecurityItem kind="device" label="Device Integrity" value={deviceValue} route="DeviceIntegrity" />
           <SecurityItem kind="recovery" label="Recovery Status" value={recoveryValue} route="RecoveryCenter" last />
         </View>
       </Panel>

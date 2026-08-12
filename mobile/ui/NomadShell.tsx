@@ -37,7 +37,7 @@ function glyphForRoute(route: string): GlyphKind {
   if (/Wallet/.test(route)) return 'wallet';
   if (/Travel|POS|TopUp/.test(route)) return 'travel';
   if (/Recovery|Unlock|Clock|Authority|Recovered/.test(route)) return 'recovery';
-  if (/Security|Emergency/.test(route)) return 'security';
+  if (/Security|Emergency|DeviceIntegrity/.test(route)) return 'security';
   if (/Insights/.test(route)) return 'insights';
   if (/BlockPages|AddressSafety/.test(route)) return 'scan';
   if (/Watch/.test(route)) return 'watch';
@@ -114,7 +114,7 @@ const railNav: Array<{ label: string; route: string; kind: GlyphKind }> = [
 function routeIsActive(current: string, route: string) {
   if (route === 'Wallets') return /Wallets|SendBitcoin|ReceiveBitcoin|Swap/.test(current);
   if (route === 'TravelMode') return /Travel|TopUp|POS/.test(current);
-  if (route === 'SecurityCenter') return /Security|Emergency/.test(current);
+  if (route === 'SecurityCenter') return /Security|Emergency|DeviceIntegrity/.test(current);
   if (route === 'RecoveryCenter') return /Recovery|Unlock|Clock|Authority|Recovered/.test(current);
   if (route === 'NomadInsights') return /Insights/.test(current);
   if (route === 'BlockPagesSafety') return /BlockPages|AddressSafety/.test(current);

@@ -42,9 +42,9 @@ const worldDots: Array<[number, number]> = [
 ];
 
 const backupTitles: Record<NomadSecurityBackupResult['id'], { title: string; subtitle: string; kind: SecurityArtworkKind }> = {
-  recovery_sequence: { title: 'Recovery Phrase', subtitle: 'Owner recovery sequence', kind: 'key' },
+  recovery_sequence: { title: 'Time Set Recovery', subtitle: '24 Time Sets + password', kind: 'key' },
   multi_sig: { title: 'Multi-Sig Wallet', subtitle: 'Approval quorum', kind: 'multisig' },
-  encrypted_backup: { title: 'Cloud Backup', subtitle: 'Encrypted recovery', kind: 'cloud' },
+  encrypted_backup: { title: 'Encrypted Backup', subtitle: 'Provider not connected', kind: 'cloud' },
 };
 
 const moduleKinds: Record<NomadSecurityModuleResult['id'], SecurityArtworkKind> = {
@@ -100,6 +100,7 @@ function SecurityArtwork({ kind, color = C.green, size = 42 }: { kind: SecurityA
 function statusInfo(status: NomadSecurityModuleStatus) {
   switch (status) {
     case 'secure': return { color: C.green, label: 'SECURE', symbol: '✓' };
+    case 'available': return { color: C.green, label: 'AVAILABLE', symbol: '✓' };
     case 'warning': return { color: C.yellow, label: 'REVIEW', symbol: '!' };
     case 'failed': return { color: C.red, label: 'FAILED', symbol: '×' };
     case 'not_configured': return { color: C.purple, label: 'SETUP', symbol: '+' };
@@ -274,7 +275,7 @@ export default function SecurityCenterScreen() {
   const statusColor = frozen ? C.red : warning ? C.yellow : C.green;
   const statusLabel = frozen ? 'FROZEN' : warning ? 'REVIEW' : 'SECURE';
   const statusSymbol = frozen ? '×' : warning ? '!' : '✓';
-  const secureModules = security.modules.filter((item) => item.status === 'secure').length;
+  const secureModules = security.modules.filter((item) => item.status === 'secure' || item.status === 'available').length;
   const modulesNeedingAttention = security.modules.length - secureModules;
 
   const handleScan = async () => {
