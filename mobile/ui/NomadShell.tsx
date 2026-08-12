@@ -129,7 +129,7 @@ function DesktopRail({ activeRoute }: { activeRoute: string }) {
         <NomadBrandMark size={43} />
         <View>
           <Text style={styles.railWordmark}>NOMAD</Text>
-          <Text style={styles.railFoundation}>VOLTAIRE PROTOCOLS</Text>
+          <Text style={styles.railFoundation}>ARKRILIUM PROTOCOLS</Text>
         </View>
       </Pressable>
       <View style={styles.railMode}><View style={styles.railModeDot} /><Text style={styles.railModeText}>CLOSED BETA · TEST MODE</Text></View>
