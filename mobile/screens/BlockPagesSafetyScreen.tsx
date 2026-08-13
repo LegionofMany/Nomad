@@ -270,7 +270,7 @@ export default function BlockPagesSafetyScreen() {
 
       <Panel style={[styles.hero, { borderColor: `${statusColor}85` }]}>
         <View style={[styles.heroBody, compact && styles.heroCompact]}>
-          <View style={styles.heroCopy}>
+          <View style={[styles.heroCopy, compact && styles.heroCopyCompact]}>
             <Text style={[styles.eyebrow, { color: statusColor }]}>YOUR LOCAL SAFETY LAYER</Text>
             <View style={styles.heroStatusRow}>
               <Text adjustsFontSizeToFit numberOfLines={1} style={styles.heroScore}>{safety.readinessScore}</Text>
@@ -456,8 +456,9 @@ const styles = StyleSheet.create({
   retryText: { color: C.red, fontSize: 9, fontWeight: '900' },
   hero: { padding: 22, borderWidth: 1 },
   heroBody: { minHeight: 270, flexDirection: 'row', alignItems: 'center' },
-  heroCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  heroCompact: { minHeight: 0, flexDirection: 'column', alignItems: 'stretch' },
   heroCopy: { flex: 0.9, minWidth: 0 },
+  heroCopyCompact: { flex: 0 },
   eyebrow: { fontSize: 12, fontWeight: '900', letterSpacing: 0.4 },
   heroStatusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   heroScore: { color: '#fff', fontSize: 54, lineHeight: 65, fontWeight: '900', letterSpacing: -1.5 },
@@ -466,7 +467,7 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 19, lineHeight: 27, fontWeight: '900', marginTop: 3 },
   heroText: { color: '#eef3fa', fontSize: 11, lineHeight: 18, marginTop: 9, maxWidth: 390 },
   heroArtwork: { flex: 1.1, minWidth: 360, height: 270 },
-  heroArtworkCompact: { minWidth: 0, width: '100%', marginTop: 10 },
+  heroArtworkCompact: { flex: 0, minWidth: 0, width: '100%', height: 250, marginTop: 24 },
   heroStats: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: C.borderSoft, marginTop: 8, paddingTop: 17 },
   heroStat: { flexGrow: 1, flexBasis: 175, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 10, borderRightWidth: 1, borderRightColor: C.borderSoft },
   heroStatIcon: { width: 26, fontSize: 22, textAlign: 'center' },
