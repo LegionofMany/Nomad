@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadProtocols, useNomadSecurity } from '../nomad';
 import type {
   ArkriliumHealthItem,
@@ -136,6 +137,7 @@ function VoltaireBadge({ size = 52, color = C.green }: { size?: number; color?: 
 }
 
 function ProtocolArtwork({ kind, color = C.green, size = 42 }: { kind: ProtocolArtworkKind; color?: string; size?: number }) {
+  if (kind === 'safety') return <ReqriumBadge size={size} />;
   const stroke = { stroke: color, strokeWidth: 2.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   let artwork: React.ReactNode;
 

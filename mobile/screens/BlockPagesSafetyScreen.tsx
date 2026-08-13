@@ -1,17 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Svg, {
-  Circle,
-  Defs,
-  Ellipse,
-  G,
-  LinearGradient,
-  Line,
-  Path,
-  Stop,
-} from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadBlockPagesSafety } from '../nomad';
 import type {
   ReqriumExposureItem,
@@ -98,68 +89,6 @@ function formatDate(value?: string) {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-function ReqriumMark({ size = 66 }: { size?: number }) {
-  return (
-    <Svg accessibilityLabel="Reqrium shield logo" width={size} height={size * 1.08} viewBox="0 0 72 78" fill="none">
-      <Defs>
-        <LinearGradient id="reqriumMark" x1="8" y1="5" x2="64" y2="70">
-          <Stop stopColor="#19e6ff" />
-          <Stop offset="0.52" stopColor="#1688ff" />
-          <Stop offset="1" stopColor="#884cff" />
-        </LinearGradient>
-      </Defs>
-      <Path d="M36 3 64 15v22c0 19-11 31-28 39C19 68 8 56 8 37V15Z" fill="#031325" stroke="url(#reqriumMark)" strokeWidth="3" />
-      <Path d="M18 34c7-10 29-10 36 0-7 10-29 10-36 0Z" stroke="url(#reqriumMark)" strokeWidth="2.5" />
-      <Circle cx="36" cy="34" r="6" fill="#07101f" stroke="#20c8ff" strokeWidth="2" />
-      <Path d="M33 31v20m0-10h8l5 8" stroke="#8d58ff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M17 21h7m24 0h7M15 49h8m26 0h8" stroke="#1da8ff" strokeWidth="1.5" strokeLinecap="round" opacity=".7" />
-    </Svg>
-  );
-}
-
-function ReqriumHeroArtwork({ color }: { color: string }) {
-  return (
-    <Svg accessibilityLabel="Reqrium real-time trust shield network" width="100%" height="100%" viewBox="0 0 420 270" fill="none">
-      <Defs>
-        <LinearGradient id="heroShield" x1="128" y1="40" x2="304" y2="220">
-          <Stop stopColor="#20e0ff" />
-          <Stop offset="0.5" stopColor="#1688ff" />
-          <Stop offset="1" stopColor="#834cff" />
-        </LinearGradient>
-        <LinearGradient id="heroFill" x1="160" y1="50" x2="280" y2="215">
-          <Stop stopColor="#0c3d71" stopOpacity=".88" />
-          <Stop offset="1" stopColor="#080c24" stopOpacity=".98" />
-        </LinearGradient>
-      </Defs>
-      <Ellipse cx="220" cy="218" rx="150" ry="31" stroke="#1688ff" strokeOpacity=".55" strokeWidth="2" />
-      <Ellipse cx="220" cy="218" rx="111" ry="21" stroke="#20d8ff" strokeOpacity=".42" />
-      <Ellipse cx="220" cy="218" rx="74" ry="13" fill="#1688ff" fillOpacity=".12" stroke="#7b51ff" strokeOpacity=".55" />
-      <Path d="M220 45 301 79v63c0 55-32 88-81 112-49-24-81-57-81-112V79Z" fill="url(#heroFill)" stroke="url(#heroShield)" strokeWidth="5" />
-      <Path d="M164 105c23-31 89-31 112 0-23 31-89 31-112 0Z" stroke="url(#heroShield)" strokeWidth="5" />
-      <Circle cx="220" cy="105" r="18" fill="#061427" stroke="#21d7ff" strokeWidth="4" />
-      <Path d="M209 94v74m0-36h29l17 27" stroke="#8b56ff" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
-      <G stroke="#1688ff" strokeOpacity=".75" strokeDasharray="4 6">
-        <Path d="M143 103 71 67" />
-        <Path d="M297 101 358 66" />
-        <Path d="M301 145 372 150" />
-        <Path d="M139 145 64 151" />
-      </G>
-      {[
-        [54, 61],
-        [365, 60],
-        [383, 151],
-        [50, 152],
-      ].map(([cx, cy], index) => (
-        <G key={`${cx}-${cy}`}>
-          <Circle cx={cx} cy={cy} r="25" fill="#061427" stroke={index % 2 ? '#8351ff' : '#1c9dff'} strokeWidth="2" />
-          {index < 2 ? <Circle cx={cx} cy={cy} r="8" stroke={color} strokeWidth="2" /> : <Path d={`M${cx - 9} ${cy}h18M${cx} ${cy - 9}v18`} stroke={color} strokeWidth="2" strokeLinecap="round" />}
-        </G>
-      ))}
-      <Line x1="220" y1="254" x2="220" y2="266" stroke="#20d8ff" strokeWidth="3" />
-    </Svg>
-  );
 }
 
 function ModuleCard({
@@ -312,7 +241,7 @@ export default function BlockPagesSafetyScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Back to portfolio" onPress={() => navigation.navigate('Portfolio')} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <Text style={styles.backIcon}>‹</Text>
         </Pressable>
-        <ReqriumMark size={58} />
+        <ReqriumBadge size={58} />
         <View style={[styles.headerCopy, compact && styles.headerCopyCompact]}>
           <View style={styles.titleRow}>
             <Text style={styles.pageTitle}>Reqrium Safety</Text>
@@ -351,7 +280,7 @@ export default function BlockPagesSafetyScreen() {
             <Text style={[styles.heroTitle, { color: statusColor }]}>{heroTitle}</Text>
             <Text style={styles.heroText}>Reqrium combines recorded local checks with connected Nomad controls. This readiness score is not a guarantee that a URL, wallet, identity, or device is safe.</Text>
           </View>
-          <View style={[styles.heroArtwork, compact && styles.heroArtworkCompact]}><ReqriumHeroArtwork color={statusColor} /></View>
+          <View style={[styles.heroArtwork, compact && styles.heroArtworkCompact]}><ReqriumBadge fill /></View>
         </View>
 
         <View style={styles.heroStats}>
@@ -482,7 +411,7 @@ export default function BlockPagesSafetyScreen() {
       ) : null}
 
       <Panel style={styles.protectionBanner}>
-        <ReqriumMark size={54} />
+        <ReqriumBadge size={54} />
         <View style={styles.bannerCopy}>
           <Text style={styles.bannerTitle}>Reqrium Protection</Text>
           <Text style={styles.bannerText}>Secure. Verify. Protect. Local checks stay distinct from remote provider verification.</Text>

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadURLSafetyScanner } from '../nomad';
 import type { ReqriumURLCheck, ReqriumURLScanSession } from '../nomad';
 import { C, NomadGlyph, NomadPage, Panel, useNomadLayout } from '../ui/NomadShell';
@@ -117,7 +118,7 @@ function Header({ historyOpen, onHistory }: { historyOpen: boolean; onHistory():
   return (
     <View style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.backButton}><Text style={styles.backText}>‹</Text></Pressable>
-      <View style={styles.headerLogo}><ReqriumShield size={58} /></View>
+      <View style={styles.headerLogo}><ReqriumBadge size={58} /></View>
       <View style={styles.headerCopy}>
         <Text style={styles.headerTitle}>Reqrium URL Scanner</Text>
         <Text style={styles.headerSubtitle}>Check any website before you click</Text>
@@ -144,7 +145,7 @@ function BottomNavigation() {
         </Pressable>
       ))}
       <Pressable onPress={() => navigation.navigate('BlockPagesSafety')} style={styles.navItem}>
-        <ReqriumShield size={34} /><Text style={[styles.navLabel, styles.navActive]}>Reqrium</Text>
+        <ReqriumBadge size={34} /><Text style={[styles.navLabel, styles.navActive]}>Reqrium</Text>
       </Pressable>
     </View>
   );
@@ -290,7 +291,7 @@ export default function BlockPagesURLScannerScreen() {
       </Panel>
 
       <Panel style={[styles.communityPanel, compact && styles.communityCompact]}>
-        <View style={styles.communityIcon}><ReqriumShield size={42} result color={C.purple} /></View>
+        <View style={styles.communityIcon}><ReqriumBadge size={42} /></View>
         <View style={styles.communityCopy}><Text style={styles.communityTitle}>Reqrium protects you and the Web3 community.</Text><Text style={styles.communityText}>Report a false positive or save suspicious-site notes for review.</Text></View>
         <Pressable disabled={!selected} onPress={() => setReportOpen((value) => !value)} style={[styles.reportButton, !selected && styles.disabled]}><Text style={styles.reportButtonText}>{reportOpen ? 'Close Report' : 'Report Issue'}</Text></Pressable>
       </Panel>

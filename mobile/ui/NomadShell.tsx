@@ -11,6 +11,8 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
+
 export const C = {
   bg: '#01060d',
   panel: 'rgba(4,16,30,.96)',
@@ -138,7 +140,7 @@ function DesktopRail({ activeRoute }: { activeRoute: string }) {
           const selected = routeIsActive(activeRoute, item.route);
           return (
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${item.label}`} key={item.route} onPress={() => navigation.navigate(item.route)} style={({ pressed }) => [styles.railItem, selected && styles.railItemActive, pressed && styles.railItemPressed]}>
-              <View style={[styles.railIcon, selected && styles.railIconActive]}><NomadGlyph kind={item.kind} color={selected ? C.blue : C.muted2} size={21} /></View>
+              <View style={[styles.railIcon, selected && styles.railIconActive]}>{item.route === 'BlockPagesSafety' ? <ReqriumBadge size={25} /> : <NomadGlyph kind={item.kind} color={selected ? C.blue : C.muted2} size={21} />}</View>
               <Text style={[styles.railLabel, selected && styles.railLabelActive]}>{item.label}</Text>
               {selected ? <View style={styles.railIndicator} /> : null}
             </Pressable>
@@ -296,7 +298,7 @@ export function BottomNav({ active, fifth, items }: { active: string; fifth?: re
         const selected = hasNamedActiveItem ? label === active : routeIsActive(currentRoute.name, route);
         return (
           <Pressable accessibilityRole="button" accessibilityLabel={`Open ${label}`} key={`${label}-${route}`} onPress={() => navigation.navigate(route)} style={[styles.navItem, compact && styles.navItemCompact, selected && styles.navItemActive]}>
-            <NomadGlyph kind={glyphForRoute(route)} color={selected ? C.blue : C.muted} size={compact ? 20 : 24} />
+            {route === 'BlockPagesSafety' ? <ReqriumBadge size={compact ? 20 : 24} /> : <NomadGlyph kind={glyphForRoute(route)} color={selected ? C.blue : C.muted} size={compact ? 20 : 24} />}
             <Text style={[styles.navLabel, compact && styles.navLabelCompact, selected && styles.navSelected]}>{label}</Text>
           </Pressable>
         );

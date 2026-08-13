@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadRecovery, useNomadSecurity, useNomadTravel, useNomadWallet } from '../nomad';
 import { useAppState } from '../state/appState';
 import { BottomNav, C, NomadBrandMark, NomadPage, Panel, ProgressBar, useNomadLayout } from '../ui/NomadShell';
@@ -92,6 +93,13 @@ function SecurityArtwork({ kind, size = 30 }: { kind: SecurityKind; size?: numbe
 }
 
 function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; color: string; size: number }) {
+  if (kind === 'reqrium') {
+    return (
+      <View style={[styles.ecoIcon, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
+        <ReqriumBadge size={size * 0.92} />
+      </View>
+    );
+  }
   const stroke = { stroke: color, strokeWidth: 2.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   let artwork: React.ReactNode;
   if (kind === 'nomad') artwork = <><Path d="M24 7 39 13v11c0 11-6 18-15 23-9-5-15-12-15-23V13Z" fill="#07224c" {...stroke} /><Path d="M14 27h6l4-7 5 12 4-7h4" {...stroke} /></>;
@@ -108,19 +116,6 @@ function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; 
     <Circle cx="24" cy="9" r="2.2" fill="#35c7ff" />
     <Circle cx="10" cy="37" r="1.6" fill="#8754ff" />
     <Circle cx="38" cy="37" r="1.6" fill="#8754ff" />
-  </>;
-  else if (kind === 'reqrium') artwork = <>
-    <Defs>
-      <LinearGradient id="reqriumIconGradient" x1="7" y1="18" x2="42" y2="31">
-        <Stop stopColor="#15b9ff" />
-        <Stop offset="0.62" stopColor="#8749ff" />
-        <Stop offset="1" stopColor="#ffbd35" />
-      </LinearGradient>
-    </Defs>
-    <Path d="M4 24c6-8 13-12 20-12s14 4 20 12c-6 8-13 12-20 12S10 32 4 24Z" fill="#08142f" stroke="url(#reqriumIconGradient)" strokeWidth="2" />
-    <Circle cx="24" cy="24" r="10" stroke="#168cff" strokeWidth="1.5" opacity="0.75" />
-    <Path d="M18 33V15h8.5a6 6 0 0 1 0 12H18m8 0 7 7" stroke="url(#reqriumIconGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="37.5" cy="10.5" r="2" fill="#ffbd35" />
   </>;
   else if (kind === 'syaxio') artwork = <>
     <Defs>

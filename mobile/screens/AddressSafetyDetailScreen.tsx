@@ -3,6 +3,7 @@ import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadAddressSafetyDetail } from '../nomad';
 import type { ReqriumAddressCheck } from '../nomad';
 import { C, NomadGlyph, NomadPage, Panel, useNomadLayout } from '../ui/NomadShell';
@@ -47,16 +48,6 @@ function chainChip(label: string) {
   return label.replace(/ address$/i, '').replace(/-compatible$/i, '') || 'Unknown network';
 }
 
-function ReqriumGlobeMark({ size = 60 }: { size?: number }) {
-  return (
-    <Svg accessibilityLabel="Reqrium address safety" width={size} height={size * 1.08} viewBox="0 0 64 70" fill="none">
-      <Path d="M32 3 57 14v19c0 18-10 29-25 37C17 62 7 51 7 33V14Z" fill="rgba(5,29,24,.95)" stroke={C.green} strokeWidth="3" />
-      <Circle cx="32" cy="31" r="13" stroke={C.green} strokeWidth="2.4" />
-      <Path d="M19 31h26M32 18c4 4 6 8 6 13s-2 9-6 13c-4-4-6-8-6-13s2-9 6-13Z" stroke={C.green} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function AddressShieldArtwork({ color, mark }: { color: string; mark: string }) {
   return (
     <View style={styles.artworkWrap}>
@@ -91,7 +82,7 @@ function Header() {
       <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={styles.backButton}>
         <Text style={styles.backArrow}>‹</Text>
       </Pressable>
-      <ReqriumGlobeMark size={compact ? 45 : 55} />
+      <ReqriumBadge size={compact ? 45 : 55} />
       <View style={styles.headerCopy}>
         <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.headerTitle, compact && styles.headerTitleCompact]}>Address Safety Detail</Text>
         <Text style={styles.headerSubtitle}>Reqrium</Text>
@@ -157,7 +148,7 @@ function PageBottomNav() {
         const active = item.label === 'Reqrium';
         return (
           <Pressable key={item.label} accessibilityRole="button" accessibilityLabel={`Open ${item.label}`} onPress={() => navigation.navigate(item.route)} style={[styles.navItem, compact && styles.navItemCompact, active && styles.navItemActive]}>
-            <NomadGlyph kind={item.kind} color={active ? C.green : C.muted} size={compact ? 20 : 25} />
+            {active ? <ReqriumBadge size={compact ? 20 : 25} /> : <NomadGlyph kind={item.kind} color={C.muted} size={compact ? 20 : 25} />}
             <Text style={[styles.navLabel, compact && styles.navLabelCompact, active && styles.navLabelActive]}>{item.label}</Text>
           </Pressable>
         );
