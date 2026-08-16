@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
@@ -93,6 +93,18 @@ function SecurityArtwork({ kind, size = 30 }: { kind: SecurityKind; size?: numbe
 }
 
 function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; color: string; size: number }) {
+  if (kind === 'arkreum') {
+    return (
+      <View style={[styles.ecoIcon, styles.arkreumIcon, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
+        <Image
+          accessible={false}
+          resizeMode="cover"
+          source={require('../assets/arkreum-approved.jpg')}
+          style={{ width: size * 2.4, height: size * 1.2 }}
+        />
+      </View>
+    );
+  }
   if (kind === 'reqrium') {
     return (
       <View style={[styles.ecoIcon, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
@@ -103,20 +115,6 @@ function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; 
   const stroke = { stroke: color, strokeWidth: 2.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   let artwork: React.ReactNode;
   if (kind === 'nomad') artwork = <><Path d="M24 7 39 13v11c0 11-6 18-15 23-9-5-15-12-15-23V13Z" fill="#07224c" {...stroke} /><Path d="M14 27h6l4-7 5 12 4-7h4" {...stroke} /></>;
-  else if (kind === 'arkreum') artwork = <>
-    <Defs>
-      <LinearGradient id="arkreumIconGradient" x1="8" y1="42" x2="40" y2="7">
-        <Stop stopColor="#20b8ff" />
-        <Stop offset="0.52" stopColor="#e4efff" />
-        <Stop offset="1" stopColor="#8d4dff" />
-      </LinearGradient>
-    </Defs>
-    <Circle cx="24" cy="24" r="19" fill="#07142c" stroke="#4b35a8" strokeWidth="1.4" />
-    <Path d="m10 37 14-28 14 28M16 29h16" stroke="url(#arkreumIconGradient)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="24" cy="9" r="2.2" fill="#35c7ff" />
-    <Circle cx="10" cy="37" r="1.6" fill="#8754ff" />
-    <Circle cx="38" cy="37" r="1.6" fill="#8754ff" />
-  </>;
   else if (kind === 'syaxio') artwork = <>
     <Defs>
       <LinearGradient id="syaxioIconGradient" x1="9" y1="8" x2="39" y2="40">
@@ -571,6 +569,7 @@ const styles = StyleSheet.create({
   ecoItem: { width: 88, alignItems: 'center' },
   ecoItemCompact: { width: 52 },
   ecoIcon: { width: 58, height: 58, borderRadius: 29, borderWidth: 2, backgroundColor: '#061526', alignItems: 'center', justifyContent: 'center', shadowColor: '#168cff', shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 0 } },
+  arkreumIcon: { overflow: 'hidden' },
   ecoLabel: { color: '#fff', fontSize: 9, lineHeight: 13, textAlign: 'center', marginTop: 8 },
   ecoLabelCompact: { fontSize: 7, lineHeight: 9, marginTop: 4 },
   previewNote: { color: C.muted2, textAlign: 'center', fontSize: 9, marginTop: 10 },
