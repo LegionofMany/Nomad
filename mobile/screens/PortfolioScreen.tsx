@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
 import { ReqriumBadge } from '../components/ReqriumBadge';
 import { useNomadRecovery, useNomadSecurity, useNomadTravel, useNomadWallet } from '../nomad';
@@ -114,7 +114,13 @@ function EcosystemArtwork({ kind, color, size }: { kind: EcosystemItem['kind']; 
   }
   const stroke = { stroke: color, strokeWidth: 2.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   let artwork: React.ReactNode;
-  if (kind === 'nomad') artwork = <><Path d="M24 7 39 13v11c0 11-6 18-15 23-9-5-15-12-15-23V13Z" fill="#07224c" {...stroke} /><Path d="M14 27h6l4-7 5 12 4-7h4" {...stroke} /></>;
+  if (kind === 'nomad') artwork = <>
+    <Circle cx="24" cy="24" r="18" fill="#03281d" {...stroke} />
+    <Circle cx="24" cy="24" r="14" stroke={color} strokeWidth="1" opacity="0.42" />
+    <Path d="M24 8v4M40 24h-4M24 40v-4M8 24h4M24 24V14m0 10 8 5" {...stroke} />
+    <Circle cx="24" cy="24" r="2.3" fill={color} />
+    <SvgText x="24" y="36" fill={color} fontSize="5.8" fontWeight="900" textAnchor="middle">24H</SvgText>
+  </>;
   else if (kind === 'syaxio') artwork = <>
     <Defs>
       <LinearGradient id="syaxioIconGradient" x1="9" y1="8" x2="39" y2="40">
@@ -195,7 +201,7 @@ const assetVisuals: Record<string, Pick<Asset, 'mark' | 'tint' | 'textColor'>> =
 };
 
 const ecosystem: EcosystemItem[] = [
-  { label: 'Nomad', kind: 'nomad', color: C.blue, route: 'Portfolio' },
+  { label: 'Nomad', kind: 'nomad', color: C.green, route: 'Portfolio' },
   { label: 'Arkreum', kind: 'arkreum', color: '#4d83ff', route: 'VoltaireProtocols' },
   { label: 'Reqrium', kind: 'reqrium', color: '#8c4dff', route: 'BlockPagesSafety' },
   { label: 'Syaxio', kind: 'syaxio', color: '#23dce8', route: 'VoltaireProtocols' },
