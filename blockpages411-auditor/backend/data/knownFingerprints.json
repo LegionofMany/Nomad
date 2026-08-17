@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Example Protected Site",
+    "domains": ["example.com"],
+    "hash": "replace_with_sha256_structure_hash"
+  }
+]

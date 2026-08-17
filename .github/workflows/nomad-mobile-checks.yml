@@ -7,6 +7,7 @@ on:
       - "src/**"
       - "travel/**"
       - "package.json"
+      - "tsconfig.json"
       - ".github/workflows/nomad-mobile-checks.yml"
   push:
     branches:
@@ -16,6 +17,7 @@ on:
       - "src/**"
       - "travel/**"
       - "package.json"
+      - "tsconfig.json"
       - ".github/workflows/nomad-mobile-checks.yml"
 
 jobs:
@@ -26,20 +28,68 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      - name: Detect root TypeScript changes
+        id: root_changes
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -E '^(src/|travel/|package.json|tsconfig.json)$|^(src/|travel/)'; then
+            echo "run_root_typecheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_root_typecheck=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect mobile check scope
+        id: mobile_changes
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          MOBILE_FILES=$(echo "$CHANGED_FILES" | grep -E '^mobile/' || true)
+          NON_BLOCKPAGES_MOBILE_FILES=$(echo "$MOBILE_FILES" | grep -Ev '^mobile/nomad/adapters/blockpages411AuditorAdapter\.ts$' || true)
+
+          if [[ -n "$MOBILE_FILES" && -z "$NON_BLOCKPAGES_MOBILE_FILES" ]]; then
+            echo "blockpages_adapter_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "blockpages_adapter_only=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install root dependencies
+        if: steps.root_changes.outputs.run_root_typecheck == 'true'
         run: npm install
 
       - name: Install mobile dependencies
         run: npm --prefix mobile install
 
       - name: Typecheck root backend modules
+        if: steps.root_changes.outputs.run_root_typecheck == 'true'
         run: npm run typecheck
 
+      - name: Typecheck Blockpages411 adapter only
+        if: steps.mobile_changes.outputs.blockpages_adapter_only == 'true'
+        run: |
+          cd mobile
+          npx tsc --noEmit --strict --skipLibCheck --moduleResolution node --target ES2020 --module commonjs nomad/adapters/blockpages411AuditorAdapter.ts
+
       - name: Typecheck Nomad mobile overlay
+        if: steps.mobile_changes.outputs.blockpages_adapter_only != 'true'
         run: npm run mobile:typecheck

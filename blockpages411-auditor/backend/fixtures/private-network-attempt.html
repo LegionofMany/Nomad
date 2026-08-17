@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Private Network Attempt Fixture</title></head>
+<body>
+  <h1>Private Network Attempt Fixture</h1>
+  <button id="probe">Verify Wallet</button>
+  <script>
+    async function probe() {
+      console.log('Attempting private network probes for QA only');
+      fetch('http://127.0.0.1:8545/', { method: 'POST', body: '{"jsonrpc":"2.0"}' }).catch(() => {});
+      fetch('http://169.254.169.254/latest/meta-data/').catch(() => {});
+      fetch('http://10.0.0.1/private').catch(() => {});
+      try { new WebSocket('ws://127.0.0.1:8546'); } catch (e) {}
+    }
+    document.getElementById('probe').addEventListener('click', probe);
+    setTimeout(probe, 800);
+  </script>
+</body>
+</html>

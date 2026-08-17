@@ -1,0 +1,9 @@
+[
+  { "brand": "MetaMask", "domains": ["metamask.io"], "keywords": ["metamask", "wallet", "fox"] },
+  { "brand": "Coinbase", "domains": ["coinbase.com"], "keywords": ["coinbase", "wallet", "exchange"] },
+  { "brand": "Binance", "domains": ["binance.com"], "keywords": ["binance", "bnb", "exchange"] },
+  { "brand": "OpenSea", "domains": ["opensea.io"], "keywords": ["opensea", "nft", "marketplace"] },
+  { "brand": "Ledger", "domains": ["ledger.com"], "keywords": ["ledger", "hardware wallet"] },
+  { "brand": "Trezor", "domains": ["trezor.io"], "keywords": ["trezor", "hardware wallet"] },
+  { "brand": "Uniswap", "domains": ["uniswap.org"], "keywords": ["uniswap", "swap", "dex"] }
+]

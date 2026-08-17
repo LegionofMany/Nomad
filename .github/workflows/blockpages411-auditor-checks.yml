@@ -1,0 +1,93 @@
+name: Blockpages411 Auditor Checks
+
+on:
+  pull_request:
+    paths:
+      - "blockpages411-auditor/**"
+      - ".github/workflows/blockpages411-auditor-checks.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "blockpages411-auditor/**"
+      - ".github/workflows/blockpages411-auditor-checks.yml"
+
+jobs:
+  backend:
+    name: Backend syntax and readiness
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blockpages411-auditor/backend
+
+    env:
+      NODE_ENV: production
+      ADMIN_API_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      ENABLE_CHAIN_SIMULATION: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install backend dependencies
+        run: npm install
+
+      - name: Run backend syntax check
+        run: npm run syntax
+
+      - name: Run readiness check
+        run: npm run test:readiness
+
+  frontend:
+    name: Frontend production build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blockpages411-auditor/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+  compose:
+    name: Docker Compose config validation
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blockpages411-auditor
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create CI env file
+        run: |
+          cat > .env <<'ENV'
+          NODE_ENV=production
+          ADMIN_API_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          ENABLE_CHAIN_SIMULATION=false
+          ENABLE_ADMIN_PANEL=false
+          ENV
+
+      - name: Validate Docker Compose config
+        run: docker compose config
