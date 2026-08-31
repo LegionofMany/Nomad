@@ -43,3 +43,12 @@ jobs:
 
       - name: Typecheck Nomad mobile overlay
         run: npm run mobile:typecheck
+
+      - name: Verify Nomad completion contract
+        run: npm --prefix mobile run verify:nomad
+
+      - name: Run security unit tests
+        run: npm test -- --runInBand
+
+      - name: Build web preview
+        run: npm --prefix mobile run build:web

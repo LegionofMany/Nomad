@@ -3,7 +3,7 @@ import {
   getWalletStatus,
   lockWallet,
 } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import { nomadSecurityBridgeAdapter } from './nomadSecurityBridgeAdapter';
@@ -133,7 +133,7 @@ export type NomadExtendedWatchState = NomadWatchState & {
   remoteWipeProviderConnected: false;
   authorityDeliveryProviderConnected: false;
   dataSource: 'nomad_watch_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -505,7 +505,7 @@ async function buildState(): Promise<NomadExtendedWatchState> {
     remoteWipeProviderConnected: false,
     authorityDeliveryProviderConnected: false,
     dataSource: 'nomad_watch_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

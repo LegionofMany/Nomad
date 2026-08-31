@@ -1,5 +1,5 @@
 import { getWalletMeta, getWalletStatus } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { localNomadSecurityAdapter } from './localNomadAdapters';
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
@@ -104,7 +104,7 @@ export type NomadOwnerAuthorityEnrollmentState = {
   multiAuthorityPolicyConnected: false;
   contactStorage: 'masked_and_optional_digest_only';
   dataSource: 'nomad_owner_authority_enrollment_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -390,7 +390,7 @@ async function buildState(): Promise<NomadOwnerAuthorityEnrollmentState> {
     multiAuthorityPolicyConnected: false,
     contactStorage: 'masked_and_optional_digest_only',
     dataSource: 'nomad_owner_authority_enrollment_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

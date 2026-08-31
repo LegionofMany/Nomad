@@ -11,7 +11,7 @@
     "test": "jest --config jest.config.cjs --passWithNoTests",
     "mobile:start": "npm --prefix mobile run start",
     "mobile:typecheck": "npm --prefix mobile run typecheck",
-    "audit:nomad": "npm run typecheck && npm run mobile:typecheck"
+    "audit:nomad": "npm run typecheck && npm run mobile:typecheck && npm --prefix mobile run verify:nomad"
   },
   "dependencies": {
     "@scure/bip39": "^1.0.0",

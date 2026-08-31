@@ -24,4 +24,9 @@ describe('recovery flow', () => {
     expect(result.success).toBe(false);
     expect(result.matches).toBe(23);
   });
+
+  test('rejects duplicate Time Sets', () => {
+    const positions = Array.from({ length: 24 }, () => ({ hour: 1, minute: 2, second: 3 }));
+    expect(() => buildRecoveryRegistry('master-secret-for-tests', positions)).toThrow('must be unique');
+  });
 });

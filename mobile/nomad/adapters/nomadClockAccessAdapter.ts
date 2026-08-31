@@ -8,7 +8,7 @@ import {
   unlockWithClock,
 } from '../../services/walletService';
 import type { UnlockWithClockResult } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 export type NomadClockAccessStatus =
   | 'no_wallet'
@@ -47,7 +47,7 @@ export type NomadClockAccessState = {
   timeZoneLabel: string;
   clockSource: 'device_local_clock';
   trustedTimeProviderConnected: false;
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   events: NomadClockAccessEvent[];
 };
 
@@ -185,7 +185,7 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
     timeZoneLabel: getTimeZoneLabel(),
     clockSource: 'device_local_clock' as const,
     trustedTimeProviderConnected: false as const,
-    persistence: 'in_memory_stub' as const,
+    persistence: getSecureStorageMode(),
     events: stored.events,
   };
 

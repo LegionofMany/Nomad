@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import type { NomadOwnerAuthorityRequest } from './walletAdapter';
@@ -66,7 +66,7 @@ export type NomadOwnerAuthorityApprovalState = {
   canPreparePackage: boolean;
   provider: 'not_connected';
   dataSource: 'nomad_owner_authority_approval_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -256,7 +256,7 @@ async function buildState(): Promise<NomadOwnerAuthorityApprovalState> {
     canPreparePackage: request.status === 'pending',
     provider: 'not_connected',
     dataSource: 'nomad_owner_authority_approval_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

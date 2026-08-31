@@ -23,6 +23,31 @@ export type NomadWalletSessionState = {
   expiresAt?: string;
 };
 
+export type NomadRecoveryAuthorization = {
+  id: string;
+  issuedAt: string;
+  expiresAt: string;
+  recoverySessionId: string;
+  walletBinding: 'active_wallet_provider_session';
+  verifiedSets: 24;
+  method: 'ordered_time_sets';
+  source: 'nomad_recovery_adapter_v1';
+  containsSecrets: false;
+  walletKeysChanged: false;
+  requiresExplicitOwnerConfirmation: true;
+  status: 'ready_for_wallet_provider';
+};
+
+export type NomadWalletProviderRestorationReceipt = {
+  id: string;
+  provider: string;
+  restoredAt: string;
+  recoverySessionId: string;
+  walletFingerprint: string;
+  signature: string;
+  signatureVerified: true;
+};
+
 export type NomadAdapterFailureCode =
   | 'unsupported_chain'
   | 'wallet_locked'
@@ -117,6 +142,7 @@ export type NomadWalletAdapter = {
   getTransactionHistory?(accountId?: string): Promise<NomadTransactionHistoryItem[]>;
   signTransaction?(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
   broadcastTransaction?(signedTransaction: NomadSignedTransaction): Promise<NomadBroadcastResult>;
+  restoreFromNomadAuthorization?(authorization: NomadRecoveryAuthorization): Promise<NomadWalletProviderRestorationReceipt>;
 };
 
 export type NomadTravelFundingSource = {
@@ -216,6 +242,7 @@ export type NomadRecoverySequenceState = {
   currentSet: number;
   sampleTime: NomadRecoveryClockTime;
   status: 'entry' | 'verifying' | 'ready_to_recover' | 'complete';
+  authorizedAt?: string;
   recoveredAt?: string;
 };
 
@@ -228,7 +255,8 @@ export type NomadRecoveryAdapter = {
   getRecoverySequenceState(): Promise<NomadRecoverySequenceState>;
   startRecoverySequence(): Promise<NomadRecoverySequenceState>;
   verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime): Promise<NomadRecoverySequenceState>;
-  completeRecoverySequence(): Promise<NomadRecoverySequenceState>;
+  completeRecoverySequence(recoverySessionId?: string): Promise<NomadRecoverySequenceState>;
+  getRecoveryAuthorization?(): Promise<NomadRecoveryAuthorization | null>;
 };
 
 export type NomadFreezeScope = 'entire_wallet' | 'travel_pocket' | 'specific_assets' | 'owner_authority_alert';

@@ -3,11 +3,13 @@ import type {
   NomadBroadcastResult,
   NomadChain,
   NomadOverlayAdapters,
+  NomadRecoveryAuthorization,
   NomadSignedTransaction,
   NomadTransactionDraft,
   NomadTransactionHistoryItem,
   NomadWalletAccount,
   NomadWalletSessionState,
+  NomadWalletProviderRestorationReceipt,
 } from './walletAdapter';
 import { createMissingAdapterError } from './walletAdapter';
 
@@ -27,6 +29,22 @@ import { createMissingAdapterError } from './walletAdapter';
 
 const notConnected = (methodName: string) => createMissingAdapterError(`clonedWallet.${methodName}`);
 
+const REQUIRED_ENGINE_METHODS = [
+  'getSessionState',
+  'getSupportedChains',
+  'getAccounts',
+  'getWalletBalance',
+  'getAssets',
+  'getReceiveAddress',
+  'createTransaction',
+  'signTransaction',
+  'broadcastTransaction',
+  'getTransactionHistory',
+  'lockWallet',
+  'unlockWallet',
+  'restoreFromNomadAuthorization',
+] as const;
+
 export type ClonedWalletEngineBridge = {
   getSessionState(): Promise<NomadWalletSessionState>;
   getSupportedChains(): Promise<NomadChain[]>;
@@ -40,7 +58,17 @@ export type ClonedWalletEngineBridge = {
   getTransactionHistory(accountId?: string): Promise<NomadTransactionHistoryItem[]>;
   lockWallet(): Promise<void>;
   unlockWallet(): Promise<void>;
+  restoreFromNomadAuthorization(authorization: NomadRecoveryAuthorization): Promise<NomadWalletProviderRestorationReceipt>;
 };
+
+export function assertClonedWalletEngineBridge(
+  engine: Partial<ClonedWalletEngineBridge>,
+): asserts engine is ClonedWalletEngineBridge {
+  const missing = REQUIRED_ENGINE_METHODS.filter((method) => typeof engine[method] !== 'function');
+  if (missing.length > 0) {
+    throw new Error(`The base-wallet bridge is incomplete. Missing: ${missing.join(', ')}`);
+  }
+}
 
 export const createClonedWalletAdapterTemplate = (engine?: Partial<ClonedWalletEngineBridge>): NomadOverlayAdapters => ({
   wallet: {
@@ -56,5 +84,12 @@ export const createClonedWalletAdapterTemplate = (engine?: Partial<ClonedWalletE
     getTransactionHistory: (accountId) => engine?.getTransactionHistory?.(accountId) ?? Promise.reject(notConnected('getTransactionHistory')),
     signTransaction: (draft) => engine?.signTransaction?.(draft) ?? Promise.reject(notConnected('signTransaction')),
     broadcastTransaction: (signedTransaction) => engine?.broadcastTransaction?.(signedTransaction) ?? Promise.reject(notConnected('broadcastTransaction')),
+    restoreFromNomadAuthorization: (authorization) => engine?.restoreFromNomadAuthorization?.(authorization) ?? Promise.reject(notConnected('restoreFromNomadAuthorization')),
   },
 });
+
+/** Strict production entry point. It fails before rendering if the future wallet bridge is incomplete. */
+export function createClonedWalletAdapter(engine: ClonedWalletEngineBridge): NomadOverlayAdapters {
+  assertClonedWalletEngineBridge(engine);
+  return createClonedWalletAdapterTemplate(engine);
+}

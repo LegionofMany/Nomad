@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { localNomadSecurityAdapter } from './localNomadAdapters';
 import { nomadTravelAdapter } from './nomadTravelAdapter';
@@ -96,7 +96,7 @@ export type NomadTravelTopUpState = {
   executableFxProviderConnected: false;
   signingProvider: 'wallet_adapter';
   dataSource: 'nomad_travel_top_up_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -301,7 +301,7 @@ async function buildState(input: {
     executableFxProviderConnected: false,
     signingProvider: 'wallet_adapter',
     dataSource: 'nomad_travel_top_up_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

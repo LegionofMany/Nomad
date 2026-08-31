@@ -1,4 +1,10 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import {
+  getRandomBytes,
+  getSecureStorageMode,
+  secureGetItem,
+  secureSetItem,
+  type NomadPersistenceEvidence,
+} from '../../services/nativeStubs';
 import { hasWalletPassword, verifyWalletPassword } from '../../services/walletService';
 
 import {
@@ -72,7 +78,7 @@ export type NomadLostWalletState = {
   digestAlgorithm: 'SHA-256';
   rawTimeSetsStored: false;
   dataSource: 'nomad_lost_wallet_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
 };
 
 export type NomadLostWalletVerificationResult = {
@@ -102,7 +108,7 @@ function nowIso() {
 }
 
 function identifier(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}-${Date.now()}-${Array.from(getRandomBytes(6)).map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function defaultStoredState(): StoredLostWalletState {
@@ -225,7 +231,9 @@ async function buildState(): Promise<NomadLostWalletState> {
   const requiredChecksPass = prerequisites
     .filter((item) => item.id !== 'restoration_provider')
     .every((item) => item.status === 'pass');
-  const verified = sequence.status === 'ready_to_recover' || sequence.verifiedSets >= sequence.totalSets;
+  const verified = sequence.status === 'complete'
+    && sequence.verifiedSets >= sequence.totalSets
+    && Boolean(sequence.authorization);
   const remainingLockSeconds = lockoutRemainingSeconds(sequence.lockedUntil);
   const verificationLocked = remainingLockSeconds > 0;
   const verificationInProgress = sequence.status === 'verifying';
@@ -263,7 +271,7 @@ async function buildState(): Promise<NomadLostWalletState> {
     digestAlgorithm: 'SHA-256',
     rawTimeSetsStored: false,
     dataSource: 'nomad_lost_wallet_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
   };
 }
 
@@ -413,6 +421,10 @@ async function verifyRecoverySet(
     let stored = await loadStoredState();
     const timestamp = nowIso();
     if (stored.session) stored = { ...stored, session: { ...stored.session, updatedAt: timestamp } };
+    const verifiedSequence = await nomadRecoveryAdapter.getExtendedRecoverySequenceState();
+    if (verifiedSequence.status === 'ready_to_recover' && stored.session) {
+      await nomadRecoveryAdapter.completeRecoverySequence(stored.session.id);
+    }
     const after = await buildState();
     stored = appendEvent(stored, {
       title: after.status === 'verified_waiting_provider'

@@ -9,8 +9,8 @@
  *   HMAC-SHA256 using a `masterSecret` (caller-managed secret) as key.
  * - Tokens MUST be hashed (SHA-256) before storage; only hashed tokens are
  *   compared during recovery to avoid storing raw tokens.
- * - The recovery verification requires a configurable quorum (number of
- *   matching positions) to succeed.
+ * - Recovery succeeds only when all 24 positions match. The legacy quorum
+ *   argument is retained for API compatibility but cannot lower this rule.
  *
  * Security decisions (short):
  * - Token derivation uses HMAC-SHA256(masterSecret, payload) producing a
@@ -61,6 +61,8 @@ export function validatePositions(positions: TimePosition[]): void {
       throw new Error(`position ${i} has out-of-range hour/minute/second`);
     }
   }
+  const canonical = positions.map((position) => `${pad2(position.hour)}:${pad2(position.minute)}:${pad2(position.second)}`);
+  if (new Set(canonical).size !== 24) throw new Error('all 24 TimePosition entries must be unique');
 }
 
 /**
@@ -111,10 +113,10 @@ export function buildRecoveryRegistry(masterSecret: string, positions: TimePosit
  * Verify a set of provided tokens (preimages) against a stored registry.
  * - `providedTokens` may include tokens for arbitrary indices; each token
  *   will be hashed and compared to the stored registry.
- * - Returns the number of matches and boolean success against `quorum`.
+ * - Returns the number of matches; success always requires all 24 positions.
  */
-export function verifyRecoverySubmission(storedRegistry: RecoveryRegistryEntry[], providedTokens: { index: number; token: string }[], quorum = 3): { matches: number; success: boolean; matchedIndices: number[] } {
-  if (!Array.isArray(storedRegistry) || storedRegistry.length === 0) throw new Error("storedRegistry required");
+export function verifyRecoverySubmission(storedRegistry: RecoveryRegistryEntry[], providedTokens: { index: number; token: string }[], quorum = 24): { matches: number; success: boolean; matchedIndices: number[] } {
+  if (!Array.isArray(storedRegistry) || storedRegistry.length !== 24) throw new Error("storedRegistry must contain exactly 24 entries");
   const map = new Map<number, string>();
   for (const e of storedRegistry) map.set(e.index, e.hashedToken);
 
@@ -132,7 +134,8 @@ export function verifyRecoverySubmission(storedRegistry: RecoveryRegistryEntry[]
       matchedIndices.push(p.index);
     }
   }
-  return { matches, success: matches >= quorum, matchedIndices };
+  const requiredMatches = Math.max(24, quorum);
+  return { matches, success: matches >= requiredMatches, matchedIndices };
 }
 
 /**
@@ -140,7 +143,7 @@ export function verifyRecoverySubmission(storedRegistry: RecoveryRegistryEntry[]
  * `positions` and comparing to `storedRegistry`. Useful when caller still
  * has `masterSecret` available and wants to validate stored hashes.
  */
-export function verifyByDerivation(masterSecret: string, positions: TimePosition[], storedRegistry: RecoveryRegistryEntry[], date = new Date(), localSalt?: string, quorum = 3) {
+export function verifyByDerivation(masterSecret: string, positions: TimePosition[], storedRegistry: RecoveryRegistryEntry[], date = new Date(), localSalt?: string, quorum = 24) {
   validatePositions(positions);
   const provided = positions.map((p, i) => ({ index: i, token: deriveRecoveryToken(masterSecret, i, p, date, localSalt) }));
   return verifyRecoverySubmission(storedRegistry, provided, quorum);

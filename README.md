@@ -1,47 +1,44 @@
-# Nomad Wallet
+# Nomad
 
-Nomad Wallet is a non-custodial, travel-first wallet under Voltaire Protocols. It is designed around explicit owner consent, capped travel spending, NFC request safety, Blockpages411 destination checks, and a phased rollout from closed beta to production.
+Nomad is the finished travel, protection, recovery, approval, device, Reqrium safety, Arkrilium ecosystem, settings, and insights feature layer for a non-custodial wallet. It is designed around explicit owner consent, capped travel spending, request-only NFC, strict Time Key access, and ordered 24-Time-Set recovery verification.
 
-Nomad is currently GitHub-ready for continued development and developer execution handoff.
+The Nomad feature layer is wallet-ready. It deliberately does not choose, clone, or own a base wallet engine. The future wallet remains responsible for custody, private keys, accounts, signing, broadcasting, balances, provider access, and canonical transaction history.
 
-Nomad is not yet approved for real funds.
+Nomad is not yet approved for real funds. That restriction remains until a separately audited wallet engine and its production providers are connected through the included adapter contract.
 
 ## Current Status
 
 ```txt
 Repository: LegionofMany/Nomad
-Product: Nomad Wallet / Nomad Protocol
-Phase: Phase 1 overlay complete; Phase 2D developer/local audit ready
+Product: Nomad feature layer
+Phase: Nomad overlay complete; future wallet integration ready
 Real funds: Disabled
-Production wallet engine: Pending selection, audit, and integration
-Live services: Prepared in plan; not production-connected yet
+Wallet engine: Intentionally not included or selected
+Expo native persistence: Device-encrypted storage
+Web persistence: Browser preview storage, reported truthfully as non-production
+External services: Adapter-ready and reported as not connected when absent
 ```
 
-## Developer Handoff Start Here
+## Completion Gate
 
-Start with the final handoff packet before changing code:
+Run the same checks enforced by CI:
 
-```txt
-NOMAD_DEV_KICKOFF_PACKET.md
-NOMAD_FINAL_HANDOFF_PACKAGE.md
-DEV_HANDOFF.md
-NOMAD_DEVELOPER_EXECUTION_CHECKLIST.md
-ENVIRONMENT_SETUP.md
-PRODUCTION_BLOCKERS.md
+```bash
+npm ci
+npm --prefix mobile ci
+npm run audit:nomad
+npm test -- --runInBand
+npm --prefix mobile run build:web
 ```
 
-The current developer execution path is:
+The Nomad-specific gate verifies:
 
-```txt
-1. Read NOMAD_DEV_KICKOFF_PACKET.md
-2. Read NOMAD_FINAL_HANDOFF_PACKAGE.md
-3. Run the Phase 2D local audit from ENVIRONMENT_SETUP.md
-4. Record results in mobile/nomad/PHASE_2D_EXECUTION_REPORT_TEMPLATE.md
-5. Fix TypeScript, Expo, dependency, and route-smoke-test issues
-6. Select and integrate the base wallet engine behind the Nomad adapter provider
-7. Connect live Nomad services behind adapters
-8. Complete Phase 4 production audit and release gates
-```
+- all 26 approved Nomad pages and 29 registered routes;
+- no key custody or signing ownership in screen coverage;
+- native encrypted persistence and cryptographically secure randomness;
+- password verification, 24 unique ordered Time Sets, salted digests, and lockout;
+- metadata-only recovery authorization that never claims keys were restored;
+- the complete future-wallet bridge contract.
 
 ## Core Product Direction
 
@@ -56,19 +53,19 @@ Core principles:
 - Travel Pocket spending caps
 - Main wallet isolation from travel spending
 - Clock unlock and recovery concepts
-- Blockpages411 safety checks
+- Reqrium safety checks
 - Phased capability rollout
 
 ## Overlay / Wallet Engine Boundary
 
-Nomad is the branded overlay, protection, travel, recovery, approval, Watch, BlockPages, Voltaire, settings, and insights layer.
+Nomad is the branded overlay, protection, travel, recovery, approval, Watch, Reqrium, Arkrilium, settings, and insights layer.
 
-The selected base wallet engine must own custody, private keys, seed storage, account derivation, signing, broadcasting, providers, balances, and canonical transaction history.
+The future base wallet engine must own custody, private keys, seed storage, account derivation, signing, broadcasting, providers, balances, and canonical transaction history.
 
 ```txt
-Selected base wallet engine
+Future wallet repository
         ↓
-Concrete Nomad adapters
+Strict wallet bridge (`createClonedWalletAdapter`)
         ↓
 NomadAdaptersProvider
         ↓
@@ -77,7 +74,7 @@ Nomad hooks
 26 Nomad screens
 ```
 
-Nomad screens may display wallet state, request quotes, prepare reviewable drafts, route approvals, show safety status, and manage overlay UX. Nomad screens must not store seed phrases, derive accounts, hold private keys, sign transactions, or broadcast transactions.
+Nomad screens may display wallet state, request quotes, prepare reviewable drafts, route approvals, show safety status, and manage overlay UX. Nomad screens do not store seed phrases, derive accounts, hold private keys, sign transactions, or broadcast transactions. Missing external providers remain visibly unavailable instead of being simulated as connected.
 
 ## Nomad Mobile Overlay
 
@@ -93,11 +90,11 @@ The current mobile overlay includes 26 wired Nomad screens covering:
 
 ```txt
 Portfolio, Wallets, Send, Receive, Swap, Travel Mode, Security Center, Settings,
-Insights, Spending, Recovery Center, Voltaire Protocols, BlockPages Safety,
+Insights, Spending, Recovery Center, Arkrilium Protocols, Reqrium Safety,
 Time Clock Access, Unlock Wallet, Lost Wallet Recovery, Recovery Sequence,
 Wallet Recovered, Owner Authority Approval, Address Safety Detail,
 Top Up Travel Pocket, POS Approval, Create Owner Authority,
-BlockPages URL Scanner, Emergency Freeze, Nomad Watch
+Reqrium URL Scanner, Emergency Freeze, Nomad Watch
 ```
 
 The code-level screen coverage registry is here:
@@ -163,7 +160,7 @@ Current Android-native modules include:
 - Travel Pocket manager
 - NFC payment gateway
 - Travel payment policy and coordinator
-- Blockpages411 safety client
+- Reqrium safety boundary (legacy Android class names are retained for compatibility)
 - Beta capability flags
 - Release safety gate
 - Development safety report
@@ -181,7 +178,7 @@ Enabled beta flows:
 - Travel Pocket simulation
 - NFC request simulation
 - Owner confirmation simulation
-- Blockpages411 safety messaging
+- Reqrium safety messaging
 
 Blocked until production replacement and audit:
 
@@ -228,7 +225,7 @@ REAL_FUNDS_ALLOWED = false
 
 ## Local Audit Commands
 
-Run these before engine integration and after every major implementation pass:
+Run these before future-wallet integration and after every Nomad change:
 
 ```bash
 npm install
@@ -263,8 +260,8 @@ NOMAD_HANDOFF_CLOSEOUT_AUDIT.md
 Current verdict:
 
 ```txt
-GitHub-ready for continued development: YES
-GitHub-ready for developer handoff: YES
+Nomad feature layer complete: YES
+Future-wallet bridge ready: YES
 GitHub-ready for production release: NO
 Real funds allowed: NO
 ```
@@ -286,16 +283,13 @@ docs/security/RECOVERY_MODEL.md
 docs/security/RELEASE_AUDIT_CHECKLIST.md
 ```
 
-## Developer Next Steps
+## Future Wallet Integration
 
-1. Review `NOMAD_DEV_KICKOFF_PACKET.md`.
-2. Review `NOMAD_FINAL_HANDOFF_PACKAGE.md`.
-3. Review `ENVIRONMENT_SETUP.md` and run Phase 2D local audit.
-4. Record results in `mobile/nomad/PHASE_2D_EXECUTION_REPORT_TEMPLATE.md`.
-5. Fix any TypeScript, Expo, dependency, or route smoke-test issues.
-6. Select and integrate the production wallet engine through `mobile/nomad/adapters/clonedWalletAdapterTemplate.ts`.
-7. Connect Phase 3 live services through adapters.
-8. Complete Phase 4 production audit and release gates before real funds.
+1. Clone or add the wallet repository you choose later.
+2. Implement `ClonedWalletEngineBridge` without passing seeds or private keys into Nomad.
+3. Construct adapters with the strict `createClonedWalletAdapter` entry point.
+4. Pass those adapters to `NomadAdaptersProvider`.
+5. Verify the wallet’s own custody, signing, provider, recovery-receipt, and release audits before enabling real funds.
 
 ## Release Warning
 

@@ -13,13 +13,16 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web --output-dir dist",
     "typecheck": "tsc --noEmit",
-    "audit:nomad": "npm run typecheck"
+    "verify:nomad": "node scripts/verify-nomad.mjs",
+    "audit:nomad": "npm run typecheck && npm run verify:nomad"
   },
   "dependencies": {
     "@react-navigation/native": "^6.1.7",
     "@react-navigation/native-stack": "^6.9.12",
-    "expo": "~54.0.31",
-    "expo-asset": "~12.0.12",
+    "expo": "~54.0.37",
+    "expo-asset": "~12.0.13",
+    "expo-crypto": "~15.0.9",
+    "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",

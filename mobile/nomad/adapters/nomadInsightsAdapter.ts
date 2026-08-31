@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 import { getPortfolio } from '../../services/walletService';
 
 import { nomadSecurityAdapter } from './nomadSecurityAdapter';
@@ -24,7 +24,7 @@ export type NomadExtendedInsightsState = NomadInsightsState & {
   period: NomadInsightsPeriod;
   updatedAt: string;
   dataSource: 'wallet_snapshot_and_travel_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   portfolioSeries: NomadInsightsSeriesPoint[];
   spendingSeries: NomadInsightsSeriesPoint[];
   historyAvailable: boolean;
@@ -323,7 +323,7 @@ async function buildState(period: NomadInsightsPeriod): Promise<NomadExtendedIns
     period,
     updatedAt: new Date().toISOString(),
     dataSource: 'wallet_snapshot_and_travel_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     portfolioSeries: flatPortfolioSeries(totalPortfolio, days),
     spendingSeries: buildSpendingSeries(transactions, days),
     historyAvailable: false,

@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 import { getWalletStatus } from '../../services/walletService';
 
 import { localNomadSecurityAdapter } from './localNomadAdapters';
@@ -137,7 +137,7 @@ export type NomadPOSState = {
   liveFeeProviderConnected: false;
   settlementProviderConnected: false;
   dataSource: 'nomad_pos_transaction_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -595,7 +595,7 @@ async function buildState(input: {
     liveFeeProviderConnected: false,
     settlementProviderConnected: false,
     dataSource: 'nomad_pos_transaction_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

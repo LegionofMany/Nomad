@@ -1,5 +1,5 @@
 import { getWalletMeta, lockWallet } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadSecurityAdapter } from './nomadSecurityAdapter';
 import { nomadTravelAdapter } from './nomadTravelAdapter';
@@ -63,7 +63,7 @@ export type NomadEditableSettingsState = Omit<
   paySpendCurrency: string;
   connectedApps: NomadConnectedApp[];
   dataSource: 'local_settings_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   updatedAt: string;
 };
 
@@ -238,7 +238,7 @@ async function buildState(): Promise<NomadEditableSettingsState> {
       { title: 'About Nomad', subtitle: 'Version, terms and privacy information', icon: 'i', actionKey: 'about' },
     ],
     dataSource: 'local_settings_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     updatedAt: stored.updatedAt,
   };
 }

@@ -175,9 +175,6 @@ function ProtocolArtwork({ kind, color = C.green, size = 42 }: { kind: ProtocolA
     case 'recovery':
       artwork = <><Path d="M11 18a16 16 0 1 1-2 14M11 8v10H2" {...stroke} /><Path d="m17 25 5 5 10-11" {...stroke} /></>;
       break;
-    case 'safety':
-      artwork = <><Path d="M24 4 41 12v13c0 11-6 18-17 23C13 43 7 36 7 25V12Z" {...stroke} /><Path d="M17 32V17h8a5 5 0 0 1 0 10h-8M25 27l8 7" {...stroke} /></>;
-      break;
     case 'telemetry':
       artwork = <><Path d="M14 38a18 18 0 0 1 0-28M34 10a18 18 0 0 1 0 28M19 32a11 11 0 0 1 0-16M29 16a11 11 0 0 1 0 16" {...stroke} /><Circle cx="24" cy="24" r="3" fill={color} /></>;
       break;

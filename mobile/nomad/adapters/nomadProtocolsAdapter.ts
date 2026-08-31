@@ -156,7 +156,7 @@ async function buildState(): Promise<ArkriliumProtocolsState> {
       subtitle: 'Owner-controlled wallet access and recovery evidence',
       detail: !hasWallet
         ? 'No wallet key boundary is configured.'
-        : `${recovery.enrolledTimeSets}/${recovery.timeSetsTotal} Time Sets enrolled. Current secure storage is an in-memory development stub.`,
+        : `${recovery.enrolledTimeSets}/${recovery.timeSetsTotal} Time Sets enrolled. Persistence: ${recovery.persistence.replace(/_/g, ' ')}.`,
       icon: '⚿',
       color: '#9b4dff',
       status: keyStatus,

@@ -1,6 +1,6 @@
 import { LockoutManager } from '../../../src/security/lockout';
 import type { LockoutState } from '../../../src/security/lockout';
-import { secureGetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 import { hasWalletPassword } from '../../services/walletService';
 import type { ClockTime } from '../../types';
 
@@ -32,7 +32,7 @@ export type NomadUnlockState = {
   verificationProvider: 'nomad_wallet_service';
   clockEvidence: 'device_local_clock';
   trustedTimeProviderConnected: false;
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
 };
 
 export type NomadUnlockAttempt = {
@@ -124,7 +124,7 @@ async function buildState(): Promise<NomadUnlockState> {
     verificationProvider: 'nomad_wallet_service',
     clockEvidence: 'device_local_clock',
     trustedTimeProviderConnected: false,
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
   };
 }
 

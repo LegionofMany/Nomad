@@ -3,11 +3,19 @@ import {
   getWalletMeta,
   getWalletStatus,
 } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import {
+  getRandomBytes,
+  getSecureStorageMode,
+  secureGetItem,
+  secureSetItem,
+  sha256Hex,
+  type NomadPersistenceEvidence,
+} from '../../services/nativeStubs';
 
 import type {
   NomadOwnerAuthorityRequest,
   NomadRecoveryAdapter,
+  NomadRecoveryAuthorization,
   NomadRecoveryClockTime,
   NomadRecoverySequenceState,
   NomadRecoveryState,
@@ -57,7 +65,7 @@ export type NomadExtendedRecoveryState = NomadRecoveryState & {
   ownerAuthorityStatus: NomadOwnerAuthorityRequest['status'];
   exportAvailable: boolean;
   dataSource: 'nomad_recovery_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   cryptographicEnrollment: 'available' | 'unavailable';
 };
 
@@ -66,6 +74,7 @@ export type NomadExtendedRecoverySequenceState = NomadRecoverySequenceState & {
   lockedUntil?: string;
   enrollmentAvailable: boolean;
   recoveryProviderConnected: boolean;
+  authorization?: NomadRecoveryAuthorization;
 };
 
 export type NomadRecoveryExport = {
@@ -82,7 +91,7 @@ export type NomadRecoveryExport = {
   recoveryScore: number;
   lastCheckedAt?: string;
   nextRecommendedCheck?: string;
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   warning: string;
 };
 
@@ -104,13 +113,14 @@ type StoredRecoveryState = {
   sequence: NomadRecoverySequenceState;
   failedVerificationAttempts: number;
   lockedUntil?: string;
+  authorization?: NomadRecoveryAuthorization;
   events: NomadRecoveryEvent[];
 };
 
 const STORAGE_KEY = 'nomad.recovery.extended';
 const TIME_SET_TOTAL = 24;
 const MAX_EVENTS = 40;
-const MAX_FAILED_ATTEMPTS = 5;
+const MAX_FAILED_ATTEMPTS = 8;
 const VERIFICATION_LOCK_MS = 15 * 60 * 1000;
 
 function nowIso() {
@@ -118,7 +128,7 @@ function nowIso() {
 }
 
 function identifier(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}-${Date.now()}-${Array.from(getRandomBytes(6)).map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function defaultSequence(): NomadRecoverySequenceState {
@@ -176,27 +186,8 @@ function appendEvent(state: StoredRecoveryState, event: Omit<NomadRecoveryEvent,
   };
 }
 
-function webCryptoAvailable() {
-  const runtime = globalThis as unknown as { crypto?: { subtle?: { digest(name: string, data: Uint8Array): Promise<ArrayBuffer> }; getRandomValues?<T extends ArrayBufferView>(array: T): T } };
-  return Boolean(runtime.crypto?.subtle?.digest && runtime.crypto?.getRandomValues);
-}
-
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes).map((value) => value.toString(16).padStart(2, '0')).join('');
-}
-
-function hexToBytes(value: string) {
-  const bytes = new Uint8Array(Math.floor(value.length / 2));
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-function encodeAscii(value: string) {
-  const bytes = new Uint8Array(value.length);
-  for (let index = 0; index < value.length; index += 1) bytes[index] = value.charCodeAt(index) & 0xff;
-  return bytes;
 }
 
 function normalizeTime(time: NomadRecoveryClockTime) {
@@ -215,19 +206,12 @@ function canonicalTime(time: NomadRecoveryClockTime) {
 }
 
 async function digestTime(time: NomadRecoveryClockTime, saltHex: string, setNumber: number) {
-  const runtime = globalThis as unknown as { crypto?: { subtle?: { digest(name: string, data: Uint8Array): Promise<ArrayBuffer> } } };
-  if (!runtime.crypto?.subtle?.digest) throw new Error('Cryptographic Time Set verification is unavailable on this runtime.');
   const payload = `${saltHex}:${setNumber}:${canonicalTime(time)}`;
-  const digest = await runtime.crypto.subtle.digest('SHA-256', encodeAscii(payload));
-  return bytesToHex(new Uint8Array(digest));
+  return sha256Hex(payload);
 }
 
 function generateSalt() {
-  const runtime = globalThis as unknown as { crypto?: { getRandomValues?<T extends ArrayBufferView>(array: T): T } };
-  if (!runtime.crypto?.getRandomValues) throw new Error('Secure random generation is unavailable on this runtime.');
-  const bytes = new Uint8Array(24);
-  runtime.crypto.getRandomValues(bytes);
-  return bytesToHex(bytes);
+  return bytesToHex(getRandomBytes(24));
 }
 
 function formatDate(value?: string, fallback = 'Not configured') {
@@ -274,6 +258,7 @@ function buildChecks(params: {
   authority: NomadOwnerAuthorityRequest;
 }): NomadRecoveryCheck[] {
   const authorityRecorded = params.authority.status === 'pending' || params.authority.status === 'approved';
+  const persistence = getSecureStorageMode();
   return [
     {
       id: 'wallet',
@@ -306,8 +291,12 @@ function buildChecks(params: {
     {
       id: 'storage',
       label: 'Encrypted persistence',
-      status: 'warning',
-      detail: 'This build uses the in-memory secure-storage stub. Production encrypted persistence is not connected.',
+      status: persistence === 'encrypted_device_store' ? 'pass' : persistence === 'browser_local_storage' ? 'warning' : 'fail',
+      detail: persistence === 'encrypted_device_store'
+        ? 'Nomad recovery evidence is stored in device-encrypted storage.'
+        : persistence === 'browser_local_storage'
+          ? 'Web preview persistence is available, but browser local storage is not a production credential vault.'
+          : 'Persistent storage is unavailable; this session is using a volatile memory fallback.',
     },
   ];
 }
@@ -433,20 +422,24 @@ async function buildExtendedState(): Promise<NomadExtendedRecoveryState> {
     ownerAuthorityStatus: stored.ownerAuthority.status,
     exportAvailable: hasWallet,
     dataSource: 'nomad_recovery_adapter',
-    persistence: 'in_memory_stub',
-    cryptographicEnrollment: webCryptoAvailable() ? 'available' : 'unavailable',
+    persistence: getSecureStorageMode(),
+    cryptographicEnrollment: 'available',
   };
 }
 
 async function buildSequenceState(): Promise<NomadExtendedRecoverySequenceState> {
   const stored = await loadStoredState();
   const lockedUntil = stored.lockedUntil && Date.parse(stored.lockedUntil) > Date.now() ? stored.lockedUntil : undefined;
+  const authorization = stored.authorization && Date.parse(stored.authorization.expiresAt) > Date.now()
+    ? stored.authorization
+    : undefined;
   return {
     ...stored.sequence,
     attemptsRemaining: Math.max(0, MAX_FAILED_ATTEMPTS - stored.failedVerificationAttempts),
     lockedUntil,
-    enrollmentAvailable: webCryptoAvailable(),
+    enrollmentAvailable: true,
     recoveryProviderConnected: false,
+    authorization,
   };
 }
 
@@ -504,7 +497,6 @@ async function cancelOwnerAuthorityRequest() {
 }
 
 async function enrollRecoverySequence(times: NomadRecoveryClockTime[]) {
-  if (!webCryptoAvailable()) throw new Error('Cryptographic Time Set enrollment is unavailable on this runtime.');
   if (times.length !== TIME_SET_TOTAL) throw new Error(`Exactly ${TIME_SET_TOTAL} Time Sets are required.`);
   const canonical = times.map(canonicalTime);
   if (new Set(canonical).size !== TIME_SET_TOTAL) throw new Error('Each Time Set must be unique.');
@@ -522,6 +514,7 @@ async function enrollRecoverySequence(times: NomadRecoveryClockTime[]) {
     failedVerificationAttempts: 0,
     lockedUntil: undefined,
     sequence: defaultSequence(),
+    authorization: undefined,
   }, {
     type: 'enrollment',
     title: '24 Time Sets enrolled',
@@ -541,6 +534,7 @@ async function clearRecoveryEnrollment() {
     failedVerificationAttempts: 0,
     lockedUntil: undefined,
     sequence: defaultSequence(),
+    authorization: undefined,
   }, {
     type: 'enrollment',
     title: 'Time Set enrollment cleared',
@@ -561,6 +555,7 @@ async function startRecoverySequence() {
   }
   stored = {
     ...stored,
+    authorization: undefined,
     sequence: {
       ...defaultSequence(),
       step: 2,
@@ -629,12 +624,50 @@ async function verifyRecoverySet(setNumber: number, time: NomadRecoveryClockTime
   return buildSequenceState();
 }
 
-async function completeRecoverySequence(): Promise<NomadRecoverySequenceState> {
-  const stored = await loadStoredState();
+async function completeRecoverySequence(recoverySessionId?: string): Promise<NomadRecoverySequenceState> {
+  let stored = await loadStoredState();
+  if (!recoverySessionId) throw new Error('A protected recovery session is required before Nomad can issue authorization.');
   if (stored.sequence.status !== 'ready_to_recover' || stored.sequence.verifiedSets !== TIME_SET_TOTAL) {
     throw new Error('All 24 Time Sets must be verified before recovery authorization.');
   }
-  throw new Error('Time Set verification is complete, but no production recovery provider is connected to restore wallet keys. No wallet state was changed.');
+  const issuedAt = nowIso();
+  const authorization: NomadRecoveryAuthorization = {
+    id: identifier('nomad-recovery-authorization'),
+    issuedAt,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    recoverySessionId,
+    walletBinding: 'active_wallet_provider_session',
+    verifiedSets: 24,
+    method: 'ordered_time_sets',
+    source: 'nomad_recovery_adapter_v1',
+    containsSecrets: false,
+    walletKeysChanged: false,
+    requiresExplicitOwnerConfirmation: true,
+    status: 'ready_for_wallet_provider',
+  };
+  stored = appendEvent({
+    ...stored,
+    authorization,
+    sequence: {
+      ...stored.sequence,
+      step: 4,
+      status: 'complete',
+      authorizedAt: issuedAt,
+    },
+  }, {
+    type: 'verification',
+    title: 'Nomad recovery authorization issued',
+    detail: 'The ordered Time Set checks completed. The metadata-only authorization contains no secrets and did not restore or change wallet keys.',
+    severity: 'info',
+  });
+  await saveStoredState(stored);
+  return stored.sequence;
+}
+
+async function getRecoveryAuthorization() {
+  const authorization = (await loadStoredState()).authorization;
+  if (!authorization || Date.parse(authorization.expiresAt) <= Date.now()) return null;
+  return authorization;
 }
 
 async function exportRecoverySummary() {
@@ -654,7 +687,7 @@ async function exportRecoverySummary() {
     recoveryScore: state.recoveryScore,
     lastCheckedAt: stored.lastCheckedAt,
     nextRecommendedCheck: stored.nextCheckAt,
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     warning: 'This summary contains metadata only. It does not contain a seed phrase, private keys, raw Time Sets or authority secrets.',
   };
   stored = appendEvent(stored, {
@@ -681,6 +714,7 @@ export const nomadRecoveryAdapter: NomadExtendedRecoveryAdapter = {
   startRecoverySequence,
   verifyRecoverySet,
   completeRecoverySequence,
+  getRecoveryAuthorization,
   enrollRecoverySequence,
   clearRecoveryEnrollment,
   exportRecoverySummary,

@@ -1,5 +1,5 @@
 import { getTravelState, getWalletMeta, getWalletStatus } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import type {
@@ -57,7 +57,7 @@ export type NomadExtendedSecurityState = NomadSecurityState & {
   latestScanId?: string;
   scanProvider: 'nomad_local_adapter';
   dataSource: 'local_preview';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
 };
 
 type StoredSecurityState = {
@@ -153,15 +153,26 @@ async function moduleChecks(checkedAt: string): Promise<NomadSecurityModuleResul
   const recoveryReady = recovery.recoveryStatus === 'protected' && recovery.timeSetsComplete >= recovery.timeSetsTotal;
   const authorityConfigured = authority.status === 'approved';
   const authorityPending = authority.status === 'pending';
+  const persistence = getSecureStorageMode();
 
   return [
     {
       id: 'secure_storage',
       title: 'Secure Storage',
       subtitle: 'Seed and wallet-state protection',
-      status: hasWallet ? 'warning' : 'not_configured',
+      status: !hasWallet
+        ? 'not_configured'
+        : persistence === 'encrypted_device_store'
+          ? 'secure'
+          : persistence === 'browser_local_storage'
+            ? 'warning'
+            : 'failed',
       detail: hasWallet
-        ? 'Wallet data is routed through the secure-storage interface, but this build still uses an in-memory storage stub. Production encrypted device storage is required.'
+        ? persistence === 'encrypted_device_store'
+          ? 'Nomad state and preview credentials are stored with device-encrypted storage.'
+          : persistence === 'browser_local_storage'
+            ? 'The web preview is persistent, but browser local storage is not a production credential vault. Use a native build for encrypted device storage.'
+            : 'Persistent storage is unavailable. This volatile session must not be used for durable wallet or recovery state.'
         : 'Create or restore a wallet before storage protection can be evaluated.',
       route: 'Settings',
       checkedAt,
@@ -310,7 +321,7 @@ async function buildState(storedInput?: StoredSecurityState, modulesInput?: Noma
     latestScanId: latestScan?.id,
     scanProvider: 'nomad_local_adapter',
     dataSource: 'local_preview',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
   };
 }
 

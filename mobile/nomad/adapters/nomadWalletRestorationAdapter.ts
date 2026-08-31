@@ -1,3 +1,5 @@
+import { getSecureStorageMode, type NomadPersistenceEvidence } from '../../services/nativeStubs';
+
 import { nomadLostWalletAdapter, type NomadLostWalletState } from './nomadLostWalletAdapter';
 
 export type NomadWalletRestorationStatus =
@@ -7,7 +9,7 @@ export type NomadWalletRestorationStatus =
   | 'restored';
 
 export type NomadWalletRestorationCheck = {
-  id: 'recovery_session' | 'time_set_sequence' | 'restoration_provider' | 'restoration_receipt' | 'wallet_state';
+  id: 'recovery_session' | 'time_set_sequence' | 'recovery_authorization' | 'restoration_provider' | 'restoration_receipt' | 'wallet_state';
   label: string;
   status: 'pass' | 'warning' | 'fail';
   detail: string;
@@ -37,7 +39,7 @@ export type NomadWalletRestorationState = {
   canOpenRecoveredWallet: boolean;
   provider: 'not_connected';
   dataSource: 'nomad_wallet_restoration_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -67,6 +69,14 @@ function buildChecks(lostWallet: NomadLostWalletState): NomadWalletRestorationCh
       detail: sequenceVerified
         ? `All ${lostWallet.sequence.totalSets} salted Time Set digests matched in their enrolled order.`
         : `${lostWallet.sequence.verifiedSets}/${lostWallet.sequence.totalSets} Time Sets are verified.`,
+    },
+    {
+      id: 'recovery_authorization',
+      label: 'Current Nomad authorization',
+      status: lostWallet.sequence.authorization ? 'pass' : 'fail',
+      detail: lostWallet.sequence.authorization
+        ? `A metadata-only authorization is active until ${new Date(lostWallet.sequence.authorization.expiresAt).toLocaleString()}.`
+        : 'No unexpired Nomad recovery authorization is available. Re-run password and ordered Time Set verification before provider handoff.',
     },
     {
       id: 'restoration_provider',
@@ -116,7 +126,7 @@ async function buildState(): Promise<NomadWalletRestorationState> {
     canOpenRecoveredWallet: false,
     provider: 'not_connected',
     dataSource: 'nomad_wallet_restoration_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: new Date().toISOString(),
   };
 }

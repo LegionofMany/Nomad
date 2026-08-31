@@ -1,5 +1,5 @@
 import { getWalletMeta, getWalletStatus } from '../../services/walletService';
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadSecurityAdapter } from './nomadSecurityAdapter';
 import type {
@@ -87,7 +87,7 @@ export type ReqriumSafetyState = {
   breachProviderConnected: false;
   malwareProviderConnected: false;
   dataSource: 'reqrium_local_heuristics';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
 };
 
 export type ReqriumSafetyAdapter = NomadSafetyAdapter & {
@@ -518,7 +518,7 @@ async function buildState(storedInput?: StoredReqriumSafety): Promise<ReqriumSaf
     breachProviderConnected: false,
     malwareProviderConnected: false,
     dataSource: 'reqrium_local_heuristics',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
   };
 }
 

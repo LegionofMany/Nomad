@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import {
   nomadSafetyAdapter,
@@ -71,7 +71,7 @@ export type ReqriumURLScannerState = {
   malwareProviderConnected: false;
   communityReportsConnected: false;
   dataSource: 'reqrium_url_scanner_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   checkedAt: string;
 };
 
@@ -403,7 +403,7 @@ async function buildState(selectedScanId?: string): Promise<ReqriumURLScannerSta
     malwareProviderConnected: false,
     communityReportsConnected: false,
     dataSource: 'reqrium_url_scanner_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     checkedAt: nowIso(),
   };
 }

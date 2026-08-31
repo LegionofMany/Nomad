@@ -50,7 +50,7 @@ const fallbackSequenceState: NomadExtendedRecoverySequenceState = {
   currentSet: 1,
   sampleTime: { hour: 0, minute: 0, second: 0 },
   status: 'entry',
-  attemptsRemaining: 5,
+  attemptsRemaining: 8,
   enrollmentAvailable: false,
   recoveryProviderConnected: false,
 };

@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import { nomadRecoveryAdapter } from './nomadRecoveryAdapter';
 import type {
@@ -91,7 +91,7 @@ export type NomadEmergencyFreezeState = {
   remoteAuthorityDeliveryConnected: false;
   signedReleaseReceiptProviderConnected: false;
   hardwareAttestationConnected: false;
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
   dataSource: 'nomad_emergency_freeze_adapter';
   checkedAt: string;
 };
@@ -248,6 +248,7 @@ function buildChecks(params: {
   authority: NomadOwnerAuthorityRequest;
 }): NomadEmergencyFreezeCheck[] {
   const { sessionStatus, security, incident, authority } = params;
+  const persistence = getSecureStorageMode();
   const centralActive = security.freezeStatus !== 'none' && security.freezeScope !== 'owner_authority_alert';
   const fullFreeze = security.freezeStatus === 'full' || security.freezeScope === 'entire_wallet';
   const specificAssets = incident?.scope === 'specific_assets';
@@ -330,8 +331,12 @@ function buildChecks(params: {
     {
       id: 'persistent_storage',
       label: 'Encrypted persistent audit log',
-      status: 'warning',
-      detail: 'Freeze incident metadata currently uses the in-memory secure-storage stub rather than encrypted durable storage.',
+      status: persistence === 'encrypted_device_store' ? 'pass' : persistence === 'browser_local_storage' ? 'warning' : 'fail',
+      detail: persistence === 'encrypted_device_store'
+        ? 'Freeze incident metadata is stored with device-encrypted persistence.'
+        : persistence === 'browser_local_storage'
+          ? 'The web preview retains freeze metadata in browser local storage; native device encryption is not available on web.'
+          : 'Persistent storage is unavailable, so freeze metadata is volatile for this session.',
     },
   ];
 }
@@ -383,7 +388,7 @@ async function buildState(input: NomadEmergencyFreezeSnapshotInput): Promise<Nom
     remoteAuthorityDeliveryConnected: false,
     signedReleaseReceiptProviderConnected: false,
     hardwareAttestationConnected: false,
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
     dataSource: 'nomad_emergency_freeze_adapter',
     checkedAt: nowIso(),
   };

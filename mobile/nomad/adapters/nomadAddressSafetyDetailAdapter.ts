@@ -1,4 +1,4 @@
-import { secureGetItem, secureSetItem } from '../../services/nativeStubs';
+import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
 
 import {
   nomadSafetyAdapter,
@@ -64,7 +64,7 @@ export type ReqriumAddressSafetyDetailState = {
   contractAnalysisConnected: false;
   provider: 'reqrium_local_heuristics';
   dataSource: 'reqrium_address_detail_adapter';
-  persistence: 'in_memory_stub';
+  persistence: NomadPersistenceEvidence;
 };
 
 export type ReqriumAddressSafetyDetailAdapter = {
@@ -276,7 +276,7 @@ async function buildState(addressInput?: string): Promise<ReqriumAddressSafetyDe
     contractAnalysisConnected: false,
     provider: 'reqrium_local_heuristics',
     dataSource: 'reqrium_address_detail_adapter',
-    persistence: 'in_memory_stub',
+    persistence: getSecureStorageMode(),
   };
 }
 
