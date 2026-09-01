@@ -1,0 +1,31 @@
+{
+  "name": "blockpages411-auditor-backend",
+  "version": "8.0.0",
+  "description": "Defensive production-ready queued URL, drainer-script, airdrop, wallet-request, payload, chain simulation, threat-intel, admin review, and GitHub readiness auditor for Blockpages411.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test:batch": "node tests/batchTest.js",
+    "syntax": "node --check server.js && node --check worker.js && for f in routes/*.js utils/*.js tests/*.js; do node --check \"$f\"; done",
+    "postinstall": "npx playwright install chromium",
+    "test:fixtures": "ALLOW_PRIVATE_AUDIT=true node tests/batchTest.js http://localhost:8080/fixtures/fake-airdrop.html http://localhost:8080/fixtures/seed-phrase-phish.html http://localhost:8080/fixtures/private-network-attempt.html http://localhost:8080/fixtures/fake-permit-signature.html http://localhost:8080/fixtures/fake-approval-transaction.html http://localhost:8080/fixtures/fake-downloaded-payload.html https://example.com",
+    "worker": "node worker.js",
+    "dev:worker": "node worker.js",
+    "test:queue": "node tests/queueTest.js",
+    "test:readiness": "node tests/readinessCheck.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "playwright": "^1.49.1",
+    "bullmq": "^5.34.5",
+    "ioredis": "^5.4.2",
+    "morgan": "^1.10.0"
+  }
+}

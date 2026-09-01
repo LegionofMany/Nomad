@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Blockpages411 QA Fake Approval Transaction</title></head>
+<body>
+  <h1>QA Fixture: Fake Approval Transaction</h1>
+  <p>This local defensive test page requests an ERC20 max approval through the fake sandbox wallet.</p>
+  <button id="connect">Connect Wallet</button>
+  <button id="approve">Approve Rewards</button>
+  <script>
+    const TOKEN = '0x9999999999999999999999999999999999999999';
+    const SPENDER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const MAX = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+    const encodeAddress = (addr) => addr.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+    document.getElementById('connect').onclick = async () => {
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+    };
+    document.getElementById('approve').onclick = async () => {
+      await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: window.ethereum.selectedAddress,
+          to: TOKEN,
+          chainId: '0x1',
+          value: '0x0',
+          data: '0x095ea7b3' + encodeAddress(SPENDER) + MAX
+        }]
+      });
+    };
+  </script>
+</body>
+</html>
