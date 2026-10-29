@@ -4,6 +4,6 @@
  */
 
 export * from "./seed";
-export * from "./derive";
-export * from "./deriveEvm";
+export { deriveBtcAccount } from "./derive";
+export { deriveEvmAccount } from "./deriveEvm";
 export * from "./encrypt";

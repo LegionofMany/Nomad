@@ -1,0 +1,40 @@
+name: Android Structure Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  android-structure-check:
+    name: Android Structure Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify android-nomad directory exists
+        run: test -d android-nomad
+
+      - name: Verify package source directory exists
+        run: test -d android-nomad/app/src/main/java/protocols/voltaire/nomad
+
+      - name: Verify core Android scaffold files are referenced
+        run: |
+          test -f docs/ANDROID_BUILD_ACTIVATION.md
+          grep -R "android-nomad" docs/ANDROID_BUILD_ACTIVATION.md
+          grep -R "protocols.voltaire.nomad" docs/ANDROID_BUILD_ACTIVATION.md
+
+      - name: Detect Gradle files without failing
+        run: |
+          if [ -f android-nomad/settings.gradle ]; then echo "settings.gradle found"; else echo "settings.gradle pending"; fi
+          if [ -f android-nomad/build.gradle ]; then echo "build.gradle found"; else echo "build.gradle pending"; fi
+          if [ -f android-nomad/app/build.gradle ]; then echo "app/build.gradle found"; else echo "app/build.gradle pending"; fi
+
+      - name: Final status
+        run: |
+          echo "Android structure validation completed."
+          echo "This workflow validates repository structure only."
+          echo "It does not certify production readiness."

@@ -2,23 +2,28 @@
   "name": "nomad",
   "version": "0.1.0",
   "private": true,
-  "description": "Nomad wallet monorepo root (minimal package.json to manage deps)",
+  "description": "Nomad Wallet monorepo with Vercel beta site, wallet modules, and Android-native scaffold",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test:integration": "npm run build && node ./tmp_integration_test.js",
-    "test": "jest --config jest.config.cjs --passWithNoTests"
+    "dev": "npm --prefix mobile run web",
+    "build": "npm --prefix mobile ci && npm --prefix mobile run build:web",
+    "start": "npm --prefix mobile run web",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --config jest.config.cjs --passWithNoTests",
+    "mobile:start": "npm --prefix mobile run start",
+    "mobile:typecheck": "npm --prefix mobile run typecheck",
+    "audit:nomad": "npm run typecheck && npm run mobile:typecheck && npm --prefix mobile run verify:nomad"
   },
   "dependencies": {
-    "ethers": "^6.0.0",
     "@scure/bip39": "^1.0.0",
+    "bip32": "^2.0.6",
     "bitcoinjs-lib": "^6.1.0",
-    "bip32": "^2.0.6"
+    "ethers": "^6.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
-    "@types/jest": "^29.0.0"
+    "typescript": "^5.0.0"
   }
 }

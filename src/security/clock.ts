@@ -2,7 +2,7 @@
  * security/clock.ts
  *
  * Pure logic for the daily clock-based unlock.
- * - Defines a single daily unlock time (hour/minute)
+ * - Defines a single daily unlock time (hour/minute/second)
  * - Provides helpers to check if "now" is within the allowed unlock window
  * - Produces a deterministic `unlockSecret` string derived from a master secret
  *   and the current date + configured daily time. That `unlockSecret` can be
@@ -56,6 +56,7 @@ function bytesToHex(bytes: Uint8Array): string {
 export interface DailyUnlockConfig {
   hour: number; // 0-23
   minute: number; // 0-59
+  second?: number; // 0-59 (defaults to 0 for legacy callers)
   toleranceMinutes?: number; // +/- minutes allowed around target time (default 5)
   /**
    * Optional device-specific local salt. This should be a stable string that
@@ -86,6 +87,7 @@ export function isWithinDailyUnlock(cfg: DailyUnlockConfig, date = new Date()): 
   // Validate config ranges
   if (cfg.hour < 0 || cfg.hour > 23) throw new Error("DailyUnlockConfig.hour must be 0-23");
   if (cfg.minute < 0 || cfg.minute > 59) throw new Error("DailyUnlockConfig.minute must be 0-59");
+  if ((cfg.second ?? 0) < 0 || (cfg.second ?? 0) > 59) throw new Error("DailyUnlockConfig.second must be 0-59");
 
   const tol = cfg.toleranceMinutes ?? 5;
   const targetMinutes = cfg.hour * 60 + cfg.minute;
@@ -97,7 +99,7 @@ export function isWithinDailyUnlock(cfg: DailyUnlockConfig, date = new Date()): 
 
 /**
  * Derive a deterministic unlock secret (hex) for the given `date` and
- * `DailyUnlockConfig` using HMAC-SHA256(masterSecret, date|HH:MM).
+ * `DailyUnlockConfig` using HMAC-SHA256(masterSecret, date|HH:MM:SS).
  * This secret can be passed as `unlockSecret` to `wallet-core` encryption.
  */
 /**
@@ -121,7 +123,7 @@ export function deriveDailyUnlockSecret(masterSecret: string, cfg: DailyUnlockCo
   if (!masterSecret || typeof masterSecret !== "string") throw new Error("masterSecret must be a non-empty string");
   // Use local date components
   const d = dateToYMD(date);
-  const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}`;
+  const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}:${pad2(cfg.second ?? 0)}`;
   const saltPart = cfg.localSalt ? `|${cfg.localSalt}` : "";
   const payload = `${d}|${time}${saltPart}`;
   // Node-only sync derivation.
@@ -143,7 +145,7 @@ export async function deriveDailyUnlockSecretAsync(masterSecret: string, cfg: Da
   if (!masterSecret || typeof masterSecret !== "string") throw new Error("masterSecret must be a non-empty string");
 
   const d = dateToYMD(date);
-  const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}`;
+  const time = `${pad2(cfg.hour)}:${pad2(cfg.minute)}:${pad2(cfg.second ?? 0)}`;
   const saltPart = cfg.localSalt ? `|${cfg.localSalt}` : "";
   const payload = `${d}|${time}${saltPart}`;
 

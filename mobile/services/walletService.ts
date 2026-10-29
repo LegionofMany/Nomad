@@ -10,6 +10,11 @@ import { encryptSeedPortable, decryptSeedPortable } from "../../src/wallet-core/
 import { LockoutManager } from "../../src/security/lockout";
 import type { DailyUnlockConfig } from "../../src/security/clock";
 import { deriveDailyUnlockSecretAsync } from "../../src/security/clock";
+import {
+  enrollPassword,
+  verifyPassword,
+  type PasswordCredential,
+} from "../../src/security/passwordCredential";
 
 import { activateTravelMode } from "../../travel/travelMode";
 
@@ -18,8 +23,9 @@ import { getRandomBytes, secureGetItem, secureRemoveItem, secureSetItem } from "
 const STORAGE_KEYS = {
   walletMeta: "nomad.wallet.meta",
   encryptedSeed: "nomad.wallet.encryptedSeed",
-  plainSeed: "nomad.wallet.plainSeed",
+  plainSeed: "nomad.wallet.plainSeed", // legacy cleanup only; plaintext is never read
   masterSecret: "nomad.wallet.masterSecret",
+  passwordCredential: "nomad.wallet.passwordCredential",
   unlockTime: "nomad.wallet.unlockTime",
   isUnlocked: "nomad.wallet.isUnlocked",
   lockout: "nomad.wallet.lockout",
@@ -39,16 +45,7 @@ type TravelState = {
 
 export type UnlockWithClockResult =
   | { ok: true }
-  | { ok: false; reason: "no_wallet" | "locked_out" | "bad_time" | "decrypt_failed"; remainingLockSeconds?: number; permanentlyLocked?: boolean };
-
-function hasWebCryptoSubtle(): boolean {
-  return !!(
-    typeof globalThis !== "undefined" &&
-    (globalThis as any).crypto &&
-    (globalThis as any).crypto.subtle &&
-    typeof (globalThis as any).crypto.subtle.importKey === "function"
-  );
-}
+  | { ok: false; reason: "no_wallet" | "locked_out" | "bad_time" | "bad_password" | "password_not_configured" | "decrypt_failed"; remainingLockSeconds?: number; permanentlyLocked?: boolean };
 
 function bytesToHex(bytes: Uint8Array): string {
   let out = "";
@@ -65,25 +62,59 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
-function clockTimeToDailyUnlockConfig(t: ClockTime): DailyUnlockConfig {
-  // UI uses 1-12 hour; convert to 0-23 format by treating 12 as 0 for demo.
-  // This is a demo wiring. Production should ask for AM/PM or use 24h.
-  const hour12 = Math.max(1, Math.min(12, t.hour));
+function normalizeClockTime(time: ClockTime): ClockTime {
+  const hour = Number(time.hour);
+  const minute = Number(time.minute);
+  const second = Number(time.second);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) throw new Error("Clock hour must be between 00 and 23.");
+  if (!Number.isInteger(minute) || minute < 0 || minute > 59) throw new Error("Clock minute must be between 00 and 59.");
+  if (!Number.isInteger(second) || second < 0 || second > 59) throw new Error("Clock second must be between 00 and 59.");
+  return { hour, minute, second };
+}
+
+function clockTimeToDailyUnlockConfig(time: ClockTime): DailyUnlockConfig {
+  const normalized = normalizeClockTime(time);
+  return { hour: normalized.hour, minute: normalized.minute, second: normalized.second, toleranceMinutes: 15 };
+}
+
+function legacyClockTimeToDailyUnlockConfig(time: ClockTime): DailyUnlockConfig {
+  const hour12 = Math.max(1, Math.min(12, time.hour));
   const hour24 = hour12 % 12;
-  return { hour: hour24, minute: Math.max(0, Math.min(59, t.minute)), toleranceMinutes: 60 };
+  return { hour: hour24, minute: Math.max(0, Math.min(59, time.minute)), second: 0, toleranceMinutes: 60 };
 }
 
 const CLOCK_EPOCH_DATE = new Date(0);
 
-async function deriveClockUnlockSecret(masterSecret: string, time: ClockTime): Promise<string> {
-  const cfg = clockTimeToDailyUnlockConfig(time);
-  // Use a fixed date to make the derived secret stable across days for this demo.
-  // This preserves the "clock-based" property without requiring daily re-encryption.
-  return deriveDailyUnlockSecretAsync(masterSecret, cfg, CLOCK_EPOCH_DATE);
+async function deriveClockUnlockSecret(masterSecret: string, passwordAccessKey: string, time: ClockTime, legacy = false): Promise<string> {
+  const config = legacy ? legacyClockTimeToDailyUnlockConfig(time) : clockTimeToDailyUnlockConfig(time);
+  return deriveDailyUnlockSecretAsync(`${masterSecret}:${passwordAccessKey}`, config, CLOCK_EPOCH_DATE);
 }
 
 function sameClockTime(a: ClockTime, b: ClockTime): boolean {
-  return a.hour === b.hour && a.minute === b.minute;
+  return a.hour === b.hour && a.minute === b.minute && a.second === b.second;
+}
+
+async function getPasswordCredential(): Promise<PasswordCredential | null> {
+  return safeJsonParse<PasswordCredential>(await secureGetItem(STORAGE_KEYS.passwordCredential));
+}
+
+async function getPasswordAccessKey(password: string): Promise<string | null> {
+  const credential = await getPasswordCredential();
+  if (!credential) return null;
+  try {
+    const result = await verifyPassword(password, credential);
+    return result.ok ? result.accessKey : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function hasWalletPassword(): Promise<boolean> {
+  return (await getPasswordCredential()) !== null;
+}
+
+export async function verifyWalletPassword(password: string): Promise<boolean> {
+  return (await getPasswordAccessKey(password)) !== null;
 }
 
 async function getOrCreateMasterSecret(): Promise<string> {
@@ -91,7 +122,6 @@ async function getOrCreateMasterSecret(): Promise<string> {
   if (existing) return existing;
 
   const bytes = getRandomBytes(32);
-  // Avoid relying on Buffer/btoa presence in RN by storing a hex string.
   const secret = bytesToHex(bytes);
   await secureSetItem(STORAGE_KEYS.masterSecret, secret);
   return secret;
@@ -131,114 +161,108 @@ export async function getWalletMeta(): Promise<WalletMeta | null> {
   return safeJsonParse<WalletMeta>(await secureGetItem(STORAGE_KEYS.walletMeta));
 }
 
-export async function createWallet(): Promise<{ mnemonic: string; evmAddress: string }>{
+export async function createWallet(password: string, initialUnlockTime: ClockTime): Promise<{ mnemonic: string; evmAddress: string }>{
   const mnemonic = generateMnemonic();
   const masterSecret = await getOrCreateMasterSecret();
+  const passwordEnrollment = await enrollPassword(password);
 
-  const existingTime = await getDailyUnlockTime();
-  const unlockTime: ClockTime = existingTime ?? { hour: 12, minute: 0 };
-  if (!existingTime) await setDailyUnlockTime(unlockTime);
+  const unlockTime = normalizeClockTime(initialUnlockTime);
 
   const { address: evmAddress } = deriveEvmAccount(mnemonic, 0);
 
-  // Encrypt the seed for demo-safe storage.
   const seed = mnemonicToSeed(mnemonic);
-  if (hasWebCryptoSubtle()) {
-    const unlockSecret = await deriveClockUnlockSecret(masterSecret, unlockTime);
-    const blob = await encryptSeedPortable(seed, unlockSecret);
-    await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(blob));
-    await secureRemoveItem(STORAGE_KEYS.plainSeed);
-  } else {
-    // Expo Go (native) may not provide WebCrypto. For demo usability, store the seed in-memory.
-    // This is NOT production-safe; it's a fallback to keep the demo running.
-    await secureSetItem(STORAGE_KEYS.plainSeed, JSON.stringify(Array.from(seed)));
-    await secureRemoveItem(STORAGE_KEYS.encryptedSeed);
-  }
+  const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordEnrollment.accessKey, unlockTime);
+  const blob = await encryptSeedPortable(seed, unlockSecret);
 
   const meta: WalletMeta = { evmAddress, createdAt: new Date().toISOString() };
 
+  await secureSetItem(STORAGE_KEYS.unlockTime, JSON.stringify(unlockTime));
+  await secureSetItem(STORAGE_KEYS.passwordCredential, JSON.stringify(passwordEnrollment.credential));
+  await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(blob));
+  await secureRemoveItem(STORAGE_KEYS.plainSeed);
   await secureSetItem(STORAGE_KEYS.walletMeta, JSON.stringify(meta));
   await secureSetItem(STORAGE_KEYS.isUnlocked, "false");
 
   return { mnemonic, evmAddress };
 }
 
-export async function restoreWallet(mnemonic: string): Promise<{ evmAddress: string }>{
+export async function restoreWallet(mnemonic: string, password: string, initialUnlockTime: ClockTime): Promise<{ evmAddress: string }>{
   if (!validateMnemonic(mnemonic)) throw new Error("Invalid mnemonic");
 
   const masterSecret = await getOrCreateMasterSecret();
-  const existingTime = await getDailyUnlockTime();
-  const unlockTime: ClockTime = existingTime ?? { hour: 12, minute: 0 };
-  if (!existingTime) await setDailyUnlockTime(unlockTime);
+  const passwordEnrollment = await enrollPassword(password);
+  const unlockTime = normalizeClockTime(initialUnlockTime);
 
   const { address: evmAddress } = deriveEvmAccount(mnemonic, 0);
 
   const seed = mnemonicToSeed(mnemonic);
-  if (hasWebCryptoSubtle()) {
-    const unlockSecret = await deriveClockUnlockSecret(masterSecret, unlockTime);
-    const blob = await encryptSeedPortable(seed, unlockSecret);
-    await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(blob));
-    await secureRemoveItem(STORAGE_KEYS.plainSeed);
-  } else {
-    await secureSetItem(STORAGE_KEYS.plainSeed, JSON.stringify(Array.from(seed)));
-    await secureRemoveItem(STORAGE_KEYS.encryptedSeed);
-  }
+  const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordEnrollment.accessKey, unlockTime);
+  const blob = await encryptSeedPortable(seed, unlockSecret);
 
   const meta: WalletMeta = { evmAddress, createdAt: new Date().toISOString() };
 
+  await secureSetItem(STORAGE_KEYS.unlockTime, JSON.stringify(unlockTime));
+  await secureSetItem(STORAGE_KEYS.passwordCredential, JSON.stringify(passwordEnrollment.credential));
+  await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(blob));
+  await secureRemoveItem(STORAGE_KEYS.plainSeed);
   await secureSetItem(STORAGE_KEYS.walletMeta, JSON.stringify(meta));
   await secureSetItem(STORAGE_KEYS.isUnlocked, "false");
-
-  // Reset lockout on restore.
   await secureRemoveItem(STORAGE_KEYS.lockout);
 
   return { evmAddress };
 }
 
-export async function setDailyUnlockTime(time: ClockTime): Promise<void> {
-  const prev = await getDailyUnlockTime();
-  await secureSetItem(STORAGE_KEYS.unlockTime, JSON.stringify(time));
+export async function setDailyUnlockTime(time: ClockTime, password: string): Promise<void> {
+  const normalizedTime = normalizeClockTime(time);
+  const previousTime = await getDailyUnlockTime();
 
-  // If a wallet exists, re-wrap the encrypted seed blob to the new clock secret
-  // so changing the configured unlock time does not brick the demo wallet.
   const meta = await getWalletMeta();
-  if (!meta) return;
-
   const blobRaw = await secureGetItem(STORAGE_KEYS.encryptedSeed);
   const blob = safeJsonParse<EncryptedBlob>(blobRaw);
-  if (!blob) return;
 
-  // If we are in the no-WebCrypto demo fallback mode, there is no blob to rewrap.
-  if (!hasWebCryptoSubtle()) return;
+  if (meta && blob) {
+    const passwordAccessKey = await getPasswordAccessKey(password);
+    if (!passwordAccessKey) throw new Error("The wallet password is incorrect.");
+    const masterSecret = await getOrCreateMasterSecret();
+    const previous = previousTime ?? { hour: 12, minute: 0, second: 0 };
+    let seed: Uint8Array | null = null;
 
-  const masterSecret = await getOrCreateMasterSecret();
-  const prevTime = prev ?? { hour: 12, minute: 0 };
-  let seed: Uint8Array;
-  try {
-    const prevSecret = await deriveClockUnlockSecret(masterSecret, prevTime);
-    seed = await decryptSeedPortable(blob, prevSecret);
-  } catch {
-    // Legacy migration: earlier demo builds encrypted with masterSecret directly.
-    seed = await decryptSeedPortable(blob, masterSecret);
+    try {
+      const previousSecret = await deriveClockUnlockSecret(masterSecret, passwordAccessKey, previous);
+      seed = await decryptSeedPortable(blob, previousSecret);
+    } catch {
+      seed = null;
+    }
+
+    if (!seed) throw new Error("Unable to re-encrypt the wallet for the new Clock Unlock time.");
+
+    const nextSecret = await deriveClockUnlockSecret(masterSecret, passwordAccessKey, normalizedTime);
+    const nextBlob = await encryptSeedPortable(seed, nextSecret);
+    await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(nextBlob));
   }
 
-  const nextSecret = await deriveClockUnlockSecret(masterSecret, time);
-  const nextBlob = await encryptSeedPortable(seed, nextSecret);
-  await secureSetItem(STORAGE_KEYS.encryptedSeed, JSON.stringify(nextBlob));
+  await secureSetItem(STORAGE_KEYS.unlockTime, JSON.stringify(normalizedTime));
 }
 
 export async function getDailyUnlockTime(): Promise<ClockTime | null> {
-  return safeJsonParse<ClockTime>(await secureGetItem(STORAGE_KEYS.unlockTime));
+  const stored = safeJsonParse<ClockTime>(await secureGetItem(STORAGE_KEYS.unlockTime));
+  if (!stored) return null;
+  try {
+    return normalizeClockTime(stored);
+  } catch {
+    return null;
+  }
 }
 
 export async function lockWallet(): Promise<void> {
   await secureSetItem(STORAGE_KEYS.isUnlocked, "false");
 }
 
-export async function unlockWithClock(inputTime: ClockTime): Promise<UnlockWithClockResult> {
+export async function unlockWithClock(inputTime: ClockTime, password: string): Promise<UnlockWithClockResult> {
   const meta = await getWalletMeta();
   if (!meta) return { ok: false, reason: "no_wallet" };
 
+  const normalizedInput = normalizeClockTime(inputTime);
   const lockout = await loadLockout();
   if (lockout.isLocked()) {
     const d = lockout.diagnostics();
@@ -251,47 +275,48 @@ export async function unlockWithClock(inputTime: ClockTime): Promise<UnlockWithC
   }
 
   const configured = await getDailyUnlockTime();
-  if (!configured) {
-    // If not configured, treat the first successful attempt as configuration.
-    await setDailyUnlockTime(inputTime);
-  } else {
-    if (!sameClockTime(inputTime, configured)) {
-      lockout.recordFailedAttempt();
-      await persistLockout(lockout);
-      const d = lockout.diagnostics();
-      return {
-        ok: false,
-        reason: "bad_time",
-        remainingLockSeconds: d.remainingLockSeconds,
-        permanentlyLocked: d.permanentlyLocked,
-      };
-    }
+  if (!configured || !sameClockTime(normalizedInput, configured)) {
+    lockout.recordFailedAttempt();
+    await persistLockout(lockout);
+    const d = lockout.diagnostics();
+    return {
+      ok: false,
+      reason: "bad_time",
+      remainingLockSeconds: d.remainingLockSeconds,
+      permanentlyLocked: d.permanentlyLocked,
+    };
+  }
+
+  const credential = await getPasswordCredential();
+  if (!credential) return { ok: false, reason: "password_not_configured" };
+  const passwordAccessKey = await getPasswordAccessKey(password);
+  if (!passwordAccessKey) {
+    lockout.recordFailedAttempt();
+    await persistLockout(lockout);
+    const d = lockout.diagnostics();
+    return {
+      ok: false,
+      reason: "bad_password",
+      remainingLockSeconds: d.remainingLockSeconds,
+      permanentlyLocked: d.permanentlyLocked,
+    };
   }
 
   const masterSecret = await getOrCreateMasterSecret();
-
-  // If we're in the no-WebCrypto demo fallback mode, just enforce time + lockout.
-  const plainSeed = await secureGetItem(STORAGE_KEYS.plainSeed);
-  if (plainSeed) {
-    lockout.recordSuccessfulAttempt();
-    await persistLockout(lockout);
-    await secureSetItem(STORAGE_KEYS.isUnlocked, "true");
-    return { ok: true };
-  }
 
   const blobRaw = await secureGetItem(STORAGE_KEYS.encryptedSeed);
   const blob = safeJsonParse<EncryptedBlob>(blobRaw);
   if (!blob) return { ok: false, reason: "no_wallet" };
 
   try {
-    const unlockSecret = await deriveClockUnlockSecret(masterSecret, configured ?? inputTime);
+    const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordAccessKey, configured);
     await decryptSeedPortable(blob, unlockSecret);
 
     lockout.recordSuccessfulAttempt();
     await persistLockout(lockout);
     await secureSetItem(STORAGE_KEYS.isUnlocked, "true");
     return { ok: true };
-  } catch (e) {
+  } catch {
     lockout.recordFailedAttempt();
     await persistLockout(lockout);
     const d = lockout.diagnostics();
@@ -308,7 +333,6 @@ export async function getPortfolio(): Promise<Portfolio> {
   const meta = await getWalletMeta();
   if (!meta) throw new Error("No wallet");
 
-  // Demo balances: stable, deterministic, no network calls.
   const balances = [
     { symbol: "USDC", amount: 120.5, fiatApproxUSD: 120.5 },
     { symbol: "USDT", amount: 40.0, fiatApproxUSD: 40.0 },
@@ -320,7 +344,6 @@ export async function getPortfolio(): Promise<Portfolio> {
 }
 
 export async function enableTravelMode(regionInput: string): Promise<{ preferredStablecoin: string }>{
-  // Use canonical travel/ logic.
   const settings = activateTravelMode(regionInput);
 
   const state: TravelState = {
@@ -346,13 +369,13 @@ export async function resetWallet(): Promise<void> {
   await secureRemoveItem(STORAGE_KEYS.walletMeta);
   await secureRemoveItem(STORAGE_KEYS.encryptedSeed);
   await secureRemoveItem(STORAGE_KEYS.plainSeed);
+  await secureRemoveItem(STORAGE_KEYS.passwordCredential);
   await secureRemoveItem(STORAGE_KEYS.isUnlocked);
   await secureRemoveItem(STORAGE_KEYS.unlockTime);
   await secureRemoveItem(STORAGE_KEYS.lockout);
   await secureRemoveItem(STORAGE_KEYS.travel);
 
-  // Keep masterSecret stable per device session, but allow clearing if desired.
   if (Platform.OS === "web") {
-    // For web demos, leaving it is fine.
+    // The device-scoped master secret intentionally survives a local preview reset.
   }
 }
