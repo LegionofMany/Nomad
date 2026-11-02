@@ -7,6 +7,14 @@ import { EncryptedBlob } from "./types";
 const KEY_LEN = 32;
 const IV_LEN = 12;
 
+/** Legacy version 2 blobs always used this fixed count. */
+const LEGACY_PBKDF2_ITERATIONS = 100_000;
+/** Iteration count for new version 3 blobs (OWASP 2023 guidance for PBKDF2-HMAC-SHA256). */
+export const PORTABLE_KDF_ITERATIONS = 600_000;
+/** Decryption refuses blobs below the floor (downgrade) or above the cap (denial of service). */
+const MIN_ACCEPTED_ITERATIONS = 600_000;
+const MAX_ACCEPTED_ITERATIONS = 5_000_000;
+
 function getNodeCrypto(): null | {
   scryptSync: any;
   randomBytes: any;
@@ -156,13 +164,16 @@ async function randomBytesPortable(length: number): Promise<Uint8Array> {
   const c = getNodeCrypto();
   if (c) return new Uint8Array(c.randomBytes(length));
 
-  // Last-resort fallback
-  const out = new Uint8Array(length);
-  for (let i = 0; i < length; i++) out[i] = Math.floor(Math.random() * 256);
-  return out;
+  // Fail closed: never fall back to a non-cryptographic generator (Math.random)
+  // for salts or IVs. If no secure source exists, refuse to encrypt.
+  throw new Error("No secure random number generator available. Refusing to encrypt.");
 }
 
-async function deriveKeyPortable(unlockSecret: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKeyPortable(
+  unlockSecret: string,
+  salt: Uint8Array,
+  iterations: number = LEGACY_PBKDF2_ITERATIONS
+): Promise<CryptoKey> {
   if (!hasWebCrypto()) throw new Error("WebCrypto not available for portable key derivation");
 
   const subtle = (globalThis as any).crypto.subtle as SubtleCrypto;
@@ -171,7 +182,7 @@ async function deriveKeyPortable(unlockSecret: string, salt: Uint8Array): Promis
     {
       name: "PBKDF2",
       salt: toArrayBuffer(salt),
-      iterations: 100_000,
+      iterations,
       hash: "SHA-256",
     },
     baseKey,
@@ -196,7 +207,7 @@ export async function encryptSeedPortable(seed: Uint8Array | Buffer, unlockSecre
   const subtle = (globalThis as any).crypto.subtle as SubtleCrypto;
   const salt = await randomBytesPortable(16);
   const iv = await randomBytesPortable(IV_LEN);
-  const key = await deriveKeyPortable(unlockSecret, salt);
+  const key = await deriveKeyPortable(unlockSecret, salt, PORTABLE_KDF_ITERATIONS);
 
   const seedBytes = seed instanceof Uint8Array ? seed : new Uint8Array(seed);
   const encrypted = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv: toArrayBuffer(iv) }, key, toArrayBuffer(seedBytes)));
@@ -207,7 +218,8 @@ export async function encryptSeedPortable(seed: Uint8Array | Buffer, unlockSecre
   const ct = encrypted.slice(0, encrypted.length - tagLen);
 
   return {
-    version: 2,
+    version: 3,
+    kdf: { name: "PBKDF2-SHA256", iterations: PORTABLE_KDF_ITERATIONS },
     iv: toBase64(iv),
     authTag: toBase64(tag),
     ciphertext: toBase64(concatBytes(salt, ct)),
@@ -226,7 +238,22 @@ export async function decryptSeedPortable(blob: EncryptedBlob, unlockSecret: str
     return new Uint8Array(out);
   }
 
-  if (blob.version !== 2) throw new Error(`Unsupported EncryptedBlob version: ${blob.version}`);
+  if (blob.version !== 2 && blob.version !== 3) throw new Error(`Unsupported EncryptedBlob version: ${blob.version}`);
+
+  // Version 2 used a fixed legacy count. Version 3 stores its own settings, which
+  // are validated so a tampered blob cannot downgrade the work factor or cause a hang.
+  let iterations = LEGACY_PBKDF2_ITERATIONS;
+  if (blob.version === 3) {
+    const kdf = blob.kdf;
+    if (!kdf || kdf.name !== "PBKDF2-SHA256" || !Number.isInteger(kdf.iterations)) {
+      throw new Error("EncryptedBlob version 3 is missing valid key-derivation settings");
+    }
+    if (kdf.iterations < MIN_ACCEPTED_ITERATIONS || kdf.iterations > MAX_ACCEPTED_ITERATIONS) {
+      throw new Error("EncryptedBlob key-derivation iterations are outside the accepted range");
+    }
+    iterations = kdf.iterations;
+  }
+
   if (!hasWebCrypto()) throw new Error("WebCrypto not available for portable decryption");
 
   const subtle = (globalThis as any).crypto.subtle as SubtleCrypto;
@@ -236,7 +263,7 @@ export async function decryptSeedPortable(blob: EncryptedBlob, unlockSecret: str
   const salt = combined.slice(0, 16);
   const ct = combined.slice(16);
 
-  const key = await deriveKeyPortable(unlockSecret, salt);
+  const key = await deriveKeyPortable(unlockSecret, salt, iterations);
   const payload = concatBytes(ct, tag);
   const plaintext = new Uint8Array(await subtle.decrypt({ name: "AES-GCM", iv: toArrayBuffer(iv) }, key, toArrayBuffer(payload)));
   return plaintext;
