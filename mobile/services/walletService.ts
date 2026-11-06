@@ -335,10 +335,26 @@ export async function unlockWithClock(inputTime: ClockTime, password: string): P
   }
 }
 
+type BalanceSource = () => Promise<Portfolio["balances"]>;
+let nativeBalanceSource: BalanceSource | null = null;
+
+/** The wallet engine registers itself here so the app shows real balances on a phone. */
+export function setNativeBalanceSource(source: BalanceSource | null): void {
+  nativeBalanceSource = source;
+}
+
 export async function getPortfolio(): Promise<Portfolio> {
   const meta = await getWalletMeta();
   if (!meta) throw new Error("No wallet");
 
+  if (Platform.OS !== "web") {
+    // Real wallets never show the demo numbers below. If the engine cannot load
+    // balances (locked, offline) this throws and callers show their own empty state.
+    if (!nativeBalanceSource) return { evmAddress: meta.evmAddress, balances: [] };
+    return { evmAddress: meta.evmAddress, balances: await nativeBalanceSource() };
+  }
+
+  // Web preview only: demo balances for the visual preview.
   const balances = [
     { symbol: "USDC", amount: 120.5, fiatApproxUSD: 120.5 },
     { symbol: "USDT", amount: 40.0, fiatApproxUSD: 40.0 },

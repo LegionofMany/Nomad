@@ -17,7 +17,7 @@ import type { NomadOverlayAdapters } from "../nomad/adapters/walletAdapter";
 
 import { approvalGate } from "./approvalBroker";
 import { getSessionSeedCopy, isSessionUnlocked } from "./sessionVault";
-import { getWalletMeta, lockWallet } from "./walletService";
+import { getWalletMeta, lockWallet, setNativeBalanceSource } from "./walletService";
 
 const session: SessionAuthority = {
   hasWallet: async () => (await getWalletMeta()) !== null,
@@ -36,6 +36,18 @@ function buildEngine(): NomadWalletEngine {
   });
 }
 
+const engine = Platform.OS === "web" ? null : buildEngine();
+
+if (engine) {
+  // Travel, swap and insights read balances through getPortfolio(); give them real testnet balances.
+  setNativeBalanceSource(async () =>
+    (await engine.getAssets()).map((asset) => ({
+      symbol: asset.symbol,
+      amount: Number(asset.balance) || 0,
+      fiatApproxUSD: 0, // testnet coins have no market value
+    }))
+  );
+}
+
 /** Wallet adapter backed by the testnet engine, or undefined on web (demo data stays). */
-export const engineAdapters: NomadOverlayAdapters | undefined =
-  Platform.OS === "web" ? undefined : createClonedWalletAdapter(buildEngine());
+export const engineAdapters: NomadOverlayAdapters | undefined = engine ? createClonedWalletAdapter(engine) : undefined;

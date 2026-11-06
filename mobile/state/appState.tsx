@@ -1,4 +1,5 @@
 import * as React from "react";
+import { AppState as RNAppState, Platform } from "react-native";
 
 import type { ClockTime, Portfolio, WalletStatus } from "../types";
 import {
@@ -46,6 +47,9 @@ export type AppState = {
 const STORAGE_KEYS = {
   nfcEnabled: "nomad.nfcEnabled",
 } as const;
+
+const AUTO_LOCK_BACKGROUND_MS = 30_000; // lock after 30 seconds in the background
+const AUTO_LOCK_MAX_UNLOCKED_MS = 15 * 60_000; // never stay unlocked longer than 15 minutes
 
 const AppStateContext = React.createContext<AppState | null>(null);
 
@@ -106,6 +110,32 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // Auto-lock on phones: wipes the in-memory seed after the app sits in the background,
+  // and after a hard maximum unlocked time. (Not applied to the web preview.)
+  React.useEffect(() => {
+    if (Platform.OS === "web" || walletStatus !== "unlocked") return;
+
+    let backgroundedAt: number | null = null;
+    const lockNow = () => {
+      void walletService.lockWallet().then(refresh);
+    };
+
+    const maxTimer = setTimeout(lockNow, AUTO_LOCK_MAX_UNLOCKED_MS);
+    const subscription = RNAppState.addEventListener("change", (next) => {
+      if (next === "background" || next === "inactive") {
+        if (backgroundedAt === null) backgroundedAt = Date.now();
+      } else if (next === "active") {
+        if (backgroundedAt !== null && Date.now() - backgroundedAt >= AUTO_LOCK_BACKGROUND_MS) lockNow();
+        backgroundedAt = null;
+      }
+    });
+
+    return () => {
+      clearTimeout(maxTimer);
+      subscription.remove();
+    };
+  }, [walletStatus, refresh]);
 
   const api = React.useMemo<AppState>(() => {
     return {

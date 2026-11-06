@@ -6,7 +6,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useNomadSecurity, useNomadWallet } from '../nomad';
 import { BottomNav, C, NomadPage, Panel, useNomadLayout } from '../ui/NomadShell';
 
-type DraftStatus = 'idle' | 'creating' | 'created' | 'failed';
+type DraftStatus = 'idle' | 'creating' | 'created' | 'sending' | 'sent' | 'failed';
 type FeeChoice = 'Economy' | 'Standard' | 'Priority';
 type NetworkChoice = 'Bitcoin Mainnet' | 'Bitcoin Testnet';
 
@@ -102,12 +102,12 @@ function BtcBadge({ size = 48 }: { size?: number }) {
 export default function SendBitcoinScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
-  const { assets, createTransaction, error: walletError } = useNomadWallet();
+  const { assets, createTransaction, canSend, sendTransaction, error: walletError } = useNomadWallet();
   const { security } = useNomadSecurity();
 
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('0.001000');
-  const [network, setNetwork] = useState<NetworkChoice>('Bitcoin Mainnet');
+  const [network, setNetwork] = useState<NetworkChoice>(canSend ? 'Bitcoin Testnet' : 'Bitcoin Mainnet');
   const [feeChoice, setFeeChoice] = useState<FeeChoice>('Economy');
   const [savedAddressOpen, setSavedAddressOpen] = useState(false);
   const [networkOpen, setNetworkOpen] = useState(false);
@@ -117,12 +117,13 @@ export default function SendBitcoinScreen() {
   const [draftStatus, setDraftStatus] = useState<DraftStatus>('idle');
   const [feedback, setFeedback] = useState('');
 
-  const btcAsset = useMemo(() => assets.find((asset) => asset.symbol.toUpperCase() === 'BTC'), [assets]);
-  const availableBtc = parseNumber(btcAsset?.balance) || FALLBACK_BTC_BALANCE;
+  const btcAsset = useMemo(() => assets.find((asset) => ['BTC', 'TBTC'].includes(asset.symbol.toUpperCase())), [assets]);
+  // With a real engine connected, never fall back to the demo balance.
+  const availableBtc = btcAsset ? parseNumber(btcAsset.balance) : canSend ? 0 : FALLBACK_BTC_BALANCE;
   const fiatValue = parseNumber(btcAsset?.fiatValueUsd);
   const derivedPrice = availableBtc > 0 && fiatValue > 0 ? fiatValue / availableBtc : FALLBACK_BTC_PRICE;
   const btcPrice = Number.isFinite(derivedPrice) && derivedPrice > 0 ? derivedPrice : FALLBACK_BTC_PRICE;
-  const availableFiatLabel = btcAsset?.fiatValueUsd || '$22,123.10';
+  const availableFiatLabel = btcAsset?.fiatValueUsd || (canSend ? '$0.00' : '$22,123.10');
 
   const numericAmount = Number(amount);
   const fee = feeOptions[feeChoice].fee;
@@ -221,6 +222,42 @@ export default function SendBitcoinScreen() {
       setFeedback(error instanceof Error ? error.message : 'Unable to create the transaction draft.');
     }
   };
+
+  /** Real send: the wallet shows its own approval dialog, then signs and broadcasts. */
+  const sendNow = async () => {
+    if (!canReview) {
+      openReview();
+      return;
+    }
+
+    try {
+      setDraftStatus('sending');
+      setFeedback('Waiting for your approval in the wallet…');
+      const result = await sendTransaction({
+        fromAsset: 'BTC',
+        toAddress: recipient.trim(),
+        amount: formatted.amount,
+        networkFee: formatted.fee,
+        chainId: network === 'Bitcoin Testnet' ? 'bitcoin-testnet' : 'bitcoin-mainnet',
+        intent: 'send',
+        requiresUserApproval: true,
+        createdBy: 'nomad_overlay',
+      });
+
+      if (result.status === 'broadcasted') {
+        setDraftStatus('sent');
+        setFeedback(`Sent on the test network. Transaction ID: ${result.txHash}`);
+        return;
+      }
+      setDraftStatus('failed');
+      setFeedback(result.failure?.message || 'The network did not accept the transaction. Nothing was sent.');
+    } catch (error) {
+      setDraftStatus('failed');
+      setFeedback(error instanceof Error ? error.message : 'Unable to send the transaction.');
+    }
+  };
+
+  const busy = draftStatus === 'creating' || draftStatus === 'created' || draftStatus === 'sending' || draftStatus === 'sent';
 
   return (
     <NomadPage maxWidth={900}>
@@ -461,17 +498,25 @@ export default function SendBitcoinScreen() {
           <View style={styles.reviewDetail}><Text style={styles.reviewDetailLabel}>Amount</Text><Text style={styles.reviewDetailValue}>{formatted.amount} BTC</Text></View>
           <View style={styles.reviewDetail}><Text style={styles.reviewDetailLabel}>Fee</Text><Text style={styles.reviewDetailValue}>{formatted.fee} BTC</Text></View>
           <View style={[styles.reviewDetail, styles.reviewTotalRow]}><Text style={styles.reviewTotalLabel}>Total</Text><Text style={styles.reviewTotalValue}>{formatted.total} BTC</Text></View>
-          <Text style={styles.reviewNotice}>Nomad remains non-custodial. This creates a reviewable draft; the connected wallet controls final signing and broadcast.</Text>
+          <Text style={styles.reviewNotice}>
+            {canSend
+              ? 'Nomad remains non-custodial. Your wallet will show a final review. Nothing is signed or sent until you approve it there.'
+              : 'Nomad remains non-custodial. This creates a reviewable draft; the connected wallet controls final signing and broadcast.'}
+          </Text>
           <View style={styles.reviewActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="Edit transaction" onPress={() => setReviewOpen(false)} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Edit</Text></Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Create wallet draft"
-              disabled={draftStatus === 'creating' || draftStatus === 'created'}
-              onPress={() => void createDraft()}
-              style={[styles.confirmButton, (draftStatus === 'creating' || draftStatus === 'created') && styles.disabled]}
+              accessibilityLabel={canSend ? 'Sign and send' : 'Create wallet draft'}
+              disabled={busy}
+              onPress={() => void (canSend ? sendNow() : createDraft())}
+              style={[styles.confirmButton, busy && styles.disabled]}
             >
-              <Text style={styles.confirmButtonText}>{draftStatus === 'creating' ? 'Creating…' : draftStatus === 'created' ? 'Draft Ready ✓' : 'Create Wallet Draft'}</Text>
+              <Text style={styles.confirmButtonText}>
+                {canSend
+                  ? draftStatus === 'sending' ? 'Waiting for approval…' : draftStatus === 'sent' ? 'Sent ✓' : 'Sign and Send'
+                  : draftStatus === 'creating' ? 'Creating…' : draftStatus === 'created' ? 'Draft Ready ✓' : 'Create Wallet Draft'}
+              </Text>
             </Pressable>
           </View>
         </Panel>
