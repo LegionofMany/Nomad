@@ -18,4 +18,19 @@ config.resolver.nodeModulesPaths = [
 // Prevent Metro from crawling up and picking up unexpected dependency copies.
 config.resolver.disableHierarchicalLookup = true;
 
+// On Android/iOS, Node-only hashing helpers are replaced by small @noble/hashes shims.
+// (Hermes has no Node `stream` module.) Web keeps its default behaviour.
+const nativeShims = {
+  'create-hash': path.resolve(projectRoot, 'shims/create-hash.js'),
+  'create-hmac': path.resolve(projectRoot, 'shims/create-hmac.js'),
+  buffer: path.resolve(projectRoot, 'node_modules/buffer/index.js'),
+};
+const defaultResolve = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform !== 'web' && Object.prototype.hasOwnProperty.call(nativeShims, moduleName)) {
+    return { type: 'sourceFile', filePath: nativeShims[moduleName] };
+  }
+  return (defaultResolve ?? context.resolveRequest)(context, moduleName, platform);
+};
+
 module.exports = config;
