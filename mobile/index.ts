@@ -1,3 +1,5 @@
+import './polyfills'; // must stay first: provides Buffer for the wallet engine
+
 import 'react-native-gesture-handler';
 
 import { registerRootComponent } from 'expo';

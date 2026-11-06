@@ -14,6 +14,8 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AppStateProvider, useAppState } from './state/appState';
+import { TransactionApprovalHost } from './components/TransactionApprovalHost';
+import { engineAdapters } from './services/engineService';
 import { NomadAdaptersProvider } from './nomad';
 import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } from './nomad/routes/nomadRoutes';
 
@@ -104,12 +106,13 @@ function AppNavigator() {
 export default function App() {
   return (
     <AppStateProvider>
-      <NomadAdaptersProvider>
+      <NomadAdaptersProvider adapters={engineAdapters}>
         <SafeAreaProvider>
           <NavigationContainer ref={navigationRef} linking={isWebPreview ? webLinking : undefined}>
             <SafeAreaView style={{ flex: 1, backgroundColor: '#01060d' }}>
               <NavigationGate />
               <AppNavigator />
+              <TransactionApprovalHost />
               <StatusBar style="light" />
             </SafeAreaView>
           </NavigationContainer>

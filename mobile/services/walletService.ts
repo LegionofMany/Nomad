@@ -19,6 +19,7 @@ import {
 import { activateTravelMode } from "../../travel/travelMode";
 
 import { getRandomBytes, secureGetItem, secureRemoveItem, secureSetItem } from "./nativeStubs";
+import { clearSessionSeed, holdSessionSeed, isSessionUnlocked } from "./sessionVault";
 
 const STORAGE_KEYS = {
   walletMeta: "nomad.wallet.meta",
@@ -153,7 +154,10 @@ export async function getWalletStatus(): Promise<WalletStatus> {
   const diag = lockout.diagnostics();
   if (diag.permanentlyLocked) return "recovery";
 
-  const unlocked = (await secureGetItem(STORAGE_KEYS.isUnlocked)) === "true";
+  const flagged = (await secureGetItem(STORAGE_KEYS.isUnlocked)) === "true";
+  // On a phone, "unlocked" is only true while the decrypted seed is actually held in memory.
+  // A stored flag alone (for example after the app was closed) must not look unlocked.
+  const unlocked = Platform.OS === "web" ? flagged : flagged && isSessionUnlocked();
   return unlocked ? "unlocked" : "locked";
 }
 
@@ -255,6 +259,7 @@ export async function getDailyUnlockTime(): Promise<ClockTime | null> {
 }
 
 export async function lockWallet(): Promise<void> {
+  clearSessionSeed();
   await secureSetItem(STORAGE_KEYS.isUnlocked, "false");
 }
 
@@ -310,10 +315,11 @@ export async function unlockWithClock(inputTime: ClockTime, password: string): P
 
   try {
     const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordAccessKey, configured);
-    await decryptSeedPortable(blob, unlockSecret);
+    const seed = await decryptSeedPortable(blob, unlockSecret);
 
     lockout.recordSuccessfulAttempt();
     await persistLockout(lockout);
+    holdSessionSeed(seed); // memory only; cleared on lock
     await secureSetItem(STORAGE_KEYS.isUnlocked, "true");
     return { ok: true };
   } catch {
@@ -366,6 +372,7 @@ export async function getTravelState(): Promise<TravelState> {
 }
 
 export async function resetWallet(): Promise<void> {
+  clearSessionSeed();
   await secureRemoveItem(STORAGE_KEYS.walletMeta);
   await secureRemoveItem(STORAGE_KEYS.encryptedSeed);
   await secureRemoveItem(STORAGE_KEYS.plainSeed);
