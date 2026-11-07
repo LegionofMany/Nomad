@@ -78,7 +78,7 @@ function VerifiedShield({ color, size = 20 }: { color: string; size?: number }) 
 
 function isBitcoinAddress(value: string) {
   const address = value.trim();
-  return /^(bc1)[ac-hj-np-z02-9]{11,71}$/i.test(address) || /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+  return /^(bc1|tb1)[ac-hj-np-z02-9]{11,71}$/i.test(address) || /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
 }
 
 function normalizeAdapterAddress(value: string) {
@@ -123,15 +123,20 @@ function ActionButton({ compact, icon, label, onPress }: { compact: boolean; ico
 export default function ReceiveBitcoinScreen() {
   const navigation = useNavigation<any>();
   const { compact, width } = useNomadLayout();
-  const { getReceiveAddress } = useNomadWallet();
+  const { getReceiveAddress, canSend } = useNomadWallet();
   const { security } = useNomadSecurity();
   const [tab, setTab] = useState<TabName>('QR Code');
-  const [address, setAddress] = useState(PREVIEW_BTC_ADDRESS);
+  // With a real wallet engine connected, NEVER show the example address. Only the demo build does.
+  const previewAddress = canSend ? '' : PREVIEW_BTC_ADDRESS;
+  const [address, setAddress] = useState(previewAddress);
   const [source, setSource] = useState<AddressSource>('loading');
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
 
-  const paymentUri = useMemo(() => `bitcoin:${address}`, [address]);
+  // Copy, share and the QR code only work for a real address (or the demo address in demo builds).
+  const usable = address !== '' && (source === 'live' || !canSend);
+  const paymentUri = useMemo(() => (address ? `bitcoin:${address}` : ''), [address]);
+  const networkName = address.toLowerCase().startsWith('tb1') ? 'Bitcoin Testnet' : 'Bitcoin Mainnet';
   const qrSize = compact ? Math.max(202, Math.min(236, width - 86)) : Math.max(250, Math.min(340, width - 150));
   const systemLabel = security.status === 'frozen' ? 'FROZEN' : security.status === 'warning' ? 'REVIEW' : 'SECURE';
   const systemColor = security.status === 'frozen' ? C.red : security.status === 'warning' ? C.yellow : C.green;
@@ -145,25 +150,29 @@ export default function ReceiveBitcoinScreen() {
       const raw = await getReceiveAddress('BTC');
       const normalized = normalizeAdapterAddress(raw);
       if (!isBitcoinAddress(normalized)) {
-        setAddress(PREVIEW_BTC_ADDRESS);
+        setAddress(previewAddress);
         setSource('preview');
-        setError('Live wallet address unavailable. The displayed address is preview data only.');
+        setError(canSend ? 'Your wallet address could not be loaded. Nothing was shown, so nothing can be copied by mistake.' : 'Live wallet address unavailable. The displayed address is preview data only.');
         return;
       }
       setAddress(normalized);
       setSource('live');
     } catch (nextError) {
-      setAddress(PREVIEW_BTC_ADDRESS);
+      setAddress(previewAddress);
       setSource('preview');
       setError(nextError instanceof Error ? nextError.message : 'Unable to load the live Bitcoin receive address.');
     }
-  }, [getReceiveAddress]);
+  }, [getReceiveAddress, previewAddress, canSend]);
 
   useEffect(() => {
     void loadAddress();
   }, [loadAddress]);
 
   const copyText = async (value: string, success: string) => {
+    if (!usable || !value) {
+      setFeedback('No wallet address is available to copy yet.');
+      return;
+    }
     try {
       const runtime = globalThis as unknown as { navigator?: { clipboard?: { writeText(text: string): Promise<void> } } };
       if (Platform.OS === 'web' && runtime.navigator?.clipboard) {
@@ -179,6 +188,10 @@ export default function ReceiveBitcoinScreen() {
   };
 
   const shareAddress = async () => {
+    if (!usable) {
+      setFeedback('No wallet address is available to share yet.');
+      return;
+    }
     try {
       await Share.share({
         title: 'Nomad Bitcoin receive address',
@@ -222,7 +235,7 @@ export default function ReceiveBitcoinScreen() {
         {tab === 'QR Code' ? (
           <View style={styles.qrSection}>
             <View style={[styles.qrFrame, compact && styles.qrFrameCompact]}>
-              <NomadQRCode payload={paymentUri} size={qrSize} />
+              {usable ? <NomadQRCode payload={paymentUri} size={qrSize} /> : <Text style={styles.feedback}>No wallet address to show yet.</Text>}
               <View style={[styles.qrLogoPlate, compact && styles.qrLogoPlateCompact]}>
                 <NomadBrandMark size={compact ? 44 : 54} />
               </View>
@@ -230,7 +243,7 @@ export default function ReceiveBitcoinScreen() {
             <View style={[styles.verifiedRow, compact && styles.verifiedRowCompact]}>
               <VerifiedShield color={addressColor} size={compact ? 18 : 22} />
               <Text style={[styles.verifiedText, compact && styles.verifiedTextCompact]}>
-                {source === 'loading' ? 'Loading your BTC address…' : source === 'live' ? 'This is your BTC address' : 'Preview BTC address — live wallet unavailable'}
+                {source === 'loading' ? 'Loading your BTC address…' : source === 'live' ? 'This is your BTC address' : canSend ? 'Wallet address unavailable. Unlock and retry.' : 'Preview BTC address — live wallet unavailable'}
               </Text>
             </View>
             <Text style={[styles.shareHint, compact && styles.shareHintCompact]}>Share this address to receive payments</Text>
@@ -239,8 +252,8 @@ export default function ReceiveBitcoinScreen() {
           <View style={[styles.addressHero, compact && styles.addressHeroCompact]}>
             <ReceiveIcon kind="bitcoin" size={compact ? 47 : 68} />
             <Text style={[styles.addressHeroTitle, compact && styles.addressHeroTitleCompact]}>Your Bitcoin Address</Text>
-            <Text style={[styles.addressHeroSub, compact && styles.addressHeroSubCompact]}>Bitcoin Mainnet · Tap Copy Address before sharing</Text>
-            <Text selectable style={[styles.largeAddress, compact && styles.largeAddressCompact]}>{source === 'loading' ? 'Loading wallet address…' : address}</Text>
+            <Text style={[styles.addressHeroSub, compact && styles.addressHeroSubCompact]}>{networkName} · Tap Copy Address before sharing</Text>
+            <Text selectable style={[styles.largeAddress, compact && styles.largeAddressCompact]}>{source === 'loading' ? 'Loading wallet address…' : address || 'Unavailable'}</Text>
             <View style={[styles.uriBox, compact && styles.uriBoxCompact]}>
               <Text style={styles.uriLabel}>Bitcoin payment URI</Text>
               <Text selectable numberOfLines={2} style={[styles.uriText, compact && styles.uriTextCompact]}>{paymentUri}</Text>
@@ -256,14 +269,14 @@ export default function ReceiveBitcoinScreen() {
           <View style={styles.addressHeadingRow}>
             <View>
               <Text style={[styles.addressLabel, compact && styles.addressLabelCompact]}>Your Bitcoin Address</Text>
-              <Text style={[styles.networkLabel, compact && styles.networkLabelCompact]}>Bitcoin Mainnet</Text>
+              <Text style={[styles.networkLabel, compact && styles.networkLabelCompact]}>{networkName}</Text>
             </View>
             <View style={[styles.sourcePill, source === 'live' ? styles.sourceLive : styles.sourcePreview]}>
               <Text style={[styles.sourceText, { color: addressColor }]}>{source === 'live' ? 'LIVE' : source === 'loading' ? 'LOADING' : 'PREVIEW'}</Text>
             </View>
           </View>
           <View style={[styles.addressLine, compact && styles.addressLineCompact]}>
-            <Text selectable numberOfLines={compact ? 2 : 1} style={[styles.addressText, compact && styles.addressTextCompact]}>{source === 'loading' ? 'Loading wallet address…' : address}</Text>
+            <Text selectable numberOfLines={compact ? 2 : 1} style={[styles.addressText, compact && styles.addressTextCompact]}>{source === 'loading' ? 'Loading wallet address…' : address || 'Unavailable'}</Text>
             <Pressable accessibilityLabel="Copy Bitcoin address" accessibilityRole="button" onPress={() => void copyText(address, 'Bitcoin address copied')} style={[styles.copySquare, compact && styles.copySquareCompact]}>
               <ReceiveIcon kind="copy" size={compact ? 19 : 24} />
             </Pressable>
@@ -286,7 +299,7 @@ export default function ReceiveBitcoinScreen() {
           <View style={[styles.infoIcon, compact && styles.infoIconCompact]}><ReceiveIcon kind="info" size={compact ? 24 : 31} /></View>
           <View style={[styles.importantCopy, compact && styles.importantCopyCompact]}>
             <Text style={[styles.importantTitle, compact && styles.importantTitleCompact]}>Important</Text>
-            <Text style={[styles.importantText, compact && styles.importantTextCompact]}>Only send BTC to this address. Sending other assets may result in permanent loss.</Text>
+            <Text style={[styles.importantText, compact && styles.importantTextCompact]}>{networkName === 'Bitcoin Testnet' ? 'TEST NETWORK: only send Bitcoin testnet coins to this address. Real bitcoin sent here would be lost.' : 'Only send BTC to this address. Sending other assets may result in permanent loss.'}</Text>
           </View>
         </View>
       </Panel>
