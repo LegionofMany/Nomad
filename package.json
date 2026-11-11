@@ -14,6 +14,7 @@
     "audit:nomad": "npm run typecheck && npm run mobile:typecheck && npm --prefix mobile run verify:nomad"
   },
   "dependencies": {
+    "@noble/ciphers": "1.3.0",
     "@scure/bip39": "^1.0.0",
     "bip32": "^2.0.6",
     "bitcoinjs-lib": "^6.1.0",

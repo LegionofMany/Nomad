@@ -5,6 +5,8 @@
  * readable-stream package reads while loading.
  */
 import { Buffer } from 'buffer';
+import { Platform } from 'react-native';
+import { installNativeWebCrypto } from './shims/webcrypto';
 
 const g = globalThis as unknown as {
   Buffer?: typeof Buffer;
@@ -21,4 +23,8 @@ if (typeof g.process.version !== 'string') {
 }
 if (!g.process.versions) {
   g.process.versions = { node: '20.0.0' };
+}
+// Phones: add the secure random and encryption functions the wallet needs.
+if (Platform.OS !== 'web') {
+  installNativeWebCrypto();
 }
