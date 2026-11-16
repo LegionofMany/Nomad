@@ -45,7 +45,8 @@ export default function LockScreen() {
     }
     try {
       setBusy(true);
-      setMessage('Creating the local wallet…');
+      setMessage('Creating the local wallet… this can take a little while. Please wait and do not tap again.');
+      await new Promise((resolve) => setTimeout(resolve, 150)); // let the screen repaint before the heavy work
       await createWallet(password, { hour: Number(hour), minute: Number(minute), second: Number(second) });
       setPassword('');
       setConfirmPassword('');

@@ -5,6 +5,8 @@
  * The password and the derived wallet access key are never persisted here.
  */
 
+import { kdfIterations, kdfMinAccepted } from "./kdfPolicy";
+
 export const MIN_WALLET_PASSWORD_LENGTH = 12;
 export const PASSWORD_CREDENTIAL_ITERATIONS = 210_000;
 
@@ -111,7 +113,7 @@ function assertCredential(credential: PasswordCredential): void {
     credential?.version !== 1 ||
     credential.algorithm !== "PBKDF2-SHA-256" ||
     !Number.isInteger(credential.iterations) ||
-    credential.iterations < 100_000
+    credential.iterations < kdfMinAccepted(100_000)
   ) {
     throw new Error("Unsupported wallet password credential.");
   }
@@ -120,12 +122,13 @@ function assertCredential(credential: PasswordCredential): void {
 export async function enrollPassword(password: string): Promise<PasswordEnrollment> {
   assertPassword(password);
   const salt = secureRandomBytes(16);
-  const material = await deriveMaterial(password, salt, PASSWORD_CREDENTIAL_ITERATIONS);
+  const iterationsToUse = kdfIterations(PASSWORD_CREDENTIAL_ITERATIONS);
+  const material = await deriveMaterial(password, salt, iterationsToUse);
   return {
     credential: {
       version: 1,
       algorithm: "PBKDF2-SHA-256",
-      iterations: PASSWORD_CREDENTIAL_ITERATIONS,
+      iterations: iterationsToUse,
       saltHex: bytesToHex(salt),
       verifierHex: bytesToHex(material.slice(0, 32)),
     },

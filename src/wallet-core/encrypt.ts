@@ -8,6 +8,8 @@ const KEY_LEN = 32;
 const IV_LEN = 12;
 
 /** Legacy version 2 blobs always used this fixed count. */
+import { kdfIterations, kdfMinAccepted } from "../security/kdfPolicy";
+
 const LEGACY_PBKDF2_ITERATIONS = 100_000;
 /** Iteration count for new version 3 blobs (OWASP 2023 guidance for PBKDF2-HMAC-SHA256). */
 export const PORTABLE_KDF_ITERATIONS = 600_000;
@@ -207,7 +209,8 @@ export async function encryptSeedPortable(seed: Uint8Array | Buffer, unlockSecre
   const subtle = (globalThis as any).crypto.subtle as SubtleCrypto;
   const salt = await randomBytesPortable(16);
   const iv = await randomBytesPortable(IV_LEN);
-  const key = await deriveKeyPortable(unlockSecret, salt, PORTABLE_KDF_ITERATIONS);
+  const iterationsToUse = kdfIterations(PORTABLE_KDF_ITERATIONS);
+  const key = await deriveKeyPortable(unlockSecret, salt, iterationsToUse);
 
   const seedBytes = seed instanceof Uint8Array ? seed : new Uint8Array(seed);
   const encrypted = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv: toArrayBuffer(iv) }, key, toArrayBuffer(seedBytes)));
@@ -219,7 +222,7 @@ export async function encryptSeedPortable(seed: Uint8Array | Buffer, unlockSecre
 
   return {
     version: 3,
-    kdf: { name: "PBKDF2-SHA256", iterations: PORTABLE_KDF_ITERATIONS },
+    kdf: { name: "PBKDF2-SHA256", iterations: iterationsToUse },
     iv: toBase64(iv),
     authTag: toBase64(tag),
     ciphertext: toBase64(concatBytes(salt, ct)),
@@ -248,7 +251,7 @@ export async function decryptSeedPortable(blob: EncryptedBlob, unlockSecret: str
     if (!kdf || kdf.name !== "PBKDF2-SHA256" || !Number.isInteger(kdf.iterations)) {
       throw new Error("EncryptedBlob version 3 is missing valid key-derivation settings");
     }
-    if (kdf.iterations < MIN_ACCEPTED_ITERATIONS || kdf.iterations > MAX_ACCEPTED_ITERATIONS) {
+    if (kdf.iterations < kdfMinAccepted(MIN_ACCEPTED_ITERATIONS) || kdf.iterations > MAX_ACCEPTED_ITERATIONS) {
       throw new Error("EncryptedBlob key-derivation iterations are outside the accepted range");
     }
     iterations = kdf.iterations;

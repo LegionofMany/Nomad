@@ -7,6 +7,7 @@
 import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
 import { installNativeWebCrypto } from './shims/webcrypto';
+import { enableTestnetFastKdf } from '../src/security/kdfPolicy';
 
 const g = globalThis as unknown as {
   Buffer?: typeof Buffer;
@@ -27,4 +28,10 @@ if (!g.process.versions) {
 // Phones: add the secure random and encryption functions the wallet needs.
 if (Platform.OS !== 'web') {
   installNativeWebCrypto();
+  // TESTNET-ONLY Expo Go testing: shorter key stretching, because plain JavaScript on a
+  // phone is too slow for the full count. Off unless explicitly switched on. Never ship on.
+  if (process.env.EXPO_PUBLIC_NOMAD_TESTNET_FAST_KDF === '1') {
+    enableTestnetFastKdf();
+    console.warn('[Nomad] TESTNET FAST KDF is ON. Test builds only; never use with real funds.');
+  }
 }
