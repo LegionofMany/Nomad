@@ -31,6 +31,12 @@
     "plugins": [
       "expo-asset",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9601b756-51c0-43c9-9441-7314dcab2d8b"
+      }
+    },
+    "owner": "colyzo"
   }
 }
