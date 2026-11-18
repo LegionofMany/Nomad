@@ -11,12 +11,13 @@ const englishWordlist: string[] = Array.isArray(wordlist)
   ? (wordlist as unknown as string[])
   : (typeof wordlist === "string" ? (wordlist as string).split(/\r?\n/).filter(Boolean) : []);
 
-export function generateMnemonic(): string {
+/** strength 128 = 12 words (standard wallet phrase); 256 = 24 words. */
+export function generateMnemonic(strength: 128 | 256 = 128): string {
   try {
       // Preferred call: (wordlist, strength)
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      return scureGenerate(englishWordlist as any, 256);
+      return scureGenerate(englishWordlist as any, strength);
     } catch (e) {
       try {
         // Fallback: try calling with just the wordlist

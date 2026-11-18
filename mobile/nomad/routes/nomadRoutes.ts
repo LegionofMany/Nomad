@@ -1,4 +1,8 @@
 import type { ComponentType } from 'react';
+import { Platform } from 'react-native';
+
+import OnboardingScreen from '../../screens/OnboardingScreen';
+import WalletHomeScreen from '../../screens/WalletHomeScreen';
 
 import ClockUnlockScreen from '../../screens/ClockUnlockScreen';
 import LockScreen from '../../screens/LockScreen';
@@ -31,6 +35,7 @@ import AddressSafetyDetailScreen from '../../screens/AddressSafetyDetailScreen';
 import NomadWatchScreen from '../../screens/NomadWatchScreen';
 
 export type NomadOverlayRouteName =
+  | 'Onboarding'
   | 'ClockUnlock'
   | 'Lock'
   | 'Portfolio'
@@ -82,9 +87,11 @@ export type NomadOverlayRoute = {
 };
 
 export const nomadOverlayRoutes: NomadOverlayRoute[] = [
+  { name: 'Onboarding', component: OnboardingScreen, area: 'foundation' },
   { name: 'Lock', component: LockScreen, area: 'foundation' },
   { name: 'ClockUnlock', component: ClockUnlockScreen, area: 'foundation' },
-  { name: 'Portfolio', component: PortfolioScreen, area: 'wallet' },
+  // Phones get the wallet home; the web preview keeps the original Portfolio.
+  { name: 'Portfolio', component: Platform.OS === 'web' ? PortfolioScreen : WalletHomeScreen, area: 'wallet' },
   { name: 'Wallets', component: WalletsScreen, area: 'wallet' },
   { name: 'SendBitcoin', component: SendBitcoinScreen, area: 'wallet' },
   { name: 'ReceiveBitcoin', component: ReceiveBitcoinScreen, area: 'wallet' },
@@ -116,5 +123,6 @@ export const nomadOverlayRoutes: NomadOverlayRoute[] = [
 export function desiredRouteForStatus(status: string): NomadOverlayRouteName {
   if (status === 'unlocked') return 'Portfolio';
   if (status === 'locked') return 'ClockUnlock';
+  if (status === 'no_wallet') return 'Onboarding';
   return 'Lock';
 }
