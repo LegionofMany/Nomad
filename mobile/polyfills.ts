@@ -4,8 +4,9 @@
  * The browser (and Hermes) also have no process.version, which the
  * readable-stream package reads while loading.
  */
-import { Buffer } from 'buffer';
 import { Platform } from 'react-native';
+import './shims/randomValues'; // first, before any @noble package is loaded
+import { Buffer } from 'buffer';
 import { installNativeWebCrypto } from './shims/webcrypto';
 import { enableTestnetFastKdf } from '../src/security/kdfPolicy';
 

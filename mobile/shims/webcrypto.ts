@@ -4,6 +4,7 @@
  * PBKDF2-SHA256 (deriveBits / deriveKey) and AES-256-GCM encrypt/decrypt.
  * Pure JavaScript (audited @noble libraries). Installed on native only.
  */
+import './randomValues'; // must stay first: see the note in randomValues.ts
 import { gcm } from '@noble/ciphers/aes';
 import { hmac } from '@noble/hashes/hmac';
 import { pbkdf2 } from '@noble/hashes/pbkdf2';
