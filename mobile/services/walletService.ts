@@ -165,18 +165,35 @@ export async function getWalletMeta(): Promise<WalletMeta | null> {
   return safeJsonParse<WalletMeta>(await secureGetItem(STORAGE_KEYS.walletMeta));
 }
 
-export async function createWallet(password: string, initialUnlockTime: ClockTime): Promise<{ mnemonic: string; evmAddress: string }>{
+/** Lets a screen show which stage is running, then gives the UI a moment to repaint. */
+async function reportStage(onProgress: ((label: string) => void) | undefined, label: string): Promise<void> {
+  if (!onProgress) return;
+  onProgress(label);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+}
+
+export async function createWallet(
+  password: string,
+  initialUnlockTime: ClockTime,
+  onProgress?: (label: string) => void,
+): Promise<{ mnemonic: string; evmAddress: string }>{
+  await reportStage(onProgress, "1 of 6 · Generating your recovery phrase");
   const mnemonic = generateMnemonic();
+  await reportStage(onProgress, "2 of 6 · Preparing device keys");
   const masterSecret = await getOrCreateMasterSecret();
+  await reportStage(onProgress, "3 of 6 · Protecting your password");
   const passwordEnrollment = await enrollPassword(password);
 
   const unlockTime = normalizeClockTime(initialUnlockTime);
 
+  await reportStage(onProgress, "4 of 6 · Creating your wallet address");
   const { address: evmAddress } = deriveEvmAccount(mnemonic, 0);
 
+  await reportStage(onProgress, "5 of 6 · Encrypting your wallet");
   const seed = mnemonicToSeed(mnemonic);
   const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordEnrollment.accessKey, unlockTime);
   const blob = await encryptSeedPortable(seed, unlockSecret);
+  await reportStage(onProgress, "6 of 6 · Saving securely on this phone");
 
   const meta: WalletMeta = { evmAddress, createdAt: new Date().toISOString() };
 

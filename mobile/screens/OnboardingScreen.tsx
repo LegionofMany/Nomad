@@ -8,6 +8,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -65,6 +66,8 @@ export default function OnboardingScreen() {
   const [answers, setAnswers] = useState<string[]>(['', '', '']);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState('');
+  const [elapsed, setElapsed] = useState(0);
 
   const clockTime = () => ({ hour: Number(hour), minute: Number(minute), second: Number(second) });
 
@@ -95,13 +98,18 @@ export default function OnboardingScreen() {
     const valid = /^\d{1,2}$/.test(hour) && /^\d{1,2}$/.test(minute) && /^\d{1,2}$/.test(second)
       && Number(hour) <= 23 && Number(minute) <= 59 && Number(second) <= 59;
     if (!valid) return setError('Enter a real 24-hour time: hour 0-23, minute 0-59, second 0-59.');
+    Keyboard.dismiss();
     setError('');
     setBusy(true);
+    setStage('Starting…');
+    setElapsed(0);
     setStep('creating');
-    await new Promise((resolve) => setTimeout(resolve, 200)); // let the spinner draw before the heavy work
+    const startedAt = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    await new Promise((resolve) => setTimeout(resolve, 250)); // let the progress screen draw before the heavy work
     try {
       if (mode === 'create') {
-        const res = await walletService.createWallet(password, clockTime());
+        const res = await walletService.createWallet(password, clockTime(), setStage);
         const list = res.mnemonic.trim().split(/\s+/);
         setWords(list);
         setQuiz(pickQuiz(list.length));
@@ -117,6 +125,7 @@ export default function OnboardingScreen() {
       setError(err instanceof Error ? err.message : 'Something went wrong while creating the wallet.');
       setStep('timekey');
     } finally {
+      clearInterval(timer);
       setBusy(false);
     }
   };
@@ -248,6 +257,9 @@ export default function OnboardingScreen() {
             <ActivityIndicator size="large" color={C.green} />
             <Text style={s.title}>{mode === 'create' ? 'Creating your wallet…' : 'Importing your wallet…'}</Text>
             <Text style={s.help}>Securing your keys on this phone. This can take a little while. Please keep the app open.</Text>
+            {mode === 'create' ? <Text style={s.stage}>{stage}</Text> : null}
+            <Text style={s.timer}>{elapsed}s</Text>
+            <Text style={s.fine}>If the step number stays the same for more than 3 minutes, take a photo of this screen and send it to your developer.</Text>
           </View>
         )}
 
@@ -330,5 +342,7 @@ const s = StyleSheet.create({
   wordCell: { width: '31%', flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: C.borderSoft, backgroundColor: C.panel2, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 10 },
   wordNum: { color: C.muted2, fontSize: 12, width: 20 },
   word: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  stage: { color: C.green, fontSize: 16, fontWeight: '800', textAlign: 'center', marginTop: 6 },
+  timer: { color: C.muted2, fontSize: 14, marginTop: 8 },
   bigCheck: { color: C.green, fontSize: 64, fontWeight: '900' },
 });
