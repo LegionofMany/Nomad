@@ -3,7 +3,9 @@ import { Platform } from "react-native";
 import type { ClockTime, Portfolio, WalletStatus } from "../types";
 import type { EncryptedBlob } from "../../src/wallet-core/types";
 
-import { generateMnemonic, validateMnemonic, mnemonicToSeed } from "../../src/wallet-core/seed";
+import { entropyToMnemonic, validateMnemonic, mnemonicToSeed } from "../../src/wallet-core/seed";
+import { deriveRecoveryEntropy, generateTimeSets, validateTimeSets } from "../../src/security/timeSets";
+import type { TimeSet } from "../../src/security/timeSets";
 import { deriveEvmAccount } from "../../src/wallet-core/deriveEvm";
 import { encryptSeedPortable, decryptSeedPortable } from "../../src/wallet-core/encrypt";
 
@@ -176,24 +178,28 @@ export async function createWallet(
   password: string,
   initialUnlockTime: ClockTime,
   onProgress?: (label: string) => void,
-): Promise<{ mnemonic: string; evmAddress: string }>{
-  await reportStage(onProgress, "1 of 6 · Generating your recovery phrase");
-  const mnemonic = generateMnemonic();
-  await reportStage(onProgress, "2 of 6 · Preparing device keys");
+): Promise<{ mnemonic: string; evmAddress: string; timeSets: TimeSet[] }>{
+  // The wallet's secret comes from 24 random Time Sets plus the password (see security/timeSets.ts).
+  // The owner writes the Time Sets down; with the password they rebuild the same wallet anywhere.
+  await reportStage(onProgress, "1 of 7 · Creating your 24 Time Sets");
+  const timeSets = generateTimeSets();
+  await reportStage(onProgress, "2 of 7 · Combining them with your password");
+  const mnemonic = entropyToMnemonic(deriveRecoveryEntropy(timeSets, password));
+  await reportStage(onProgress, "3 of 7 · Preparing device keys");
   const masterSecret = await getOrCreateMasterSecret();
-  await reportStage(onProgress, "3 of 6 · Protecting your password");
+  await reportStage(onProgress, "4 of 7 · Protecting your password");
   const passwordEnrollment = await enrollPassword(password);
 
   const unlockTime = normalizeClockTime(initialUnlockTime);
 
-  await reportStage(onProgress, "4 of 6 · Creating your wallet address");
+  await reportStage(onProgress, "5 of 7 · Creating your wallet address");
   const { address: evmAddress } = deriveEvmAccount(mnemonic, 0);
 
-  await reportStage(onProgress, "5 of 6 · Encrypting your wallet");
+  await reportStage(onProgress, "6 of 7 · Encrypting your wallet");
   const seed = mnemonicToSeed(mnemonic);
   const unlockSecret = await deriveClockUnlockSecret(masterSecret, passwordEnrollment.accessKey, unlockTime);
   const blob = await encryptSeedPortable(seed, unlockSecret);
-  await reportStage(onProgress, "6 of 6 · Saving securely on this phone");
+  await reportStage(onProgress, "7 of 7 · Saving securely on this phone");
 
   const meta: WalletMeta = { evmAddress, createdAt: new Date().toISOString() };
 
@@ -204,7 +210,25 @@ export async function createWallet(
   await secureSetItem(STORAGE_KEYS.walletMeta, JSON.stringify(meta));
   await secureSetItem(STORAGE_KEYS.isUnlocked, "false");
 
-  return { mnemonic, evmAddress };
+  return { mnemonic, evmAddress, timeSets };
+}
+
+/**
+ * Rebuilds a wallet's secret from the 24 Time Sets and the password WITHOUT saving anything,
+ * so the owner can check the address before it is stored. A wrong Time Set or password does not
+ * fail: it gives a different, empty wallet, which is why the address must be compared.
+ */
+export async function deriveWalletFromTimeSets(
+  timeSets: TimeSet[],
+  password: string,
+  onProgress?: (label: string) => void,
+): Promise<{ mnemonic: string; evmAddress: string }> {
+  validateTimeSets(timeSets);
+  await reportStage(onProgress, "Combining your Time Sets with your password");
+  const mnemonic = entropyToMnemonic(deriveRecoveryEntropy(timeSets, password));
+  await reportStage(onProgress, "Creating your wallet address");
+  const { address } = deriveEvmAccount(mnemonic, 0);
+  return { mnemonic, evmAddress: address };
 }
 
 export async function restoreWallet(mnemonic: string, password: string, initialUnlockTime: ClockTime): Promise<{ evmAddress: string }>{

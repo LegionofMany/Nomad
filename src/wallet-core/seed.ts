@@ -2,7 +2,7 @@
  * wallet-core `seed.ts` (moved into repo `src/wallet-core`)
  */
 
-import { generateMnemonic as scureGenerate, mnemonicToSeedSync, validateMnemonic as scureValidate } from "@scure/bip39";
+import { entropyToMnemonic as scureEntropyToMnemonic, generateMnemonic as scureGenerate, mnemonicToSeedSync, validateMnemonic as scureValidate } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english";
 
 // `@scure/bip39`'s published `wordlist` may be a newline-delimited string in
@@ -43,4 +43,9 @@ export function mnemonicToSeed(mnemonic: string, passphrase = ""): Uint8Array {
   // @ts-ignore
   const seed = mnemonicToSeedSync(mnemonic, passphrase);
   return seed as Uint8Array;
+}
+
+/** Standard BIP39 phrase for 16/20/24/28/32 bytes of entropy (32 bytes = 24 words). */
+export function entropyToMnemonic(entropy: Uint8Array): string {
+  return scureEntropyToMnemonic(entropy, englishWordlist as unknown as string[]);
 }
