@@ -9,6 +9,7 @@ import {
 } from '../../services/walletService';
 import type { UnlockWithClockResult } from '../../services/walletService';
 import { getSecureStorageMode, secureGetItem, secureSetItem, type NomadPersistenceEvidence } from '../../services/nativeStubs';
+import { formatApproxDuration, isTestnetOpenWindow, minuteLabel, roundUpToMinute } from '../../../src/security/windowPolicy';
 
 export type NomadClockAccessStatus =
   | 'no_wallet'
@@ -238,9 +239,11 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
   }
 
   const window = windowFor(configuredTime, now);
-  const countdownSeconds = window.open ? 0 : Math.max(0, Math.ceil((window.nextStart.getTime() - now.getTime()) / 1000));
+  // Test builds can skip the time-of-day window (password + exact Time Key still required).
+  const windowOpen = window.open || isTestnetOpenWindow();
+  const countdownSeconds = windowOpen ? 0 : Math.max(0, Math.ceil((window.nextStart.getTime() - now.getTime()) / 1000));
   const elapsedSincePreviousStart = Math.max(0, now.getTime() - window.previousStart.getTime());
-  const cycleProgressPercent = window.open ? 100 : Math.max(0, Math.min(99, Math.round((elapsedSincePreviousStart / DAY_MS) * 100)));
+  const cycleProgressPercent = windowOpen ? 100 : Math.max(0, Math.min(99, Math.round((elapsedSincePreviousStart / DAY_MS) * 100)));
   const cycleElapsedHours = Math.max(0, Math.min(24, elapsedSincePreviousStart / (60 * 60 * 1000)));
   const endTime: ClockTime = {
     hour: window.activeEnd.getHours(),
@@ -249,11 +252,11 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
   };
   const status: NomadClockAccessStatus = walletStatus === 'unlocked'
     ? 'unlocked'
-    : window.open
+    : windowOpen
       ? 'window_open'
       : 'waiting';
 
-  return {
+  const full: NomadClockAccessState = {
     ...base,
     status,
     accessWindowLabel: `${formatClock(configuredTime)}–${formatClock(endTime)} local`,
@@ -261,9 +264,31 @@ async function buildState(now = new Date()): Promise<NomadClockAccessState> {
     windowEndAt: window.activeEnd.toISOString(),
     nextWindowAt: window.nextStart.toISOString(),
     countdownSeconds,
-    countdownLabel: walletStatus === 'unlocked' ? 'UNLOCKED' : window.open ? 'OPEN NOW' : formatCountdown(countdownSeconds),
+    countdownLabel: walletStatus === 'unlocked' ? 'UNLOCKED' : windowOpen ? 'OPEN NOW' : formatCountdown(countdownSeconds),
     cycleProgressPercent,
     cycleElapsedHours,
+  };
+  return walletStatus === 'unlocked' ? full : maskWhileLocked(full);
+}
+
+/**
+ * While the wallet is locked, the screen must not reveal the Time Key. The configured time
+ * (with seconds), the exact window times and a countdown to the second would all give it away,
+ * because "now + countdown" equals the key. Show minute-level information only.
+ */
+function maskWhileLocked(state: NomadClockAccessState): NomadClockAccessState {
+  if (!state.configuredTime) return state;
+  const { hour, minute } = state.configuredTime;
+  return {
+    ...state,
+    configuredTime: null,
+    configuredTimeLabel: 'Hidden while locked',
+    accessWindowLabel: isTestnetOpenWindow() ? 'Open (test build)' : `around ${minuteLabel(hour, minute)} local`,
+    windowStartAt: undefined,
+    windowEndAt: undefined,
+    nextWindowAt: undefined,
+    countdownSeconds: roundUpToMinute(state.countdownSeconds),
+    countdownLabel: state.countdownSeconds > 0 ? formatApproxDuration(state.countdownSeconds) : state.countdownLabel,
   };
 }
 

@@ -9,6 +9,7 @@ import './shims/randomValues'; // first, before any @noble package is loaded
 import { Buffer } from 'buffer';
 import { installNativeWebCrypto } from './shims/webcrypto';
 import { enableTestnetFastKdf } from '../src/security/kdfPolicy';
+import { enableTestnetOpenWindow } from '../src/security/windowPolicy';
 
 const g = globalThis as unknown as {
   Buffer?: typeof Buffer;
@@ -34,5 +35,11 @@ if (Platform.OS !== 'web') {
   if (process.env.EXPO_PUBLIC_NOMAD_TESTNET_FAST_KDF === '1') {
     enableTestnetFastKdf();
     console.warn('[Nomad] TESTNET FAST KDF is ON. Test builds only; never use with real funds.');
+  }
+  // TESTNET-ONLY: skip the daily time-of-day window so testers are not locked out for 23 hours.
+  // The password and the exact HH:MM:SS Time Key are still required. Off unless switched on.
+  if (process.env.EXPO_PUBLIC_NOMAD_TESTNET_OPEN_WINDOW === '1') {
+    enableTestnetOpenWindow();
+    console.warn('[Nomad] TESTNET OPEN WINDOW is ON. Test builds only; never use with real funds.');
   }
 }

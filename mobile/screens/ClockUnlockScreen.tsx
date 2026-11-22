@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useAppState } from '../state/appState';
+import { formatApproxDuration } from '../../src/security/windowPolicy';
 import { C, NomadPage, Panel, RoundIcon, useNomadLayout } from '../ui/NomadShell';
 
 function NumberField({ label, value, max, onChange }: { label: string; value: string; max: number; onChange: (value: string) => void }) {
@@ -26,14 +27,17 @@ export default function ClockUnlockScreen() {
   const navigation = useNavigation<any>();
   const { compact } = useNomadLayout();
   const { walletStatus, unlockTime, setUnlockTime, unlockWithClock, resetDemo } = useAppState();
-  const [hour, setHour] = useState(unlockTime ? String(unlockTime.hour).padStart(2, '0') : '12');
-  const [minute, setMinute] = useState(unlockTime ? String(unlockTime.minute).padStart(2, '0') : '00');
-  const [second, setSecond] = useState(unlockTime ? String(unlockTime.second).padStart(2, '0') : '00');
+  // The Time Key is a secret. While the wallet is locked the boxes start EMPTY and the saved
+  // value is never shown, so anyone holding the phone must already know it.
+  const reveal = walletStatus === 'unlocked' && !!unlockTime;
+  const [hour, setHour] = useState(reveal && unlockTime ? String(unlockTime.hour).padStart(2, '0') : '');
+  const [minute, setMinute] = useState(reveal && unlockTime ? String(unlockTime.minute).padStart(2, '0') : '');
+  const [second, setSecond] = useState(reveal && unlockTime ? String(unlockTime.second).padStart(2, '0') : '');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const configuredLabel = useMemo(() => unlockTime ? `${String(unlockTime.hour).padStart(2, '0')}:${String(unlockTime.minute).padStart(2, '0')}:${String(unlockTime.second).padStart(2, '0')}` : 'Not configured', [unlockTime]);
+  const configuredLabel = useMemo(() => !reveal ? 'hidden while locked' : unlockTime ? `${String(unlockTime.hour).padStart(2, '0')}:${String(unlockTime.minute).padStart(2, '0')}:${String(unlockTime.second).padStart(2, '0')}` : 'Not configured', [unlockTime, reveal]);
   const validTime = hour !== '' && minute !== '' && second !== '' && Number(hour) <= 23 && Number(minute) <= 59 && Number(second) <= 59;
   const valid = validTime && password.length > 0;
   const inputTime = { hour: Number(hour || 0), minute: Number(minute || 0), second: Number(second || 0) };
@@ -69,7 +73,7 @@ export default function ClockUnlockScreen() {
         return;
       }
       if (result.reason === 'outside_window') {
-        setMessage(`The daily access window is closed. Next window begins in ${formatSeconds(result.secondsUntilWindow ?? 0)}.`);
+        setMessage(`The daily access window is closed. The next window begins in ${formatApproxDuration(result.secondsUntilWindow ?? 0)}.`);
       } else if (result.reason === 'not_configured') {
         setMessage('A daily access time has not been configured. Open Recovery Center to complete setup.');
       } else if (result.reason === 'locked_out') {
