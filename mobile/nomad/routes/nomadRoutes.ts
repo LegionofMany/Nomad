@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 
 import OnboardingScreen from '../../screens/OnboardingScreen';
 import WalletHomeScreen from '../../screens/WalletHomeScreen';
+import EcosystemAppScreen from '../../screens/EcosystemAppScreen';
+import MoreScreen from '../../screens/MoreScreen';
 
 import ClockUnlockScreen from '../../screens/ClockUnlockScreen';
 import LockScreen from '../../screens/LockScreen';
@@ -36,6 +38,8 @@ import NomadWatchScreen from '../../screens/NomadWatchScreen';
 
 export type NomadOverlayRouteName =
   | 'Onboarding'
+  | 'EcosystemApp'
+  | 'More'
   | 'ClockUnlock'
   | 'Lock'
   | 'Portfolio'
@@ -88,6 +92,9 @@ export type NomadOverlayRoute = {
 
 export const nomadOverlayRoutes: NomadOverlayRoute[] = [
   { name: 'Onboarding', component: OnboardingScreen, area: 'foundation' },
+  // Phone-only: the bottom-bar apps and the More tab.
+  { name: 'EcosystemApp', component: EcosystemAppScreen, area: 'voltaire' },
+  { name: 'More', component: MoreScreen, area: 'voltaire' },
   { name: 'Lock', component: LockScreen, area: 'foundation' },
   { name: 'ClockUnlock', component: ClockUnlockScreen, area: 'foundation' },
   // Phones get the wallet home; the web preview keeps the original Portfolio.

@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import { useAppState } from '../state/appState';
 import { useNomadWallet } from '../nomad/hooks/useNomadWallet';
+import { AppTabBar } from '../components/AppTabBar';
 import { C, NomadGlyph } from '../ui/NomadShell';
 
 type Tab = 'assets' | 'activity';
@@ -120,14 +121,7 @@ export default function WalletHomeScreen() {
         )}
       </ScrollView>
 
-      <View style={s.tabBar}>
-        {([['Wallet', 'wallet', 'Portfolio'], ['Travel', 'travel', 'TravelMode'], ['Security', 'security', 'SecurityCenter'], ['Settings', 'settings', 'Settings']] as const).map(([label, icon, route]) => (
-          <Pressable key={label} accessibilityRole="button" onPress={() => route !== 'Portfolio' && navigation.navigate(route)} style={s.bar}>
-            <NomadGlyph kind={icon} color={route === 'Portfolio' ? C.green : C.muted2} size={22} />
-            <Text style={[s.barText, route === 'Portfolio' && { color: C.green }]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <AppTabBar active="wallet" />
     </View>
   );
 }

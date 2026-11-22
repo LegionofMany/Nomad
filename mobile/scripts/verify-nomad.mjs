@@ -21,8 +21,8 @@ const registeredRoutes = [...routes.matchAll(/\{ name: '([^']+)', component:/g)]
 const uniqueRoutes = new Set(registeredRoutes);
 const numberedPages = [...coverage.matchAll(/pageNumber:\s*(\d+)/g)].map((match) => Number(match[1]));
 
-// 29 original routes + the phone-only Onboarding route. The 26 approved pages below are unchanged.
-invariant(registeredRoutes.length === 30, `Expected 30 registered routes; found ${registeredRoutes.length}.`);
+// 29 original routes + the phone-only Onboarding, EcosystemApp and More routes. The 26 approved pages below are unchanged.
+invariant(registeredRoutes.length === 32, `Expected 32 registered routes; found ${registeredRoutes.length}.`);
 invariant(uniqueRoutes.size === registeredRoutes.length, 'Nomad route names must be unique.');
 invariant(numberedPages.length === 26, `Expected 26 numbered Nomad pages; found ${numberedPages.length}.`);
 invariant(numberedPages.every((value, index) => value === index + 1), 'Nomad page numbers must be continuous from 1 through 26.');
