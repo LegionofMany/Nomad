@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -15,7 +15,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AppStateProvider, useAppState } from './state/appState';
 import { TransactionApprovalHost } from './components/TransactionApprovalHost';
+import { ConnectApprovalHost } from './components/ConnectApprovalHost';
 import { engineAdapters } from './services/engineService';
+import { runIncomingConnectLink } from './services/connectService';
+import { isConnectLink } from '../src/connect';
 import { NomadAdaptersProvider } from './nomad';
 import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } from './nomad/routes/nomadRoutes';
 
@@ -85,6 +88,50 @@ function NavigationGate() {
   return null;
 }
 
+/**
+ * Listens for nomad://connect links from Zonycs, Reqrium and the other apps.
+ * A link that arrives while the wallet is locked is held until the owner unlocks,
+ * then handled. It is never handled while locked, and it expires on its own.
+ */
+function ConnectLinkListener() {
+  const { walletStatus } = useAppState();
+  const statusRef = React.useRef(walletStatus);
+  const heldLink = React.useRef<string | null>(null);
+  const busy = React.useRef(false);
+
+  const flush = React.useCallback(() => {
+    const link = heldLink.current;
+    if (!link || busy.current || statusRef.current !== 'unlocked') return;
+    heldLink.current = null;
+    busy.current = true;
+    runIncomingConnectLink(link)
+      .catch(() => undefined)
+      .finally(() => {
+        busy.current = false;
+        flush();
+      });
+  }, []);
+
+  React.useEffect(() => {
+    statusRef.current = walletStatus;
+    flush();
+  }, [walletStatus, flush]);
+
+  React.useEffect(() => {
+    if (isWebPreview) return;
+    const accept = (url: string | null) => {
+      if (!isConnectLink(url)) return;
+      heldLink.current = url;
+      flush();
+    };
+    Linking.getInitialURL().then(accept).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', (event) => accept(event.url));
+    return () => subscription.remove();
+  }, [flush]);
+
+  return null;
+}
+
 function AppNavigator() {
   const { walletStatus } = useAppState();
   const initialRoute = isWebPreview ? 'Portfolio' : desiredRouteForStatus(walletStatus);
@@ -112,7 +159,9 @@ export default function App() {
             <SafeAreaView style={{ flex: 1, backgroundColor: '#01060d' }}>
               <NavigationGate />
               <AppNavigator />
+              <ConnectLinkListener />
               <TransactionApprovalHost />
+              <ConnectApprovalHost />
               <StatusBar style="light" />
             </SafeAreaView>
           </NavigationContainer>

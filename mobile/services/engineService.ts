@@ -49,5 +49,8 @@ if (engine) {
   );
 }
 
+/** The same engine instance, for Nomad Connect. Null on web. */
+export const connectEngine: NomadWalletEngine | null = engine;
+
 /** Wallet adapter backed by the testnet engine, or undefined on web (demo data stays). */
 export const engineAdapters: NomadOverlayAdapters | undefined = engine ? createClonedWalletAdapter(engine) : undefined;
