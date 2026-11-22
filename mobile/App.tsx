@@ -17,8 +17,8 @@ import { AppStateProvider, useAppState } from './state/appState';
 import { TransactionApprovalHost } from './components/TransactionApprovalHost';
 import { ConnectApprovalHost } from './components/ConnectApprovalHost';
 import { engineAdapters } from './services/engineService';
-import { runIncomingConnectLink } from './services/connectService';
-import { isConnectLink } from '../src/connect';
+import { runIncomingLink } from './services/connectService';
+import { isAttestLink, isConnectLink } from '../src/connect';
 import { NomadAdaptersProvider } from './nomad';
 import { desiredRouteForStatus, nomadOverlayRoutes, type RootStackParamList } from './nomad/routes/nomadRoutes';
 
@@ -104,7 +104,7 @@ function ConnectLinkListener() {
     if (!link || busy.current || statusRef.current !== 'unlocked') return;
     heldLink.current = null;
     busy.current = true;
-    runIncomingConnectLink(link)
+    runIncomingLink(link)
       .catch(() => undefined)
       .finally(() => {
         busy.current = false;
@@ -120,7 +120,7 @@ function ConnectLinkListener() {
   React.useEffect(() => {
     if (isWebPreview) return;
     const accept = (url: string | null) => {
-      if (!isConnectLink(url)) return;
+      if (!isConnectLink(url) && !isAttestLink(url)) return;
       heldLink.current = url;
       flush();
     };

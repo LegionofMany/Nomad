@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nomad Connect test page</title>
+<style>
+  body { margin: 0; padding: 20px; font: 16px/1.5 system-ui, sans-serif; background: #01060d; color: #fff; }
+  main { max-width: 520px; margin: 0 auto; }
+  .banner { background: #3a2f0b; color: #ffd866; border-radius: 8px; padding: 8px 12px; font-weight: 700; text-align: center; }
+  h1 { font-size: 22px; margin: 16px 0 4px; }
+  p { color: #8aa4c0; margin: 4px 0 16px; }
+  button { display: block; width: 100%; padding: 14px; margin: 10px 0; border: 0; border-radius: 12px; background: #2f7dff; color: #fff; font-size: 16px; font-weight: 700; }
+  button.secondary { background: #16283d; }
+  .result { margin-top: 18px; padding: 14px; border-radius: 12px; word-break: break-all; }
+  .ok { background: #0b2a1a; border: 1px solid #1f7a4a; }
+  .bad { background: #2a0b0b; border: 1px solid #7a1f1f; }
+  code, pre { font-size: 12px; color: #cfe0f5; white-space: pre-wrap; word-break: break-all; }
+  details { margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="banner">TEST PAGE. Test network only. No real money.</div>
+  <h1>Nomad Connect test page</h1>
+  <p>Open this page on the phone that has the Nomad app. Tap a button, approve in Nomad, and you come back here with the answer checked.</p>
+  <button id="signin">Sign in with Nomad</button>
+  <button id="read" class="secondary">Share my addresses</button>
+  <div id="out"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+(function () {
+  var PENDING_KEY = 'nomadDemoPending';
+  var out = document.getElementById('out');
+
+  function b64url(text) { return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function unb64url(v) { return atob(v.replace(/-/g, '+').replace(/_/g, '/')); }
+  function token(prefix) {
+    var bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return prefix + Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  function show(ok, title, lines, raw) {
+    out.innerHTML = '';
+    var box = document.createElement('div');
+    box.className = 'result ' + (ok ? 'ok' : 'bad');
+    var h = document.createElement('strong');
+    h.textContent = title;
+    box.appendChild(h);
+    lines.forEach(function (l) { var p = document.createElement('div'); p.textContent = l; box.appendChild(p); });
+    if (raw) {
+      var d = document.createElement('details');
+      var s = document.createElement('summary'); s.textContent = 'Raw answer';
+      var pre = document.createElement('pre'); pre.textContent = raw;
+      d.appendChild(s); d.appendChild(pre); box.appendChild(d);
+    }
+    out.appendChild(box);
+  }
+
+  function start(kind) {
+    var now = Date.now();
+    var req = {
+      v: 1, id: token('req'), nonce: token('non'), kind: kind,
+      app: { id: 'nomad-demo', origin: location.origin },
+      issuedAt: new Date(now - 1000).toISOString(),
+      expiresAt: new Date(now + 5 * 60 * 1000).toISOString()
+    };
+    if (kind === 'signin') req.statement = 'Test sign-in from the Nomad Connect test page.';
+    if (kind === 'read') req.scopes = ['addresses'];
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: req.id, nonce: req.nonce, kind: kind })); } catch (e) {}
+    location.href = 'nomad://connect?r=' + b64url(JSON.stringify(req));
+  }
+
+  document.getElementById('signin').addEventListener('click', function () { start('signin'); });
+  document.getElementById('read').addEventListener('click', function () { start('read'); });
+
+  function handleAnswer() {
+    if (location.hash.indexOf('#r=') !== 0) return;
+    var raw;
+    try { raw = unb64url(location.hash.slice(3)); } catch (e) { return show(false, 'The answer was damaged.', []); }
+    history.replaceState(null, '', location.pathname);
+    var res;
+    try { res = JSON.parse(raw); } catch (e) { return show(false, 'The answer was damaged.', []); }
+
+    var pending = null;
+    try { pending = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); localStorage.removeItem(PENDING_KEY); } catch (e) {}
+    if (!pending || pending.id !== res.id || pending.nonce !== res.nonce || pending.kind !== res.kind) {
+      return show(false, 'Rejected: this answer does not match a request made from this page.', [], raw);
+    }
+    if (res.status !== 'approved') {
+      return show(false, 'Nomad said: ' + (res.code || 'error'), [res.message || ''], raw);
+    }
+
+    if (res.kind === 'signin') {
+      var signer = '';
+      try { signer = ethers.verifyMessage(res.message, res.signature); } catch (e) {}
+      var good = signer && signer.toLowerCase() === String(res.address).toLowerCase()
+        && res.message.indexOf('Nonce: ' + pending.nonce) !== -1
+        && res.message.indexOf('Request ID: ' + pending.id) !== -1
+        && res.message.indexOf('URI: ' + location.origin) !== -1
+        && res.message.indexOf('Address: ' + res.address) !== -1;
+      return show(!!good, good ? 'Signed in. Signature verified.' : 'Rejected: the signature did not check out.',
+        good ? ['Wallet address: ' + res.address, 'No password was used. Nothing was spent.'] : [], raw);
+    }
+    if (res.kind === 'read') {
+      var rows = (res.addresses || []).map(function (a) { return a.chainId + ': ' + a.address; });
+      return show(true, 'Addresses received (public only).', rows, raw);
+    }
+    show(false, 'Unexpected answer type.', [], raw);
+  }
+  handleAnswer();
+})();
+</script>
+</body>
+</html>

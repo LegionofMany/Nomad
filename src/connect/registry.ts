@@ -64,3 +64,19 @@ export function isAcceptableOrigin(origin: string): boolean {
   if (url.protocol === "https:") return true;
   return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
 }
+
+/**
+ * Adds the Nomad Connect test page as a registered app, for TESTNET preview builds only.
+ * The origin must be https (or localhost). Returns the registry unchanged if it is missing or invalid.
+ */
+export function withDemoApp(registry: ConnectRegistry, origin: string | undefined): ConnectRegistry {
+  if (!origin || !isAcceptableOrigin(origin)) return registry;
+  const demo: KnownApp = {
+    id: "nomad-demo",
+    name: "Nomad Connect test page",
+    origins: [origin],
+    allowedKinds: ["signin", "read", "prove"],
+    callbackPath: "/connect-demo.html",
+  };
+  return { ...registry, apps: [...registry.apps.filter((a) => a.id !== demo.id), demo] };
+}

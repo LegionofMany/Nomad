@@ -10,7 +10,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_NOMAD_TESTNET_FAST_KDF": "1"
+        "EXPO_PUBLIC_NOMAD_TESTNET_FAST_KDF": "1",
+        "EXPO_PUBLIC_NOMAD_DEMO_ORIGIN": "https://nomad-eight-eta.vercel.app"
       }
     },
     "production": {

@@ -7,7 +7,7 @@
  */
 
 import { NomadConnect, buildCallbackUrl } from "./NomadConnect";
-import { decodeConnectLink } from "./parse";
+import { decodeAttestLink, decodeConnectLink } from "./parse";
 import { findApp } from "./registry";
 import type { ConnectRegistry } from "./registry";
 import { CONNECT_VERSION } from "./types";
@@ -58,4 +58,16 @@ export async function processConnectLink(connect: NomadConnect, registry: Connec
   }
   const title = response.code === "declined" ? "Declined" : "Request not completed";
   return { response, callbackUrl, title, message: response.message };
+}
+
+/** Stores a Reqrium verification handed over by nomad://attest. Nothing leaves the wallet. */
+export async function processAttestLink(connect: NomadConnect, link: string): Promise<{ title: string; message: string; ok: boolean }> {
+  try {
+    const signed = decodeAttestLink(link);
+    await connect.addAttestation(signed);
+    const label = signed.attestation.claim === "verified_business" ? "verified business" : "verified person";
+    return { ok: true, title: "Verification saved", message: `This wallet is now marked as a ${label}. Apps will only see it if you approve.` };
+  } catch (error) {
+    return { ok: false, title: "Verification not saved", message: error instanceof Error ? error.message : "The verification could not be read." };
+  }
 }

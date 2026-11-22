@@ -7,7 +7,7 @@
 
 import { isAcceptableOrigin } from "./registry";
 import { CONNECT_VERSION, MAX_CLOCK_SKEW_MS, MAX_REQUEST_BYTES, MAX_REQUEST_LIFETIME_MS } from "./types";
-import type { ClaimName, ConnectErrorCode, ConnectRequest } from "./types";
+import type { ClaimName, ConnectErrorCode, ConnectRequest, SignedAttestation } from "./types";
 
 export class ConnectParseError extends Error {
   readonly code: ConnectErrorCode;
@@ -117,6 +117,45 @@ export const toBase64Url = (text: string): string =>
 
 export const fromBase64Url = (value: string): string =>
   Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+
+const ATTEST_PREFIX = "nomad://attest?a=";
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const SIGNATURE = /^0x[0-9a-fA-F]{130}$/;
+
+export const isAttestLink = (url: string | null | undefined): url is string => typeof url === "string" && url.startsWith(ATTEST_PREFIX);
+
+/** nomad://attest?a=<base64url JSON of {attestation, signature}>: how Reqrium hands a verification to the wallet. */
+export function encodeAttestLink(signed: SignedAttestation): string {
+  return `${ATTEST_PREFIX}${toBase64Url(JSON.stringify(signed))}`;
+}
+
+/** Strictly checks the shape. The issuer's signature is checked later by NomadConnect.addAttestation. */
+export function decodeAttestLink(link: string): SignedAttestation {
+  if (!isAttestLink(link)) throw bad("That is not a Nomad verification link.");
+  const payload = link.slice(ATTEST_PREFIX.length);
+  if (payload.length > MAX_REQUEST_BYTES * 2 || !/^[A-Za-z0-9_-]+$/.test(payload)) throw bad("The link is damaged.");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fromBase64Url(payload));
+  } catch {
+    throw bad("The link is damaged.");
+  }
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const a = (o.attestation && typeof o.attestation === "object" ? o.attestation : {}) as Record<string, unknown>;
+  const issuer = str(a, "issuer", 32) as string;
+  const subject = str(a, "subject", 42) as string;
+  const claim = str(a, "claim", 40) as ClaimName;
+  const issuedAt = str(a, "issuedAt", 40) as string;
+  const expiresAt = str(a, "expiresAt", 40) as string;
+  const signature = str(o, "signature", 132) as string;
+  if (a.v !== CONNECT_VERSION) throw bad("Unsupported verification version.");
+  if (!APP_ID.test(issuer)) throw bad("The issuer is not valid.");
+  if (!ADDRESS.test(subject)) throw bad("The wallet address is not valid.");
+  if (!CLAIMS.includes(claim)) throw bad("Unknown claim.");
+  if (!SIGNATURE.test(signature)) throw bad("The signature is not valid.");
+  if (Number.isNaN(Date.parse(issuedAt)) || Number.isNaN(Date.parse(expiresAt))) throw bad("The dates are not valid.");
+  return { attestation: { v: CONNECT_VERSION, issuer, subject, claim, issuedAt, expiresAt }, signature };
+}
 
 export function decodeConnectLink(link: string): string {
   const prefix = "nomad://connect?r=";

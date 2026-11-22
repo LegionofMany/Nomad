@@ -1,6 +1,19 @@
 import { Wallet } from 'ethers';
-import { NomadConnect, encodeConnectLink, isConnectLink, processConnectLink } from '../index';
-import type { ConnectRegistry, ConnectWallet } from '../index';
+import {
+  DEV_REGISTRY,
+  NomadConnect,
+  buildAttestationMessage,
+  createMemoryAttestationStore,
+  decodeAttestLink,
+  encodeAttestLink,
+  encodeConnectLink,
+  isAttestLink,
+  isConnectLink,
+  processAttestLink,
+  processConnectLink,
+  withDemoApp,
+} from '../index';
+import type { ConnectRegistry, ConnectWallet, SignedAttestation } from '../index';
 
 const NOW = new Date('2026-11-22T10:00:00.000Z');
 const ORIGIN = 'http://localhost:3001';
@@ -100,4 +113,90 @@ test('the same link cannot be used twice', async () => {
   expect((await processConnectLink(connect, registry, l)).response.status).toBe('approved');
   const again = await processConnectLink(connect, registry, l);
   expect(again.response.status === 'error' && again.response.code).toBe('replayed');
+});
+
+describe('Reqrium verification hand-off (nomad://attest)', () => {
+  const issuer = Wallet.createRandom();
+  const withIssuer: ConnectRegistry = { ...registry, issuers: [{ id: 'reqrium', name: 'Reqrium', address: issuer.address }] };
+
+  const attest = async (over: Record<string, unknown> = {}, signer: { signMessage(m: string): Promise<string> } = issuer): Promise<SignedAttestation> => {
+    const attestation = {
+      v: 1 as const,
+      issuer: 'reqrium',
+      subject: key.address,
+      claim: 'verified_person' as const,
+      issuedAt: new Date(NOW.getTime() - 86_400_000).toISOString(),
+      expiresAt: new Date(NOW.getTime() + 86_400_000).toISOString(),
+      ...over,
+    };
+    return { attestation, signature: await signer.signMessage(buildAttestationMessage(attestation)) };
+  };
+  const make = () => {
+    const base = setup().connect as any;
+    const wallet = base.cfg.wallet as ConnectWallet;
+    return new NomadConnect({ wallet, registry: withIssuer, now: () => NOW, store: createMemoryAttestationStore(), gate: { request: async () => true } });
+  };
+
+  test('recognises and round-trips a verification link', async () => {
+    const signed = await attest();
+    const l = encodeAttestLink(signed);
+    expect(isAttestLink(l)).toBe(true);
+    expect(isAttestLink('nomad://connect?r=abc')).toBe(false);
+    expect(decodeAttestLink(l)).toEqual(signed);
+  });
+
+  test('a valid verification from the trusted issuer is saved', async () => {
+    const out = await processAttestLink(make(), encodeAttestLink(await attest()));
+    expect(out.ok).toBe(true);
+    expect(out.title).toBe('Verification saved');
+  });
+
+  test('a verification signed by anyone else is refused', async () => {
+    const out = await processAttestLink(make(), encodeAttestLink(await attest({}, Wallet.createRandom())));
+    expect(out.ok).toBe(false);
+  });
+
+  test('a verification about another wallet is refused', async () => {
+    const out = await processAttestLink(make(), encodeAttestLink(await attest({ subject: Wallet.createRandom().address })));
+    expect(out.ok).toBe(false);
+    expect(out.message).toMatch(/different wallet/);
+  });
+
+  test('an expired verification is refused', async () => {
+    const out = await processAttestLink(make(), encodeAttestLink(await attest({ expiresAt: new Date(NOW.getTime() - 1000).toISOString() })));
+    expect(out.ok).toBe(false);
+  });
+
+  test('with no trusted issuer configured nothing is saved', async () => {
+    const { connect } = setup();
+    const out = await processAttestLink(connect, encodeAttestLink(await attest()));
+    expect(out.ok).toBe(false);
+  });
+
+  test('malformed links never throw', async () => {
+    const { connect } = setup();
+    for (const bad of ['nomad://attest?a=', 'nomad://attest?a=%%%', 'nomad://attest?a=e30', 'https://evil.example']) {
+      expect((await processAttestLink(connect, bad)).ok).toBe(false);
+    }
+  });
+});
+
+describe('test page registration', () => {
+  test('adds the test page only for a valid origin', () => {
+    expect(withDemoApp(DEV_REGISTRY, undefined)).toBe(DEV_REGISTRY);
+    expect(withDemoApp(DEV_REGISTRY, 'http://evil.example')).toBe(DEV_REGISTRY);
+    const r = withDemoApp(DEV_REGISTRY, 'https://nomad-eight-eta.vercel.app');
+    expect(r.apps.find((a) => a.id === 'nomad-demo')).toMatchObject({ origins: ['https://nomad-eight-eta.vercel.app'], callbackPath: '/connect-demo.html' });
+    expect(DEV_REGISTRY.apps.some((a) => a.id === 'nomad-demo')).toBe(false);
+  });
+
+  test('the test page can sign in end to end', async () => {
+    const origin = 'https://nomad-eight-eta.vercel.app';
+    const reg = withDemoApp(DEV_REGISTRY, origin);
+    const base = setup().connect as any;
+    const connect = new NomadConnect({ wallet: base.cfg.wallet, registry: reg, now: () => NOW, gate: { request: async () => true } });
+    const out = await processConnectLink(connect, reg, link({ app: { id: 'nomad-demo', origin } }));
+    expect(out.response.status).toBe('approved');
+    expect(out.callbackUrl?.startsWith(`${origin}/connect-demo.html#r=`)).toBe(true);
+  });
 });
