@@ -11,7 +11,7 @@
  *  - Locking clears every cache and pending transaction.
  */
 
-import { formatEther } from "ethers";
+import { Wallet, formatEther } from "ethers";
 import type { ClonedWalletEngineBridge } from "../../mobile/nomad/adapters/clonedWalletAdapterTemplate";
 import type {
   NomadAsset,
@@ -200,6 +200,20 @@ export class NomadWalletEngine implements ClonedWalletEngineBridge {
     const { rawHex, hash } = await this.withSeed((seed) => signEvmTransfer(prepared.evm, deriveEvmKey(seed, 0).privateKey));
     this.pending.set(hash, { chainId: EVM_SEPOLIA_ID, raw: rawHex });
     return { status: "signed", txHash: hash, rawTransaction: rawHex };
+  }
+
+  /**
+   * Signs a plain-text message (EIP-191) with the first Ethereum key. This moves no money.
+   * It does NOT ask for approval itself: the caller (Nomad Connect) must have shown the
+   * owner the request and received a yes before calling this. Needs an unlocked wallet.
+   */
+  async signConnectMessage(message: string): Promise<{ address: string; signature: string }> {
+    if (typeof message !== "string" || message.length === 0 || message.length > 2000) throw invalid("That message cannot be signed.");
+    return this.withSeed(async (seed) => {
+      const key = deriveEvmKey(seed, 0);
+      const signature = await new Wallet(key.privateKey).signMessage(message);
+      return { address: key.address, signature };
+    });
   }
 
   /** Only broadcasts transactions this engine signed in this session. */
