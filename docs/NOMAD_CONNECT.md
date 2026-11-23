@@ -67,6 +67,31 @@ Reqrium keeps its documents. Nomad never receives them.
 5. Other apps check a presentation with `verifyPresentation(...)`, which proves the claim is real, current,
    belongs to this wallet, and was shown to THIS app for THIS request.
 
+## What is already wired (testnet preview)
+
+**Zonycs** (`Seller-Block-marketplace`)
+- Backend: `POST /auth/nomad/request` and `POST /auth/nomad/verify` (`backend/src/services/nomadConnect.ts`,
+  handlers in `authController.ts`). The one-time request lives in the existing `auth_nonces` table, and a
+  successful answer starts the normal cookie session.
+- Frontend: "Sign in with Nomad" button on `/sign-in`, answer page at `/sign-in/nomad`.
+- The wallet signs the site's origin, taken from `FRONTEND_APP_URL`. That value must be exactly the address the
+  phone has registered for Zonycs (`EXPO_PUBLIC_ZONYCS_URL`).
+
+**Reqrium** (`blockpage411`)
+- Sign in: `POST /api/nomad/request` and `POST /api/nomad/verify`, answer page at `/nomad/callback`. It starts the same
+  `token` / `refresh_token` cookies as the normal wallet login. The site's origin comes from `APP_URL` or `NEXT_PUBLIC_APP_URL`.
+- Verified proof: `POST /api/nomad/attestation` (signed-in wallet only, and only if an admin has set that exact wallet's
+  `kycStatus` to `verified`). Signs with `REQRIUM_ATTESTATION_PRIVATE_KEY`. "Add my verified proof to Nomad" button on `/kyc-verify`.
+- The proof names the signed-in wallet. A person who verified with a different wallet must verify the Nomad wallet itself
+  (or a wallet-linking step must be added later).
+
+**Keeping wording in step.** Each project keeps its own copy of the signed text. All three test it against the same literal
+("golden") strings. If you change `src/connect/messages.ts`, change the copies in Zonycs and Reqrium too.
+
+**Phone settings** (in `mobile/eas.json`, `preview` env): `EXPO_PUBLIC_ZONYCS_URL`, `EXPO_PUBLIC_REQRIUM_URL`,
+`EXPO_PUBLIC_SYAXIO_URL`, `EXPO_PUBLIC_GUARDIAN_TRADER_URL` (each app's exact https address; the phone trusts only that origin)
+and `EXPO_PUBLIC_REQRIUM_ISSUER_ADDRESS` (the ADDRESS of Reqrium's attestation key, never the key).
+
 ## Before any release
 
 - Replace the localhost origins in `registry.ts` with the real https origins.

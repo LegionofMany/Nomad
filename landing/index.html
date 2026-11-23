@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arkrilium — a crypto wallet built for travel</title>
+<meta name="description" content="Arkrilium is a non-custodial crypto wallet for travellers. You hold the keys, you set the limits, and every payment needs your approval. Currently in testnet preview.">
+<meta property="og:title" content="Arkrilium — a crypto wallet built for travel">
+<meta property="og:description" content="You hold the keys. You set the limits. Testnet preview.">
+<style>
+:root{--bg:#070b14;--panel:#0e1524;--line:#1c2840;--text:#eaf0fb;--mute:#93a3c0;--blue:#3b82f6;--green:#2ee59d;--amber:#f5a524}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+a{color:var(--blue)}
+.wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+header{display:flex;justify-content:space-between;align-items:center;padding:20px 0}
+.brand{font-weight:900;font-size:20px;letter-spacing:.5px}
+.brand span{color:var(--green)}
+nav a{color:var(--mute);text-decoration:none;margin-left:20px;font-size:14px}
+.banner{background:rgba(245,165,36,.12);border:1px solid var(--amber);color:#ffd48a;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:8px}
+.hero{padding:56px 0 40px;text-align:center}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:0 0 18px;font-weight:900}
+h1 em{font-style:normal;color:var(--green)}
+.lead{color:var(--mute);font-size:18px;max-width:640px;margin:0 auto 28px}
+.btn{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:800;padding:14px 26px;border-radius:14px;margin:6px}
+.btn.alt{background:transparent;border:1px solid var(--line);color:var(--text)}
+section{padding:42px 0}
+h2{font-size:28px;margin:0 0 8px}
+.sub{color:var(--mute);margin:0 0 26px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.card h3{margin:0 0 6px;font-size:17px}
+.card p{margin:0;color:var(--mute);font-size:15px}
+.tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;border-radius:999px;padding:2px 9px;margin-bottom:10px;background:rgba(46,229,157,.12);color:var(--green)}
+.tag.soon{background:rgba(147,163,192,.15);color:var(--mute)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{counter-increment:s;position:relative;padding:14px 0 14px 54px;border-bottom:1px solid var(--line)}
+.steps li:before{content:counter(s);position:absolute;left:0;top:12px;width:36px;height:36px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:900}
+.faq details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;font-weight:700}
+.faq p{color:var(--mute);margin:10px 0 0}
+footer{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--mute);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">ARKRI<span>LIUM</span></div>
+    <nav><a href="#features">Features</a><a href="#apps">Apps</a><a href="#how">How it works</a><a href="#faq">FAQ</a></nav>
+  </header>
+
+  <div class="banner"><strong>Testnet preview.</strong> Arkrilium currently runs on test networks only. Test coins have no value and real funds are switched off.</div>
+
+  <div class="hero">
+    <h1>A crypto wallet built for <em>travel</em></h1>
+    <p class="lead">You hold the keys. You set the limits. Every payment waits for your approval, wherever in the world you are.</p>
+    <a class="btn" href="#join">Join the testnet</a>
+    <a class="btn alt" href="#how">See how it works</a>
+  </div>
+
+  <section id="features">
+    <h2>What makes it different</h2>
+    <p class="sub">Built around safety first, convenience second.</p>
+    <div class="grid">
+      <div class="card"><span class="tag">In preview</span><h3>You own the keys</h3><p>Non-custodial. Your keys are created and stored on your phone. Arkrilium cannot see or move your funds.</p></div>
+      <div class="card"><span class="tag">In preview</span><h3>Time Sets recovery</h3><p>Your wallet is recovered with 24 Time Sets plus your password. Nothing is stored on a server.</p></div>
+      <div class="card"><span class="tag">In preview</span><h3>Clock Unlock</h3><p>Open the wallet with your password and a time only you know.</p></div>
+      <div class="card"><span class="tag">In preview</span><h3>Approve everything</h3><p>Apps can ask to sign you in or request a payment. Nothing happens until you approve it on your phone.</p></div>
+      <div class="card"><span class="tag soon">Planned</span><h3>Travel Pocket</h3><p>Carry a small, limited balance while travelling, with spending limits and optional co-approval from someone you trust.</p></div>
+      <div class="card"><span class="tag soon">Planned</span><h3>Family and Business wallets</h3><p>Shared wallets with clear roles, limits and approvals.</p></div>
+    </div>
+  </section>
+
+  <section id="apps">
+    <h2>One wallet, connected apps</h2>
+    <p class="sub">Apps ask. Arkrilium decides, and only with your approval. Apps never receive your keys.</p>
+    <div class="grid">
+      <div class="card"><h3>Reqrium</h3><p>Verify who you are once and prove it to other apps without handing over your documents.</p></div>
+      <div class="card"><h3>Zonycs</h3><p>A marketplace to buy and sell with crypto, paid from your wallet.</p></div>
+      <div class="card"><h3>Guardian Trader</h3><p>Trade with limits you choose.</p></div>
+      <div class="card"><h3>Syaxio</h3><p>Business accounting and payroll linked to a business wallet.</p></div>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><strong>Create your wallet.</strong> The app generates your 24 Time Sets and asks you to choose a password.</li>
+      <li><strong>Back up your Time Sets.</strong> Write them down and keep them somewhere safe. They are the only way to recover your wallet.</li>
+      <li><strong>Connect an app.</strong> Choose "Sign in with Arkrilium" on a partner app and approve it on your phone.</li>
+      <li><strong>Stay in control.</strong> Review and approve each payment. Lock the wallet any time.</li>
+    </ol>
+  </section>
+
+  <section id="faq" class="faq">
+    <h2>Questions</h2>
+    <p class="sub">&nbsp;</p>
+    <details><summary>Is this available with real money?</summary><p>Not yet. Arkrilium is in testnet preview. Real funds will only be enabled after independent security and legal review.</p></details>
+    <details><summary>What if I lose my phone?</summary><p>Install Arkrilium on a new phone and recover with your 24 Time Sets and password. If you lose both the Time Sets and the password, nobody can recover the wallet, including us.</p></details>
+    <details><summary>Does Arkrilium hold my crypto?</summary><p>No. It is non-custodial, so the keys stay on your device.</p></details>
+    <details><summary>Which coins are supported?</summary><p>The preview uses Bitcoin testnet and Ethereum-compatible test networks. More will be announced before launch.</p></details>
+  </section>
+
+  <section id="join" style="text-align:center">
+    <h2>Join the testnet</h2>
+    <p class="sub">Test builds are shared with invited testers. Contact the team to request access.</p>
+    <a class="btn" href="mailto:hello@arkrilium.example">Request access</a>
+  </section>
+
+  <footer>
+    <div>© <span id="y"></span> Arkrilium. Testnet preview, not financial advice. Crypto assets are volatile and you can lose money.</div>
+  </footer>
+</div>
+<script>document.getElementById('y').textContent=new Date().getFullYear()</script>
+</body>
+</html>

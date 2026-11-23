@@ -35,7 +35,7 @@ export interface ConnectRegistry {
 
 export const DEV_REGISTRY: ConnectRegistry = {
   apps: [
-    { id: "zonycs", name: "Zonycs", origins: ["http://localhost:3001"], allowedKinds: ["signin", "pay", "read"], callbackPath: "/nomad/callback" },
+    { id: "zonycs", name: "Zonycs", origins: ["http://localhost:3001"], allowedKinds: ["signin", "pay", "read"], callbackPath: "/sign-in/nomad" },
     { id: "reqrium", name: "Reqrium", origins: ["http://localhost:3002"], allowedKinds: ["signin", "read"], callbackPath: "/nomad/callback" },
     { id: "syaxio", name: "Syaxio", origins: ["http://localhost:3003"], allowedKinds: ["signin", "read"], callbackPath: "/nomad/callback" },
     { id: "guardian-trader", name: "Guardian Trader", origins: ["http://localhost:3004"], allowedKinds: ["signin"], callbackPath: "/nomad/callback" },
@@ -63,6 +63,27 @@ export function isAcceptableOrigin(origin: string): boolean {
   if (url.origin !== origin) return false; // no path, query or trailing slash
   if (url.protocol === "https:") return true;
   return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+}
+
+/**
+ * Trusts one more exact origin for a registered app (its real https address, set at build time).
+ * Only the origin is kept (scheme + host), never a path. An unknown app, a missing value or an
+ * unacceptable address leaves the registry unchanged.
+ */
+export function withAppOrigin(registry: ConnectRegistry, appId: string, url: string | undefined): ConnectRegistry {
+  if (!url) return registry;
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return registry;
+  }
+  if (!isAcceptableOrigin(origin)) return registry;
+  if (!findApp(registry, appId)) return registry;
+  return {
+    ...registry,
+    apps: registry.apps.map((app) => (app.id === appId && !app.origins.includes(origin) ? { ...app, origins: [...app.origins, origin] } : app)),
+  };
 }
 
 /**

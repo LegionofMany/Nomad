@@ -20,6 +20,7 @@ import {
   isConnectLink,
   processAttestLink,
   processConnectLink,
+  withAppOrigin,
   withDemoApp,
 } from "../../src/connect";
 import type { ConnectRegistry } from "../../src/connect";
@@ -30,6 +31,12 @@ import { connectEngine } from "./engineService";
 
 function buildRegistry(): ConnectRegistry {
   let registry = withDemoApp(DEV_REGISTRY, process.env.EXPO_PUBLIC_NOMAD_DEMO_ORIGIN);
+  // Each app's real https address, set at build time (the same settings the Apps tab uses).
+  // Written out in full because Expo only replaces EXPO_PUBLIC_ names that appear literally.
+  registry = withAppOrigin(registry, 'zonycs', process.env.EXPO_PUBLIC_ZONYCS_URL);
+  registry = withAppOrigin(registry, 'reqrium', process.env.EXPO_PUBLIC_REQRIUM_URL);
+  registry = withAppOrigin(registry, 'syaxio', process.env.EXPO_PUBLIC_SYAXIO_URL);
+  registry = withAppOrigin(registry, 'guardian-trader', process.env.EXPO_PUBLIC_GUARDIAN_TRADER_URL);
   const issuer = process.env.EXPO_PUBLIC_REQRIUM_ISSUER_ADDRESS;
   if (issuer && /^0x[0-9a-fA-F]{40}$/.test(issuer)) {
     registry = { ...registry, issuers: [{ id: "reqrium", name: "Reqrium", address: issuer }] };

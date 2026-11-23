@@ -12,7 +12,10 @@
       "env": {
         "EXPO_PUBLIC_NOMAD_TESTNET_FAST_KDF": "1",
         "EXPO_PUBLIC_NOMAD_TESTNET_OPEN_WINDOW": "1",
-        "EXPO_PUBLIC_NOMAD_DEMO_ORIGIN": "https://nomad-eight-eta.vercel.app"
+        "EXPO_PUBLIC_NOMAD_DEMO_ORIGIN": "https://nomad-eight-eta.vercel.app",
+        "EXPO_PUBLIC_ZONYCS_URL": "https://www.zonycs.com",
+        "EXPO_PUBLIC_REQRIUM_URL": "https://www.reqrium.com",
+        "EXPO_PUBLIC_REQRIUM_ISSUER_ADDRESS": "0xfe3EA08242a8a58e73D4C0aB60474f9E4745a61C"
       }
     },
     "production": {
