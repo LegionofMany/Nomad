@@ -43,6 +43,9 @@ function setup(opts: { yes?: boolean; locked?: boolean } = {}) {
       return [{ id: 'evm-sepolia-0', label: 'Ethereum Sepolia', address: key.address, assetSymbol: 'SepoliaETH', chainId: 'evm-sepolia' }] as any;
     },
     signConnectMessage: async (m) => ({ address: key.address, signature: await key.signMessage(m) }),
+    signConnectTypedData: async () => {
+      throw new Error('not used');
+    },
     signTransaction: async () => {
       throw new Error('not used');
     },

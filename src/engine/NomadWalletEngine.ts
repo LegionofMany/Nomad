@@ -12,6 +12,7 @@
  */
 
 import { Wallet, formatEther } from "ethers";
+import type { TypedDataDomain, TypedDataField } from "ethers";
 import type { ClonedWalletEngineBridge } from "../../mobile/nomad/adapters/clonedWalletAdapterTemplate";
 import type {
   NomadAsset,
@@ -38,6 +39,9 @@ import type { EngineChainId, EngineConfig, TransactionReview } from "./types";
 
 const BTC_SYMBOLS = ["BTC", "TBTC"];
 const EVM_SYMBOLS = ["ETH", "SEPOLIAETH"];
+
+/** The only structured messages Nomad Connect may sign (a marketplace purchase). */
+const CONNECT_TYPED_ALLOWED = ["BuyerAcceptance", "Permit"];
 const MAX_PENDING = 20;
 
 type Prepared =
@@ -212,6 +216,27 @@ export class NomadWalletEngine implements ClonedWalletEngineBridge {
     return this.withSeed(async (seed) => {
       const key = deriveEvmKey(seed, 0);
       const signature = await new Wallet(key.privateKey).signMessage(message);
+      return { address: key.address, signature };
+    });
+  }
+
+  /**
+   * Signs ONE structured (EIP-712) message for Nomad Connect, only for the two shapes a marketplace
+   * purchase needs: a BuyerAcceptance or a token Permit. Anything else is refused, so a bug in a
+   * caller cannot turn this into a way to sign arbitrary typed data. It does NOT ask for approval:
+   * the caller must have shown the owner the details and received a yes. Needs an unlocked wallet.
+   */
+  async signConnectTypedData(
+    domain: TypedDataDomain,
+    types: Record<string, TypedDataField[]>,
+    value: Record<string, unknown>
+  ): Promise<{ address: string; signature: string }> {
+    const names = Object.keys(types ?? {});
+    if (names.length !== 1 || !CONNECT_TYPED_ALLOWED.includes(names[0])) throw invalid("That kind of message cannot be signed.");
+    if (!domain || typeof domain.chainId === "undefined" || !domain.verifyingContract) throw invalid("That message cannot be signed.");
+    return this.withSeed(async (seed) => {
+      const key = deriveEvmKey(seed, 0);
+      const signature = await new Wallet(key.privateKey).signTypedData(domain, types, value);
       return { address: key.address, signature };
     });
   }

@@ -12,11 +12,14 @@ import type {
   NomadTransactionDraft,
   NomadWalletAccount,
 } from "../../mobile/nomad/adapters/walletAdapter";
+import { Signature, formatUnits } from "ethers";
+import type { TypedDataDomain, TypedDataField } from "ethers";
 import { ConnectParseError, parseConnectRequest, toBase64Url } from "./parse";
 import { findApp, findIssuer } from "./registry";
 import type { ConnectRegistry, KnownApp } from "./registry";
 import { attestationHash, buildPresentationMessage, buildSignInMessage, verifyAttestation } from "./messages";
 import type {
+  BuyRequest,
   ConnectApprovalGate,
   ConnectErrorCode,
   ConnectKind,
@@ -34,6 +37,11 @@ import { CONNECT_VERSION } from "./types";
 export interface ConnectWallet {
   getAccounts(): Promise<NomadWalletAccount[]>;
   signConnectMessage(message: string): Promise<{ address: string; signature: string }>;
+  signConnectTypedData(
+    domain: TypedDataDomain,
+    types: Record<string, TypedDataField[]>,
+    value: Record<string, unknown>
+  ): Promise<{ address: string; signature: string }>;
   signTransaction(draft: NomadTransactionDraft): Promise<NomadSignedTransaction>;
   broadcastTransaction(signed: NomadSignedTransaction): Promise<NomadBroadcastResult>;
 }
@@ -63,6 +71,8 @@ export interface NomadConnectConfig {
 
 const EVM_ACCOUNT_CHAIN = "evm-sepolia";
 const MAX_REMEMBERED_REQUESTS = 500;
+/** A purchase's signatures may be valid for at most this long (the app asks for ~15 minutes). */
+const MAX_BUY_WINDOW_SECONDS = 30 * 60;
 
 export class NomadConnect {
   private readonly cfg: NomadConnectConfig;
@@ -107,6 +117,8 @@ export class NomadConnect {
           return await this.prove(request, app);
         case "read":
           return await this.read(request, app);
+        case "buy":
+          return await this.buy(request, app);
       }
     } catch (error) {
       return this.fromError(ref, error);
@@ -225,6 +237,80 @@ export class NomadConnect {
     };
   }
 
+  /**
+   * Pays for an escrowed marketplace order. Nomad builds both messages itself from the contract and
+   * token pinned in the registry; the request only chooses order, amount, permit nonce and deadline.
+   * The permit lets the marketplace contract (and nobody else) take exactly this amount, until the deadline.
+   */
+  private async buy(req: BuyRequest, app: KnownApp): Promise<ConnectResponse> {
+    const policy = app.buy;
+    if (!policy) return this.fail(req, "kind_not_allowed", `${app.name} is not set up to take payments in Nomad.`);
+    if (req.chainId !== policy.chainId) return this.fail(req, "invalid_request", "This payment is for a network Nomad does not allow for this app.");
+    const amount = BigInt(req.amount);
+    if (amount > BigInt(policy.maxAmount)) {
+      return this.fail(req, "invalid_request", `This payment is larger than Nomad allows for one purchase (${formatUnits(policy.maxAmount, policy.token.decimals)} ${policy.token.symbol}).`);
+    }
+    const nowSec = Math.floor(this.now().getTime() / 1000);
+    if (req.deadline <= nowSec + 30) return this.fail(req, "expired", "This payment request has expired. Go back to the app and try again.");
+    if (req.deadline > nowSec + MAX_BUY_WINDOW_SECONDS) return this.fail(req, "invalid_request", "This payment stays valid for too long.");
+
+    const address = await this.evmAddress();
+    const pretty = formatUnits(amount, policy.token.decimals);
+    const short = (value: string) => `${value.slice(0, 8)}…${value.slice(-6)}`;
+    const ok = await this.cfg.gate.request({
+      appName: app.name,
+      origin: req.app.origin,
+      kind: "buy",
+      title: `Pay ${pretty} ${policy.token.symbol} to ${app.name} escrow`,
+      lines: [
+        `Amount: ${pretty} ${policy.token.symbol}`,
+        "It goes into the marketplace's escrow contract, not straight to the seller. It is released after delivery.",
+        `Order: ${short(req.orderHash)}`,
+        `Escrow contract: ${short(policy.settlement)}`,
+        `Network: test network ${policy.chainId}`,
+        req.item ? `${app.name} says this is: ${req.item}` : "",
+        `Valid until ${new Date(req.deadline * 1000).toISOString()}.`,
+      ].filter(Boolean),
+    });
+    if (!ok) return this.fail(req, "declined", "You declined the payment.");
+
+    // Both messages are built here. The request cannot change the contract, token, spender or owner.
+    const acceptance = await this.cfg.wallet.signConnectTypedData(
+      { ...policy.settlementDomain, chainId: policy.chainId, verifyingContract: policy.settlement },
+      { BuyerAcceptance: [{ name: "orderHash", type: "bytes32" }, { name: "buyer", type: "address" }, { name: "deadline", type: "uint64" }] },
+      { orderHash: req.orderHash, buyer: address, deadline: req.deadline }
+    );
+    const permit = await this.cfg.wallet.signConnectTypedData(
+      { name: policy.token.permitName, version: policy.token.permitVersion, chainId: policy.chainId, verifyingContract: policy.token.address },
+      {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      { owner: address, spender: policy.settlement, value: amount, nonce: BigInt(req.permitNonce), deadline: req.deadline }
+    );
+    if (acceptance.address.toLowerCase() !== address.toLowerCase() || permit.address.toLowerCase() !== address.toLowerCase()) {
+      return this.fail(req, "failed", "The wallet address changed. Try again.");
+    }
+    const split = Signature.from(permit.signature);
+    return {
+      v: CONNECT_VERSION,
+      id: req.id,
+      nonce: req.nonce,
+      kind: "buy",
+      status: "approved",
+      address,
+      orderHash: req.orderHash,
+      deadline: req.deadline,
+      buyerSignature: acceptance.signature,
+      permit: { deadline: req.deadline, v: split.v, r: split.r, s: split.s },
+    };
+  }
+
   // ---- helpers ----------------------------------------------------------
 
   private async evmAddress(): Promise<string> {
@@ -265,7 +351,7 @@ function bestEffort(input: unknown): { id: string; nonce: string; kind: ConnectK
   }
   const r = (o && typeof o === "object" ? o : {}) as Record<string, unknown>;
   const text = (v: unknown) => (typeof v === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(v) ? v : "");
-  const kind = r.kind === "pay" || r.kind === "prove" || r.kind === "read" ? r.kind : "signin";
+  const kind = r.kind === "pay" || r.kind === "prove" || r.kind === "read" || r.kind === "buy" ? r.kind : "signin";
   return { id: text(r.id), nonce: text(r.nonce), kind };
 }
 

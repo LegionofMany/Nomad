@@ -20,7 +20,7 @@ export const MAX_REQUEST_LIFETIME_MS = 10 * 60 * 1000;
 export const MAX_CLOCK_SKEW_MS = 60 * 1000;
 export const MAX_REQUEST_BYTES = 4096;
 
-export type ConnectKind = "signin" | "pay" | "prove" | "read";
+export type ConnectKind = "signin" | "pay" | "prove" | "read" | "buy";
 export type ClaimName = "verified_person" | "verified_business";
 
 export interface ConnectAppRef {
@@ -68,7 +68,28 @@ export interface ReadRequest extends BaseRequest {
   scopes: Array<"addresses">;
 }
 
-export type ConnectRequest = SignInRequest | PayRequest | ProveRequest | ReadRequest;
+/**
+ * Pay for a marketplace order held in escrow (Zonycs). The app picks ONLY the order, the amount, the
+ * token permit's nonce and a deadline. Nomad builds the two messages it signs itself, using the
+ * marketplace contract and token it has pinned for that app in the registry, so an app cannot
+ * point a signature at any other contract, token or spender.
+ */
+export interface BuyRequest extends BaseRequest {
+  kind: "buy";
+  chainId: number;
+  /** bytes32 hash of the seller's order (0x + 64 hex). */
+  orderHash: string;
+  /** Token amount in base units (for a 6-decimal token, 25 tokens = "25000000"). */
+  amount: string;
+  /** The token's current permit nonce for this wallet. */
+  permitNonce: string;
+  /** Unix seconds. Both signatures expire then. */
+  deadline: number;
+  /** What the app says is being bought. Shown to the owner as the app's own words, never trusted. */
+  item?: string;
+}
+
+export type ConnectRequest = SignInRequest | PayRequest | ProveRequest | ReadRequest | BuyRequest;
 
 /** What Reqrium signs. It names a wallet and a claim, and carries no personal data. */
 export interface Attestation {
@@ -118,7 +139,19 @@ export type ConnectResponse =
       /** Wallet signature binding this attestation to this app and nonce. */
       presentation: { message: string; signature: string };
     })
-  | (BaseResponse & { status: "approved"; kind: "read"; addresses: Array<{ chainId: string; address: string }> });
+  | (BaseResponse & { status: "approved"; kind: "read"; addresses: Array<{ chainId: string; address: string }> })
+  | (BaseResponse & {
+      status: "approved";
+      kind: "buy";
+      address: string;
+      orderHash: string;
+      /** The deadline both signatures carry. */
+      deadline: number;
+      /** EIP-712 BuyerAcceptance signature. */
+      buyerSignature: string;
+      /** EIP-2612 token permit, split for the contract call. */
+      permit: { deadline: number; v: number; r: string; s: string };
+    });
 
 /** What the owner sees before saying yes. The UI renders `lines` as-is. */
 export interface ConnectReview {

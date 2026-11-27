@@ -24,6 +24,8 @@ const APP_ID = /^[a-z][a-z0-9-]{1,31}$/;
 const SYMBOL = /^[A-Za-z0-9]{2,12}$/;
 const AMOUNT = /^\d{1,18}(\.\d{1,18})?$/;
 const CLAIMS: ClaimName[] = ["verified_person", "verified_business"];
+const BYTES32 = /^0x[0-9a-fA-F]{64}$/;
+const UINT = /^\d{1,30}$/;
 
 function str(o: Record<string, unknown>, key: string, max: number, required = true): string | undefined {
   const v = o[key];
@@ -95,6 +97,19 @@ export function parseConnectRequest(input: unknown, now: Date): ConnectRequest {
       const claim = str(o, "claim", 40) as ClaimName;
       if (!CLAIMS.includes(claim)) throw bad("Unknown claim.");
       return { ...base, kind: "prove", claim };
+    }
+    case "buy": {
+      const chainId = o.chainId;
+      if (typeof chainId !== "number" || !Number.isSafeInteger(chainId) || chainId <= 0) throw bad('"chainId" is not valid.');
+      const orderHash = str(o, "orderHash", 66) as string;
+      const amount = str(o, "amount", 40) as string;
+      const permitNonce = str(o, "permitNonce", 40) as string;
+      if (!BYTES32.test(orderHash)) throw bad('"orderHash" is not valid.');
+      if (!UINT.test(amount) || /^0+$/.test(amount)) throw bad('"amount" must be a positive whole number of base units.');
+      if (!UINT.test(permitNonce)) throw bad('"permitNonce" is not valid.');
+      const deadline = o.deadline;
+      if (typeof deadline !== "number" || !Number.isSafeInteger(deadline) || deadline <= 0) throw bad('"deadline" is not valid.');
+      return { ...base, kind: "buy", chainId, orderHash: orderHash.toLowerCase(), amount, permitNonce, deadline, item: str(o, "item", 80, false) };
     }
     case "read": {
       const scopes = o.scopes;

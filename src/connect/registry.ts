@@ -11,6 +11,22 @@
 
 import type { ConnectKind } from "./types";
 
+/**
+ * What Nomad will let an app's "buy" request point at. These are PINNED here, never taken from the
+ * request: the marketplace contract (which signs-for and spends the permit), the token, and the
+ * signing names those two contracts use. A request can only choose the order, the amount (up to
+ * maxAmount), the permit nonce and the deadline.
+ */
+export interface BuyPolicy {
+  chainId: number;
+  /** The marketplace settlement contract: the EIP-712 verifying contract AND the permit's spender. */
+  settlement: string;
+  settlementDomain: { name: string; version: string };
+  token: { address: string; symbol: string; decimals: number; permitName: string; permitVersion: string };
+  /** Largest amount one request may ask for, in token base units. */
+  maxAmount: string;
+}
+
 export interface KnownApp {
   id: string;
   name: string;
@@ -19,7 +35,18 @@ export interface KnownApp {
   allowedKinds: ConnectKind[];
   /** Path on the origin that receives the answer, e.g. "/nomad/callback". */
   callbackPath: string;
+  /** Only for apps allowed to make "buy" requests. */
+  buy?: BuyPolicy;
 }
+
+/** Zonycs on Hedera testnet (from Zonycs's deployments.testnet.json). TESTNET ONLY. */
+export const ZONYCS_TESTNET_BUY: BuyPolicy = {
+  chainId: 296,
+  settlement: "0x05F7d670836c1f989f87ED365EB5E23F6B6Fb02c",
+  settlementDomain: { name: "MarketplaceSettlementV2", version: "1" },
+  token: { address: "0xFf9714970773CaA8647f3215A9C7959074629824", symbol: "SBUSD", decimals: 6, permitName: "Seller Block USD", permitVersion: "1" },
+  maxAmount: "1000000000", // 1,000 SBUSD
+};
 
 export interface KnownIssuer {
   id: string;
@@ -35,7 +62,7 @@ export interface ConnectRegistry {
 
 export const DEV_REGISTRY: ConnectRegistry = {
   apps: [
-    { id: "zonycs", name: "Zonycs", origins: ["http://localhost:3001"], allowedKinds: ["signin", "pay", "read"], callbackPath: "/sign-in/nomad" },
+    { id: "zonycs", name: "Zonycs", origins: ["http://localhost:3001"], allowedKinds: ["signin", "pay", "read", "buy"], callbackPath: "/sign-in/nomad", buy: ZONYCS_TESTNET_BUY },
     { id: "reqrium", name: "Reqrium", origins: ["http://localhost:3002"], allowedKinds: ["signin", "read"], callbackPath: "/nomad/callback" },
     { id: "syaxio", name: "Syaxio", origins: ["http://localhost:3003"], allowedKinds: ["signin", "read"], callbackPath: "/nomad/callback" },
     { id: "guardian-trader", name: "Guardian Trader", origins: ["http://localhost:3004"], allowedKinds: ["signin"], callbackPath: "/nomad/callback" },
