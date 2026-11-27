@@ -5,7 +5,7 @@ The apps only ask. The owner approves each ask on the phone.
 
 Code: `src/connect/`. Tests: `src/connect/__tests__/connect.test.ts`.
 
-## The four requests
+## The five requests
 
 | kind     | what the app gets                                              | what Nomad checks                                  |
 |----------|----------------------------------------------------------------|----------------------------------------------------|
@@ -13,6 +13,16 @@ Code: `src/connect/`. Tests: `src/connect/__tests__/connect.test.ts`.
 | `pay`    | a transaction hash                                             | engine approval screen (amount, destination, fee)  |
 | `prove`  | a Reqrium-signed claim plus a wallet signature bound to the app| owner taps approve; no documents leave Nomad       |
 | `read`   | public addresses only                                          | owner taps approve                                 |
+| `buy`    | two signatures (acceptance + permit) for one escrowed order    | owner sees the amount; contract and token are pinned |
+
+### `buy` (pay for an escrowed marketplace order)
+
+The app sends only `orderHash`, `amount` (base units), `permitNonce`, `deadline` and `chainId`. Nomad
+builds both EIP-712 messages itself, using the escrow contract and token pinned for that app in the
+registry (`BuyPolicy`), so a request can never redirect payment. Nomad refuses a wrong chain, an amount
+over the app's cap, and a deadline that is past or more than 30 minutes away. Nomad sends nothing to
+the network: the app's server relays the signatures (gasless). The money goes into escrow, not to the
+seller. The engine will only sign the `BuyerAcceptance` and `Permit` message shapes.
 
 ## Rules Nomad enforces
 
